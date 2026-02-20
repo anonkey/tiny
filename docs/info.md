@@ -1,20 +1,12 @@
-<!---
-
-This file is used to generate your project datasheet. Please fill in the information below and delete any unused
-sections.
-
-You can also include images in this folder and reference them in the markdown. Each image must be less than
-512 kb in size, and the combined size of all images must be less than 1 MB.
--->
-
 ## How it works
+3 input
+ - 4bit input_A
+ - 4bit input_B
+ - 1bit Cin
 
-Explain how your project works
+1 ouput
+ - 5bit out
 
 ## How to test
+iverilog brent-kung.v test.v && ./a.out && gtkwave signal_brent_kung.vcd
 
-Explain how to use your project
-
-## External hardware
-
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
