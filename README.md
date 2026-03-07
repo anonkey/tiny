@@ -1,129 +1,92 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# 🔀 Multiplexed Digital Processing Unit
+# 8-bit Single-Cycle CPU
 
-> **A multiplexed digital system with 4 specialized processing units**
+> **A behavioral-free RISC processor on TinyTapeout**
 
-🇫🇷 [Version française](README_FR.md)
-
-```mermaid
-flowchart TB
-    subgraph TT ["TinyTapeout Interface"]
-        CTRL["ui_in[7:6]<br/>CTRL"]
-        DATA["ui_in[5:0] + uio_in[7:0]<br/>DATA"]
-    end
-    
-    CTRL --> MUX_CTRL["MUX CONTROL"]
-    DATA --> DEMUX["DEMULTIPLEXER<br/>4-WAY"]
-    
-    subgraph MODULES ["4 MODULES"]
-        BRENT["➕<br/>BRENT-K<br/>00"]
-        HALF["🎵<br/>1.5bit<br/>01"]
-        VGA["📺<br/>VGA<br/>10"]
-        CAM["📋<br/>CAM<br/>11"]
-    end
-    
-    MUX_CTRL --> DEMUX
-    DEMUX --> BRENT
-    DEMUX --> HALF
-    DEMUX --> VGA
-    DEMUX --> CAM
-    
-    BRENT --> MUX["MULTIPLEXER<br/>4-TO-1"]
-    HALF --> MUX
-    VGA --> MUX
-    CAM --> MUX
-    
-    MUX --> OUTPUT["uo_out[7:0]"]
-```
-
-## 📋 Module Documentation
-
-| Module | Description | Documentation |
-|--------|-------------|---------------|
-| 🔀 **TOP** | Main controller and multiplexing | [📖 top.md](docs/top.md) |
-| ➕ **BRENT-KUNG** | Optimized parallel adder | [📖 brent-kung.md](docs/brent-kung.md) |
-| 📺 **VGA** | Video signal generator | [📖 vga.md](docs/vga.md) |
-| 🎵 **1HALF** | Sigma-delta audio latch | [📖 1half_latch.md](docs/1half_latch.md) |
-| 📋 **CAM** | Content-addressable memory | [📖 cam.md](docs/cam.md) |
-
-## 🎛️ Multiplexing Usage
-
-### Module Selection
-```
-ui_in[7:6] = CTRL[1:0]
-┌─────┬─────────────┬─────────────────────┐
-│CTRL │   MODULE    │     FUNCTION        │
-├─────┼─────────────┼─────────────────────┤
-│ 00  │ ➕ BRENT-K  │ Adder               │
-│ 01  │ 🎵 1HALF    │ Audio latch         │
-│ 10  │ 📺 VGA      │ Video generator     │
-│ 11  │ 📋 CAM      │ Associative memory  │
-└─────┴─────────────┴─────────────────────┘
-```
-
-### Data Routing
 ```mermaid
 flowchart LR
-    subgraph INPUTS
-        UI["ui_in[5:0]"]
-        UIO["uio_in[7:0]"]
-        CLK["clk, rst_n"]
+    subgraph TT ["TinyTapeout Interface"]
+        CLK["clk"]
+        RST["rst_n"]
     end
-    
-    subgraph MULTIPLEXING
-        DEMUX_BLOCK["DEMUX 4:1"]
-        ACTIVE["ACTIVE MODULE"]
-        MUX_BLOCK["MUX 4:1"]
+
+    subgraph CPU ["CPU"]
+        PC["PC"] --> ROM["ROM\n256x16"]
+        ROM --> DEC["Decoder"]
+        DEC --> RF["Regfile\n8x8"]
+        RF --> ALU["ALU"]
+        ALU --> RF
     end
-    
-    subgraph OUTPUTS
-        OUT["uo_out[7:0]"]
-    end
-    
-    UI --> DEMUX_BLOCK
-    UIO --> DEMUX_BLOCK
-    CLK --> ACTIVE
-    DEMUX_BLOCK --> ACTIVE
-    ACTIVE --> MUX_BLOCK
-    MUX_BLOCK --> OUT
+
+    CLK --> CPU
+    RST --> CPU
+    CPU --> UO["uo_out[7:0]\nALU result"]
+    CPU --> UIO["uio_out[7:0]\nProgram counter"]
 ```
 
-## 🔌 Pin Usage
+## Documentation
 
-- **`ui_in[7:6]`** : Module selection  
-  (00=BRENT, 01=1HALF, 10=VGA, 11=CAM)
-- **`ui_in[5:0]` + `uio_in[7:0]`** : Data inputs  
-  (14 bits available for modules)
-- **`uo_out[7:0]`** : Results from active module
+| Module | Description | Docs |
+|--------|-------------|------|
+| **TOP** | TinyTapeout wrapper | [top.md](docs/top.md) |
+| **CPU** | 8-bit single-cycle processor | [cpu.md](docs/cpu.md) |
 
-See individual module documentation for specific pin assignments.
+## Instruction Set
 
-
-## 🏗️ Project Architecture
+16 opcodes with 16-bit encoding, 8 registers, Kogge-Stone adder:
 
 ```
-📁 src/
-├── 🔧 config.json      # TinyTapeout configuration
-├── 🔀 top.v           # Main module + MUX/DEMUX
-├── 🔄 mux.v           # Multiplexing utilities
-├── ➕ brent-kung.v    # Brent-Kung adder
-├── 🎵 1half_latch.v   # Sigma-delta 1.5bit latch
-├── 📺 vga.v           # VGA generator + H/V sync
-└── 📋 cam.v           # Content-Addressable Memory
-
-📁 docs/
-├── 📖 top.md          # Main module documentation
-├── 📖 brent-kung.md   # Adder documentation
-├── 📖 vga.md          # VGA documentation
-├── 📖 1half_latch.md  # Audio latch documentation
-└── 📖 cam.md          # CAM memory documentation
+ADD  SUB  AND  OR   XOR  NOT  NAND NOR
+XNOR ADDI LDI  JMP  BEQ  LOAD STORE NOP
 ```
 
-## 🎯 Applications
+See [cpu.md](docs/cpu.md) for full ISA reference.
 
-- **🎵 Audio** : Class D amplifier with sigma-delta modulator
-- **📺 Video** : VGA pattern generator for testing and display  
-- **🧮 Computing** : Fast arithmetic for signal processing
-- **💾 Memory** : Associative cache and lookup tables
+## Pin Usage
 
+- **`uo_out[7:0]`** : ALU result
+- **`uio_out[7:0]`** : Program counter
+- **`clk`** : System clock
+- **`rst_n`** : Active-low reset
+
+## Project Structure
+
+```
+src/
+├── top.v           # TinyTapeout wrapper
+├── cpu.v           # CPU top module
+├── rom.v           # 256x16 instruction memory
+├── decoder.v       # Instruction decoder + control
+├── regfile.v       # 8x8 register file (2R/1W)
+├── alu.v           # 9-operation ALU
+├── kogge-stone.v   # Parallel prefix adder
+├── pc.v            # Program counter
+├── mux.v           # Parameterized mux/demux
+├── register.v      # N-bit register
+└── dff.v           # D flip-flop
+
+tools/
+├── assembler.py    # Assembly → hex
+├── trace.py        # FST waveform trace viewer
+└── example.asm     # Example program
+
+test/
+├── test_cpu.py     # CPU integration tests (cocotb)
+├── test_alu.py     # ALU unit tests
+├── ...             # 54 tests total
+```
+
+## Tooling
+
+```bash
+# Assemble a program
+python tools/assembler.py tools/example.asm -o test/program.hex -v
+
+# Run tests
+source .venv/bin/activate
+make -f Makefile.cpu
+
+# View execution trace
+python tools/trace.py test/tb_cpu.fst --last
+```

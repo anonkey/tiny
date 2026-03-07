@@ -1,0 +1,14 @@
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = $(PWD)/../src
+
+SIM_BUILD = sim_build/register
+VERILOG_SOURCES += $(SRC_DIR)/dff.v
+VERILOG_SOURCES += $(SRC_DIR)/register.v
+VERILOG_SOURCES += $(PWD)/tb_register.v
+COMPILE_ARGS += -I$(SRC_DIR)
+
+TOPLEVEL = tb_register
+COCOTB_TEST_MODULES = test_register
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
