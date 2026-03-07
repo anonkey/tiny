@@ -1,38 +1,31 @@
 module alu(
    output [7:0] result,
-   output       carry,
    input  [7:0] a,
    input  [7:0] b,
    input  [3:0] opcode
 );
 
-   // Opcode encoding:
-   // 0000 ADD
-   // 0001 SUB
-   // 0010 AND
-   // 0011 OR
-   // 0100 XOR
-   // 0101 NOT (of a)
-   // 0110 NAND
-   // 0111 NOR
-   // 1000 XNOR
+   // Opcode encoding: and convert
+   // ADD  0000 -> 000
+   // SUB  0001 -> 000
+   // AND  0010 -> 001
+   // OR   0011 -> 010
+   // XOR  0100 -> 011
+   // NOT  0101 -> 100
+   // AND  0110 -> 101
+   // NOR  0111 -> 110
+   // XNOR 1000 -> 111
 
    // Kogge-Stone adder for ADD/SUB
-   wire [8:0] adder_out;
-   kogge_stone #(.N(8)) ks(
-      .output_S(adder_out),
-      .input_A(a),
-      .input_B(b),
-      .sub(opcode[0])
-   );
+   wire [7:0] adder_out;
+   assign adder_out = opcode[0] ? a - b : a + b;
 
    // Compute each operation result
-   wire [7:0] r_add,  r_sub;
+   wire [7:0] r_add_sub;
    wire [7:0] r_and,  r_or,   r_xor;
    wire [7:0] r_not,  r_nand, r_nor, r_xnor;
 
-   assign r_add  = adder_out[7:0];
-   assign r_sub  = adder_out[7:0];
+   assign r_add_sub  = adder_out; //merge add/sub (same output)
    assign r_and  = a & b;
    assign r_or   = a | b;
    assign r_xor  = a ^ b;
@@ -44,33 +37,31 @@ module alu(
    // 9-to-1 mux for result selection (4-bit opcode)
    // Using the existing mux module with WAY=16, WIRE=8
    // Tie unused inputs (opcodes 9-15) to zero
-   wire [127:0] mux_in;
+   localparam NB_OP = 8;
+   localparam BIT_OP = 8;
+   localparam SIZE_OP = NB_OP * BIT_OP;
+   wire [SIZE_OP-1:0] mux_in;
    assign mux_in = {
-      8'b0,    // 1111
-      8'b0,    // 1110
-      8'b0,    // 1101
-      8'b0,    // 1100
-      8'b0,    // 1011
-      8'b0,    // 1010
-      8'b0,    // 1001
-      r_xnor,  // 1000
-      r_nor,   // 0111
-      r_nand,  // 0110
-      r_not,   // 0101
-      r_xor,   // 0100
-      r_or,    // 0011
-      r_and,   // 0010
-      r_sub,   // 0001
-      r_add    // 0000
+      r_xnor,
+      r_nor,
+      r_nand,
+      r_not,
+      r_xor,
+      r_or,
+      r_and,
+      r_add_sub
    };
 
-   mux #(.WAY(16), .WIRE(8)) result_mux(
+   //conversion opcode 4 bit -> 3bit
+   wire [2:0] converted_opcode;
+   wire [3:0] tmp;
+   assign tmp = opcode > 0 ? opcode - 4'b0001 : opcode;
+   assign converted_opcode = tmp[2:0];
+
+   mux #(.WAY(8), .WIRE(8)) result_mux(
       .in(mux_in),
-      .ctrl(opcode),
+      .ctrl(converted_opcode),
       .out(result)
    );
-
-   // Carry only valid for ADD (0000) and SUB (0001)
-   assign carry = adder_out[8] & ~opcode[3] & ~opcode[2] & ~opcode[1];
 
 endmodule
