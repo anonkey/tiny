@@ -1,13 +1,12 @@
 module cpu(
-   pc_out, instr_out, alu_out,
+   alu_out,
    clk, rst_n
 );
-
-   output [7:0]  pc_out;
-   output [15:0] instr_out;
    output [7:0]  alu_out;
    input         clk;
    input         rst_n;
+
+   wire [7:0] pc_out;
 
    // --- Decoder outputs ---
    wire [3:0] alu_op;
@@ -18,8 +17,6 @@ module cpu(
 
    // --- FETCH: ROM addressed by PC ---
    wire [15:0] instr;
-   assign instr_out = instr;
-
    rom #(.DEPTH(256), .WIDTH(16), .MEMFILE("program.hex")) imem (
       .data(instr),
       .addr(pc_out)
@@ -69,12 +66,10 @@ module cpu(
 
    // --- EXECUTE: ALU ---
    wire [7:0] alu_result;
-   wire       alu_carry;
    assign alu_out = alu_result;
 
    alu alu_unit (
       .result(alu_result),
-      .carry(alu_carry),
       .a(rd1_data),
       .b(alu_b),
       .opcode(alu_op)
