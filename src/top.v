@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2024 jeremy alcim
+ * Copyright (c) 2024 theo seguier
  * SPDX-License-Identifier: Apache-2.0
  */
 
 `default_nettype none
 
-module tt_um_jalcim (
+module tt_um_anonkey (
 		       input wire [7:0]	 ui_in,	  // Dedicated inputs
 		       output wire [7:0] uo_out,  // Dedicated outputs
 
@@ -19,13 +19,9 @@ module tt_um_jalcim (
 		      );
 
    // CPU outputs
-   wire [7:0] pc_out;
-   wire [15:0] instr_out;
    wire [7:0] alu_out;
 
    cpu cpu_inst (
-      .pc_out(pc_out),
-      .instr_out(instr_out),
       .alu_out(alu_out),
       .clk(clk),
       .rst_n(rst_n)
@@ -35,8 +31,8 @@ module tt_um_jalcim (
    assign uo_out = alu_out;
 
    // uio_out = PC
-   assign uio_out = pc_out;
-   assign uio_oe  = 8'hFF;
+   assign uio_out = 8'h00;
+   assign uio_oe  = 8'h00;
 
    // Unused inputs
    wire _unused = &{ena, ui_in, uio_in};
