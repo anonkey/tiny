@@ -23,22 +23,3 @@ module register(Q, D, clk, rst_n, en);
    end
 
 endmodule
-
-// Backward-compatible 8-bit wrapper
-module register_8bit (
-   output [7:0] Q,
-   input  [7:0] D,
-   input        clk,
-   input        rst_n,
-   input        en
-);
-
-   register #(.N(8)) reg8(
-      .Q(Q),
-      .D(D),
-      .clk(clk),
-      .rst_n(rst_n),
-      .en(en)
-   );
-
-endmodule
