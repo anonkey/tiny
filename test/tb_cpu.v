@@ -14,11 +14,11 @@ module tb_cpu ();
   wire [15:0] instr_out;
 
   cpu dut (
-    .pc_out(pc_out),
-    .instr_out(instr_out),
-    .alu_out(alu_out),
-    .clk(clk),
-    .rst_n(rst_n)
+    .o_pc(pc_out),
+    .o_instr(instr_out),
+    .o_alu(alu_out),
+    .i_clk(clk),
+    .i_rst_n(rst_n)
   );
 
 endmodule

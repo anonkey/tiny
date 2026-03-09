@@ -17,17 +17,17 @@ module tb_decoder ();
   wire reg_we, alu_src, pc_load, use_imm8;
 
   decoder dut (
-    .alu_op(alu_op),
-    .rd(rd),
-    .rs1(rs1),
-    .rs2(rs2),
-    .imm8(imm8),
-    .imm6(imm6),
-    .reg_we(reg_we),
-    .alu_src(alu_src),
-    .pc_load(pc_load),
-    .use_imm8(use_imm8),
-    .instr(instr)
+    .o_alu_op(alu_op),
+    .o_rd(rd),
+    .o_rs1(rs1),
+    .o_rs2(rs2),
+    .o_imm8(imm8),
+    .o_imm6(imm6),
+    .o_reg_we(reg_we),
+    .o_alu_src(alu_src),
+    .o_pc_load(pc_load),
+    .o_use_imm8(use_imm8),
+    .i_instr(instr)
   );
 
 endmodule

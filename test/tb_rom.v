@@ -17,8 +17,8 @@ module tb_rom ();
     .WIDTH(16),
     .MEMFILE("test_rom.hex")
   ) dut (
-    .data(data),
-    .addr(addr)
+    .o_data(data),
+    .i_addr(addr)
   );
 
 endmodule

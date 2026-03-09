@@ -14,11 +14,11 @@ module tb_register ();
   wire [7:0] Q;
 
   register #(.N(8)) dut (
-    .Q(Q),
-    .D(D),
-    .clk(clk),
-    .rst_n(rst_n),
-    .en(en)
+    .o_Q(Q),
+    .i_D(D),
+    .i_clk(clk),
+    .i_rst_n(rst_n),
+    .i_en(en)
   );
 
 endmodule

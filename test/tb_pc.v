@@ -14,11 +14,11 @@ module tb_pc ();
   wire [7:0] pc_out;
 
   pc dut (
-    .pc_out(pc_out),
-    .load_addr(load_addr),
-    .load(load),
-    .clk(clk),
-    .rst_n(rst_n)
+    .o_pc(pc_out),
+    .i_load_addr(load_addr),
+    .i_load(load),
+    .i_clk(clk),
+    .i_rst_n(rst_n)
   );
 
 endmodule

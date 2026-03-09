@@ -19,26 +19,26 @@ module tt_um_jalcim (
 		      );
 
    // CPU outputs
-   wire [7:0] pc_out;
-   wire [15:0] instr_out;
-   wire [7:0] alu_out;
+   wire [7:0] w_pc;
+   wire [15:0] w_instr;
+   wire [7:0] w_alu;
 
    cpu cpu_inst (
-      .pc_out(pc_out),
-      .instr_out(instr_out),
-      .alu_out(alu_out),
-      .clk(clk),
-      .rst_n(rst_n)
+      .o_pc(w_pc),
+      .o_instr(w_instr),
+      .o_alu(w_alu),
+      .i_clk(clk),
+      .i_rst_n(rst_n)
    );
 
    // uo_out = ALU result
-   assign uo_out = alu_out;
+   assign uo_out = w_alu;
 
    // uio_out = PC
-   assign uio_out = pc_out;
+   assign uio_out = w_pc;
    assign uio_oe  = 8'hFF;
 
    // Unused inputs
-   wire _unused = &{ena, ui_in, uio_in};
+   wire w_unused = &{ena, ui_in, uio_in};
 
 endmodule

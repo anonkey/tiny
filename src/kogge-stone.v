@@ -1,69 +1,69 @@
-module ks_black(P, G, Pi, Pj, Gi, Gj);
-   output P, G;
-   input  Pi, Pj, Gi, Gj;
+module ks_black(o_P, o_G, i_Pi, i_Pj, i_Gi, i_Gj);
+   output o_P, o_G;
+   input  i_Pi, i_Pj, i_Gi, i_Gj;
 
-   assign P = Pi & Pj;
-   assign G = Gi | (Pi & Gj);
-
-endmodule
-
-module ks_green(C_out, Pi, Gi, C_in);
-   output C_out;
-   input  Pi, Gi, C_in;
-
-   assign C_out = Gi | (Pi & C_in);
+   assign o_P = i_Pi & i_Pj;
+   assign o_G = i_Gi | (i_Pi & i_Gj);
 
 endmodule
 
-module kogge_stone(output_S, input_A, input_B, sub);
+module ks_green(o_C_out, i_Pi, i_Gi, i_C_in);
+   output o_C_out;
+   input  i_Pi, i_Gi, i_C_in;
+
+   assign o_C_out = i_Gi | (i_Pi & i_C_in);
+
+endmodule
+
+module kogge_stone(o_S, i_A, i_B, i_sub);
 
    parameter N = 8;
 
-   output [N:0]   output_S;
-   input  [N-1:0] input_A, input_B;
-   input           sub;
+   output [N:0]   o_S;
+   input  [N-1:0] i_A, i_B;
+   input           i_sub;
 
    function integer log2;
-      input integer value;
+      input integer i_value;
       begin
-         value = value - 1;
-         for (log2 = 0; value > 0; log2 = log2 + 1)
-           value = value >> 1;
+         i_value = i_value - 1;
+         for (log2 = 0; i_value > 0; log2 = log2 + 1)
+           i_value = i_value >> 1;
       end
    endfunction
 
    localparam STAGES = log2(N);
 
-   wire [N-1:0] A, B;
-   wire         Cin;
+   wire [N-1:0] w_A, w_B;
+   wire         w_Cin;
 
-   assign A = input_A;
-   assign B = input_B ^ {N{sub}};
-   assign Cin = sub;
+   assign w_A = i_A;
+   assign w_B = i_B ^ {N{i_sub}};
+   assign w_Cin = i_sub;
 
-   wire [N:0] out;
-   assign output_S = out;
+   wire [N:0] w_out;
+   assign o_S = w_out;
 
    // Stage 0: initial P and G
-   wire [N-1:0] P0, G0;
-   assign P0 = A ^ B;
-   assign G0 = A & B;
+   wire [N-1:0] w_P0, w_G0;
+   assign w_P0 = w_A ^ w_B;
+   assign w_G0 = w_A & w_B;
 
-   wire [N-1:0] P [0:STAGES];
-   wire [N-1:0] G [0:STAGES];
-   assign P[0] = P0;
-   assign G[0] = G0;
+   wire [N-1:0] w_P [0:STAGES];
+   wire [N-1:0] w_G [0:STAGES];
+   assign w_P[0] = w_P0;
+   assign w_G[0] = w_G0;
 
    // Stage 1 (span 1)
    genvar i;
    for (i = 0; i < N; i = i + 1) begin : s1
       if (i < 1) begin : pass
-         assign P[1][i] = P[0][i];
-         assign G[1][i] = G[0][i];
+         assign w_P[1][i] = w_P[0][i];
+         assign w_G[1][i] = w_G[0][i];
       end else begin : blk
-         ks_black u_blk(.P(P[1][i]), .G(G[1][i]),
-                        .Pi(P[0][i]), .Pj(P[0][i-1]),
-                        .Gi(G[0][i]), .Gj(G[0][i-1]));
+         ks_black u_blk(.o_P(w_P[1][i]), .o_G(w_G[1][i]),
+                        .i_Pi(w_P[0][i]), .i_Pj(w_P[0][i-1]),
+                        .i_Gi(w_G[0][i]), .i_Gj(w_G[0][i-1]));
       end
    end
 
@@ -72,12 +72,12 @@ module kogge_stone(output_S, input_A, input_B, sub);
    if (STAGES >= 2) begin
       for (i = 0; i < N; i = i + 1) begin : s2
          if (i < 2) begin : pass
-            assign P[2][i] = P[1][i];
-            assign G[2][i] = G[1][i];
+            assign w_P[2][i] = w_P[1][i];
+            assign w_G[2][i] = w_G[1][i];
          end else begin : blk
-            ks_black u_blk(.P(P[2][i]), .G(G[2][i]),
-                           .Pi(P[1][i]), .Pj(P[1][i-2]),
-                           .Gi(G[1][i]), .Gj(G[1][i-2]));
+            ks_black u_blk(.o_P(w_P[2][i]), .o_G(w_G[2][i]),
+                           .i_Pi(w_P[1][i]), .i_Pj(w_P[1][i-2]),
+                           .i_Gi(w_G[1][i]), .i_Gj(w_G[1][i-2]));
          end
       end
    end
@@ -86,12 +86,12 @@ module kogge_stone(output_S, input_A, input_B, sub);
    if (STAGES >= 3) begin
       for (i = 0; i < N; i = i + 1) begin : s3
          if (i < 4) begin : pass
-            assign P[3][i] = P[2][i];
-            assign G[3][i] = G[2][i];
+            assign w_P[3][i] = w_P[2][i];
+            assign w_G[3][i] = w_G[2][i];
          end else begin : blk
-            ks_black u_blk(.P(P[3][i]), .G(G[3][i]),
-                           .Pi(P[2][i]), .Pj(P[2][i-4]),
-                           .Gi(G[2][i]), .Gj(G[2][i-4]));
+            ks_black u_blk(.o_P(w_P[3][i]), .o_G(w_G[3][i]),
+                           .i_Pi(w_P[2][i]), .i_Pj(w_P[2][i-4]),
+                           .i_Gi(w_G[2][i]), .i_Gj(w_G[2][i-4]));
          end
       end
    end
@@ -100,12 +100,12 @@ module kogge_stone(output_S, input_A, input_B, sub);
    if (STAGES >= 4) begin
       for (i = 0; i < N; i = i + 1) begin : s4
          if (i < 8) begin : pass
-            assign P[4][i] = P[3][i];
-            assign G[4][i] = G[3][i];
+            assign w_P[4][i] = w_P[3][i];
+            assign w_G[4][i] = w_G[3][i];
          end else begin : blk
-            ks_black u_blk(.P(P[4][i]), .G(G[4][i]),
-                           .Pi(P[3][i]), .Pj(P[3][i-8]),
-                           .Gi(G[3][i]), .Gj(G[3][i-8]));
+            ks_black u_blk(.o_P(w_P[4][i]), .o_G(w_G[4][i]),
+                           .i_Pi(w_P[3][i]), .i_Pj(w_P[3][i-8]),
+                           .i_Gi(w_G[3][i]), .i_Gj(w_G[3][i-8]));
          end
       end
    end
@@ -114,48 +114,48 @@ module kogge_stone(output_S, input_A, input_B, sub);
    if (STAGES >= 5) begin
       for (i = 0; i < N; i = i + 1) begin : s5
          if (i < 16) begin : pass
-            assign P[5][i] = P[4][i];
-            assign G[5][i] = G[4][i];
+            assign w_P[5][i] = w_P[4][i];
+            assign w_G[5][i] = w_G[4][i];
          end else begin : blk
-            ks_black u_blk(.P(P[5][i]), .G(G[5][i]),
-                           .Pi(P[4][i]), .Pj(P[4][i-16]),
-                           .Gi(G[4][i]), .Gj(G[4][i-16]));
+            ks_black u_blk(.o_P(w_P[5][i]), .o_G(w_G[5][i]),
+                           .i_Pi(w_P[4][i]), .i_Pj(w_P[4][i-16]),
+                           .i_Gi(w_G[4][i]), .i_Gj(w_G[4][i-16]));
          end
       end
    end
 
    // Carry generation
-   wire [N:0] C;
-   assign C[0] = Cin;
+   wire [N:0] w_C;
+   assign w_C[0] = w_Cin;
 
    for (i = 0; i < N; i = i + 1) begin : carry
       ks_green grn(
-         .C_out(C[i+1]),
-         .Pi(P[STAGES][i]),
-         .Gi(G[STAGES][i]),
-         .C_in(C[0])
+         .o_C_out(w_C[i+1]),
+         .i_Pi(w_P[STAGES][i]),
+         .i_Gi(w_G[STAGES][i]),
+         .i_C_in(w_C[0])
       );
    end
 
    // Sum
    for (i = 0; i < N; i = i + 1) begin : sum
-      assign out[i] = P0[i] ^ C[i];
+      assign w_out[i] = w_P0[i] ^ w_C[i];
    end
-   assign out[N] = C[N];
+   assign w_out[N] = w_C[N];
 
 endmodule
 
 // Backward-compatible 8-bit wrapper
-module kogge_stone_cin (output_S, input_A, input_B, sub);
-   output [8:0] output_S;
-   input         sub;
-   input [7:0]   input_A, input_B;
+module kogge_stone_cin (o_S, i_A, i_B, i_sub);
+   output [8:0] o_S;
+   input         i_sub;
+   input [7:0]   i_A, i_B;
 
    kogge_stone #(.N(8)) ks(
-      .output_S(output_S),
-      .input_A(input_A),
-      .input_B(input_B),
-      .sub(sub)
+      .o_S(o_S),
+      .i_A(i_A),
+      .i_B(i_B),
+      .i_sub(i_sub)
    );
 
 endmodule

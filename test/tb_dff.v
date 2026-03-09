@@ -13,12 +13,12 @@ module tb_dff ();
   wire Q, Qn;
 
   dff dut (
-    .Q(Q),
-    .Qn(Qn),
-    .D(D),
-    .clk(clk),
-    .rst_n(rst_n),
-    .en(en)
+    .o_Q(Q),
+    .o_Qn(Qn),
+    .i_D(D),
+    .i_clk(clk),
+    .i_rst_n(rst_n),
+    .i_en(en)
   );
 
 endmodule

@@ -15,10 +15,10 @@ module tb_kogge_stone ();
   wire [4:0] output_S;
 
   kogge_stone #(.N(4)) dut (
-    .output_S(output_S),
-    .input_A(input_A),
-    .input_B(input_B),
-    .sub(sub)
+    .o_S(output_S),
+    .i_A(input_A),
+    .i_B(input_B),
+    .i_sub(sub)
   );
 
 endmodule

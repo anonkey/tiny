@@ -15,15 +15,15 @@ module tb_regfile ();
   wire [7:0] rd1, rd2;
 
   regfile dut (
-    .rd1(rd1),
-    .rd2(rd2),
-    .wd(wd),
-    .raddr1(raddr1),
-    .raddr2(raddr2),
-    .waddr(waddr),
-    .we(we),
-    .clk(clk),
-    .rst_n(rst_n)
+    .o_rd1(rd1),
+    .o_rd2(rd2),
+    .i_wd(wd),
+    .i_raddr1(raddr1),
+    .i_raddr2(raddr2),
+    .i_waddr(waddr),
+    .i_we(we),
+    .i_clk(clk),
+    .i_rst_n(rst_n)
   );
 
 endmodule

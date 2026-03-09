@@ -5,8 +5,10 @@
 SIM ?= icarus
 FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
-SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = top.v mux.v brent-kung.v 1half_latch.v vga.v cam.v
+
+MAKEFILE_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+SRC_DIR = $(MAKEFILE_DIR)/../src
+PROJECT_SOURCES = kogge-stone.v mux.v dff.v register.v regfile.v alu.v pc.v rom.v decoder.v cpu.v top.v
 
 ifneq ($(GATES),yes)
 
@@ -33,11 +35,18 @@ endif
 COMPILE_ARGS 		+= -I$(SRC_DIR)
 
 # Include the testbench sources:
-VERILOG_SOURCES += $(PWD)/tb.v
+VERILOG_SOURCES += $(MAKEFILE_DIR)/tb.v
 TOPLEVEL = tb
 
 # List test modules to run, separated by commas and without the .py suffix:
 COCOTB_TEST_MODULES = test
 
+PYTHON ?= $(MAKEFILE_DIR)/../.venv/bin/python
+COCOTB_MAKEFILES := $(shell $(PYTHON) -m cocotb_tools.config --makefiles 2>/dev/null || cocotb-config --makefiles 2>/dev/null)
+
+ifeq ($(strip $(COCOTB_MAKEFILES)),)
+$(error Could not find cocotb makefiles. Create .venv and install deps: /opt/homebrew/bin/python3.12 -m venv .venv && ./.venv/bin/pip install -r test/requirements.txt)
+endif
+
 # include cocotb's make rules to take care of the simulator setup
-include $(shell cocotb-config --makefiles)/Makefile.sim
+include $(COCOTB_MAKEFILES)/Makefile.sim

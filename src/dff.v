@@ -1,59 +1,59 @@
 // D flip-flop with async active-low reset and enable
 // Built from NAND gates (master-slave topology)
 
-module sr_latch_nand (Q, Qn, Sn, Rn);
-   output Q, Qn;
-   input  Sn, Rn;
+module sr_latch_nand (o_Q, o_Qn, i_Sn, i_Rn);
+   output o_Q, o_Qn;
+   input  i_Sn, i_Rn;
 
-   wire Q, Qn;
+   wire o_Q, o_Qn;
 
-   nand (Q,  Sn, Qn);
-   nand (Qn, Rn, Q);
+   nand (o_Q,  i_Sn, o_Qn);
+   nand (o_Qn, i_Rn, o_Q);
 
 endmodule
 
-module dff (Q, Qn, D, clk, rst_n, en);
-   output Q, Qn;
-   input  D, clk, rst_n, en;
+module dff (o_Q, o_Qn, i_D, i_clk, i_rst_n, i_en);
+   output o_Q, o_Qn;
+   input  i_D, i_clk, i_rst_n, i_en;
 
-   wire clk_n, clk_en;
-   wire D_mux;
-   wire Dm, Dmn;
-   wire Mm, Mmn;
-   wire Sm, Smn;
+   wire w_clk_n, w_clk_en;
+   wire w_D_mux;
+   wire w_Dm, w_Dmn;
+   wire w_Mm, w_Mmn;
+   wire w_Sm, w_Smn;
 
    // Enable mux: when en=0, feed back Q to hold value
    // D_mux = (en & D) | (~en & Q)
-   wire en_n, en_and_d, enn_and_q;
-   nand (en_n, en, en);
-   nand (en_and_d, en, D);
-   nand (enn_and_q, en_n, Q);
-   nand (D_mux, en_and_d, enn_and_q);
+   wire w_en_n, w_en_and_d, w_enn_and_q;
+   nand (w_en_n, i_en, i_en);
+   nand (w_en_and_d, i_en, i_D);
+   nand (w_enn_and_q, w_en_n, o_Q);
+   nand (w_D_mux, w_en_and_d, w_enn_and_q);
 
    // Inverted clock
-   nand (clk_n, clk, clk);
+   nand (w_clk_n, i_clk, i_clk);
 
    // Master stage gating
-   nand (Dm,  D_mux, clk_n);
-   nand (Dmn, D_mux, D_mux); // NOT D_mux
-   wire Dmn2;
-   nand (Dmn2, Dmn, clk_n);
+   nand (w_Dm,  w_D_mux, w_clk_n);
+   nand (w_Dmn, w_D_mux, w_D_mux); // NOT D_mux
+   wire w_Dmn2;
+   nand (w_Dmn2, w_Dmn, w_clk_n);
 
    // Master SR latch
-   wire Mq, Mqn;
-   nand (Mq,  Dm,   Mqn);
-   nand (Mqn, Dmn2, Mq);
+   wire w_Mq, w_Mqn;
+   nand (w_Mq,  w_Dm,   w_Mqn);
+   nand (w_Mqn, w_Dmn2, w_Mq);
 
    // Slave stage gating
-   nand (Sm,  Mq,  clk);
-   nand (Smn, Mqn, clk);
+   nand (w_Sm,  w_Mq,  i_clk);
+   nand (w_Smn, w_Mqn, i_clk);
 
    // Slave SR latch with async reset
-   wire Q_int, Qn_int;
-   nand (Q_int,  Sm,  Qn_int);
-   nand (Qn_int, Smn, Q_int, rst_n);
+   wire w_Q_int, w_Qn_int;
+   nand (w_Q_int,  w_Sm,  w_Qn_int);
+   nand (w_Qn_int, w_Smn, w_Q_int, i_rst_n);
 
-   assign Q  = Q_int;
-   assign Qn = Qn_int;
+   assign o_Q  = w_Q_int;
+   assign o_Qn = w_Qn_int;
 
 endmodule

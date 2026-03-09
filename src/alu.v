@@ -1,9 +1,9 @@
 module alu(
-   output [7:0] result,
-   output       carry,
-   input  [7:0] a,
-   input  [7:0] b,
-   input  [3:0] opcode
+   output [7:0] o_result,
+   output       o_carry,
+   input  [7:0] i_a,
+   input  [7:0] i_b,
+   input  [3:0] i_opcode
 );
 
    // Opcode encoding:
@@ -18,59 +18,59 @@ module alu(
    // 1000 XNOR
 
    // Kogge-Stone adder for ADD/SUB
-   wire [8:0] adder_out;
+   wire [8:0] w_adder_out;
    kogge_stone #(.N(8)) ks(
-      .output_S(adder_out),
-      .input_A(a),
-      .input_B(b),
-      .sub(opcode[0])
+      .o_S(w_adder_out),
+      .i_A(i_a),
+      .i_B(i_b),
+      .i_sub(i_opcode[0])
    );
 
    // Compute each operation result
-   wire [7:0] r_add,  r_sub;
-   wire [7:0] r_and,  r_or,   r_xor;
-   wire [7:0] r_not,  r_nand, r_nor, r_xnor;
+   wire [7:0] w_add,  w_sub;
+   wire [7:0] w_and,  w_or,   w_xor;
+   wire [7:0] w_not,  w_nand, w_nor, w_xnor;
 
-   assign r_add  = adder_out[7:0];
-   assign r_sub  = adder_out[7:0];
-   assign r_and  = a & b;
-   assign r_or   = a | b;
-   assign r_xor  = a ^ b;
-   assign r_not  = ~a;
-   assign r_nand = ~(a & b);
-   assign r_nor  = ~(a | b);
-   assign r_xnor = ~(a ^ b);
+   assign w_add  = w_adder_out[7:0];
+   assign w_sub  = w_adder_out[7:0];
+   assign w_and  = i_a & i_b;
+   assign w_or   = i_a | i_b;
+   assign w_xor  = i_a ^ i_b;
+   assign w_not  = ~i_a;
+   assign w_nand = ~(i_a & i_b);
+   assign w_nor  = ~(i_a | i_b);
+   assign w_xnor = ~(i_a ^ i_b);
 
    // 9-to-1 mux for result selection (4-bit opcode)
    // Using the existing mux module with WAY=16, WIRE=8
    // Tie unused inputs (opcodes 9-15) to zero
-   wire [127:0] mux_in;
-   assign mux_in = {
-      8'b0,    // 1111
-      8'b0,    // 1110
-      8'b0,    // 1101
-      8'b0,    // 1100
-      8'b0,    // 1011
-      8'b0,    // 1010
-      8'b0,    // 1001
-      r_xnor,  // 1000
-      r_nor,   // 0111
-      r_nand,  // 0110
-      r_not,   // 0101
-      r_xor,   // 0100
-      r_or,    // 0011
-      r_and,   // 0010
-      r_sub,   // 0001
-      r_add    // 0000
+   wire [127:0] w_mux_in;
+   assign w_mux_in = {
+      8'b0,       // 1111
+      8'b0,       // 1110
+      8'b0,       // 1101
+      8'b0,       // 1100
+      8'b0,       // 1011
+      8'b0,       // 1010
+      8'b0,       // 1001
+      w_xnor,     // 1000
+      w_nor,      // 0111
+      w_nand,     // 0110
+      w_not,      // 0101
+      w_xor,      // 0100
+      w_or,       // 0011
+      w_and,      // 0010
+      w_sub,      // 0001
+      w_add       // 0000
    };
 
    mux #(.WAY(16), .WIRE(8)) result_mux(
-      .in(mux_in),
-      .ctrl(opcode),
-      .out(result)
+      .i_in(w_mux_in),
+      .i_ctrl(i_opcode),
+      .o_out(o_result)
    );
 
    // Carry only valid for ADD (0000) and SUB (0001)
-   assign carry = adder_out[8] & ~opcode[3] & ~opcode[2] & ~opcode[1];
+   assign o_carry = w_adder_out[8] & ~i_opcode[3] & ~i_opcode[2] & ~i_opcode[1];
 
 endmodule

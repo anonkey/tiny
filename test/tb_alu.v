@@ -16,11 +16,11 @@ module tb_alu ();
   wire carry;
 
   alu dut (
-    .result(result),
-    .carry(carry),
-    .a(a),
-    .b(b),
-    .opcode(opcode)
+    .o_result(result),
+    .o_carry(carry),
+    .i_a(a),
+    .i_b(b),
+    .i_opcode(opcode)
   );
 
 endmodule
