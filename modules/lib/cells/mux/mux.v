@@ -1,3 +1,5 @@
+`default_nettype none
+
 module mux #(
    parameter WAY = 8,  // Nombre de voies par défaut
    parameter WIRE = 1  // taille de la sortie

@@ -14,6 +14,7 @@ module tb_decoder ();
   wire [7:0] imm8;
   wire [5:0] imm6;
   wire reg_we, alu_src, pc_load, use_imm8;
+  wire is_load, is_store, is_beq;
 
   decoder dut (
     .o_alu_op(alu_op),
@@ -26,6 +27,9 @@ module tb_decoder ();
     .o_alu_src(alu_src),
     .o_pc_load(pc_load),
     .o_use_imm8(use_imm8),
+    .o_is_load(is_load),
+    .o_is_store(is_store),
+    .o_is_beq(is_beq),
     .i_instr(instr)
   );
 

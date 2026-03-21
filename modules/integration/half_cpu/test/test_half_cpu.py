@@ -255,3 +255,27 @@ async def test_store(dut):
     await inter_byte_gap(dut)
     addr = await spi_clock_byte(dut)
     assert addr == 3, f"PC should be 3, got {addr}"
+
+
+OP_BEQ = 0xC
+
+
+@cocotb.test()
+async def test_beq(dut):
+    """BEQ always branches (ALU slot 12 = 0 -> zero_flag = 1)."""
+    cocotb.start_soon(Clock(dut.clk, SYS_CLK_PERIOD, units="ns").start())
+    await reset(dut)
+
+    # LDI r0, 42 (non-zero value -- doesn't matter, BEQ always branches)
+    await do_fetch_cycle(dut, enc_imm8(OP_LDI, 0, 42), expected_pc=0)
+
+    # BEQ to address 0x10
+    await do_fetch_cycle(dut, enc_imm8(OP_BEQ, 0, 0x10), expected_pc=1)
+
+    # Next fetch should be at PC=0x10
+    await wait_cs_low(dut)
+    cmd = await spi_clock_byte(dut)
+    assert cmd == CMD_IFETCH
+    await inter_byte_gap(dut)
+    addr = await spi_clock_byte(dut)
+    assert addr == 0x10, f"PC should jump to 0x10 after BEQ, got {addr:#04x}"

@@ -14,16 +14,24 @@ module writeback_mux (
   input  wire       i_load_data_sel
 );
 
-  wire [1:0] w_sel;
-  assign w_sel = i_load_data_sel ? 2'd2 :
-                 i_use_imm8      ? 2'd1 : 2'd0;
+  // First mux: imm8 or ALU result
+  wire [15:0] w_imm_alu_in;
+  wire [7:0]  w_imm_or_alu;
+  assign w_imm_alu_in = {i_imm8, i_alu_result};
 
-  wire [31:0] w_mux_in;
-  assign w_mux_in = {8'h00, i_load_data, i_imm8, i_alu_result};
+  mux #(.WAY(2), .WIRE(8)) imm_alu_mux (
+    .i_in(w_imm_alu_in),
+    .i_ctrl(i_use_imm8),
+    .o_out(w_imm_or_alu)
+  );
 
-  mux #(.WAY(4), .WIRE(8)) wb_mux (
-    .i_in(w_mux_in),
-    .i_ctrl(w_sel),
+  // Second mux: load data or first mux result
+  wire [15:0] w_load_in;
+  assign w_load_in = {i_load_data, w_imm_or_alu};
+
+  mux #(.WAY(2), .WIRE(8)) load_mux (
+    .i_in(w_load_in),
+    .i_ctrl(i_load_data_sel),
     .o_out(o_write_data)
   );
 

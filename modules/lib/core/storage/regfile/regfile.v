@@ -1,3 +1,5 @@
+`default_nettype none
+
 module regfile(o_rd1, o_rd2, i_wd, i_raddr1, i_raddr2, i_waddr, i_we, i_clk, i_rst_n);
 
    parameter NREG = 8;

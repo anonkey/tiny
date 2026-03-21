@@ -54,11 +54,11 @@ flowchart LR
 
 ## Instruction Set
 
-16 opcodes, 16-bit encoding, 8 registers, Kogge-Stone adder:
+13 opcodes, 16-bit encoding, 8 registers, Kogge-Stone adder:
 
 ```
-ADD  SUB  AND  OR   XOR  NOT  NAND NOR
-XNOR ADDI LDI  JMP  BEQ  LOAD STORE NOP
+ADD  SUB  AND  OR   XOR  NOT
+ADDI LDI  JMP  BEQ  LOAD STORE NOP
 ```
 
 See [cpu.md](modules/integration/cpu/cpu.md) for full ISA reference.
@@ -91,12 +91,12 @@ Each module is a self-contained package with source, docs, tests, and a `manager
 | alu_operand_mux | Selects ALU operand B (rs2 or immediate) | [alu_operand_mux.md](modules/lib/core/alu_operand_mux/alu_operand_mux.md) |
 | writeback_mux | 3-way mux for register writeback source | [writeback_mux.md](modules/lib/core/writeback_mux/writeback_mux.md) |
 | decoder | Instruction field extraction + control signals | [decoder.md](modules/lib/core/decoder/decoder.md) |
-| regfile | 8x8-bit register file, 2R/1W | [regfile.md](modules/lib/core/regfile/regfile.md) |
-| register | Parameterized N-bit register (from DFFs) | [register.md](modules/lib/core/register/register.md) |
-| pipeline_reg | Latches on condition, holds otherwise | [pipeline_reg.md](modules/lib/core/pipeline_reg/pipeline_reg.md) |
+| regfile | 8x8-bit register file, 2R/1W | [regfile.md](modules/lib/core/storage/regfile/regfile.md) |
+| register | Parameterized N-bit register (from DFFs) | [register.md](modules/lib/core/storage/register/register.md) |
+| pipeline_reg | Latches on condition, holds otherwise | [pipeline_reg.md](modules/lib/core/storage/pipeline_reg/pipeline_reg.md) |
 | kogge-stone | O(log N) parallel prefix adder | [kogge-stone.md](modules/lib/core/kogge-stone/kogge-stone.md) |
 | pc | 8-bit program counter with jump load | [pc.md](modules/lib/core/pc/pc.md) |
-| rom | Parameterized ROM from hex file | [rom.md](modules/lib/core/rom/rom.md) |
+| rom | Parameterized ROM from hex file | [rom.md](modules/lib/core/storage/rom/rom.md) |
 
 ### Lib — Cells
 

@@ -1,3 +1,5 @@
+`default_nettype none
+
 module alu(
    output [7:0] o_result,
    output       o_carry,
@@ -13,9 +15,6 @@ module alu(
    // 0011 OR
    // 0100 XOR
    // 0101 NOT (of a)
-   // 0110 NAND
-   // 0111 NOR
-   // 1000 XNOR
 
    // Kogge-Stone adder for ADD/SUB
    wire [8:0] w_adder_out;
@@ -29,7 +28,7 @@ module alu(
    // Compute each operation result
    wire [7:0] w_add,  w_sub;
    wire [7:0] w_and,  w_or,   w_xor;
-   wire [7:0] w_not,  w_nand, w_nor, w_xnor;
+   wire [7:0] w_not;
 
    assign w_add  = w_adder_out[7:0];
    assign w_sub  = w_adder_out[7:0];
@@ -37,11 +36,8 @@ module alu(
    assign w_or   = i_a | i_b;
    assign w_xor  = i_a ^ i_b;
    assign w_not  = ~i_a;
-   assign w_nand = ~(i_a & i_b);
-   assign w_nor  = ~(i_a | i_b);
-   assign w_xnor = ~(i_a ^ i_b);
 
-   // 9-to-1 mux for result selection (4-bit opcode)
+   // 6-to-1 mux for result selection (4-bit opcode)
    // Using the existing mux module with WAY=16, WIRE=8
    // Tie unused inputs (opcodes 9-15) to zero
    wire [127:0] w_mux_in;
@@ -53,9 +49,9 @@ module alu(
       8'b0,       // 1011
       8'b0,       // 1010
       8'b0,       // 1001
-      w_xnor,     // 1000
-      w_nor,      // 0111
-      w_nand,     // 0110
+      8'b0,       // 1000
+      8'b0,       // 0111
+      8'b0,       // 0110
       w_not,      // 0101
       w_xor,      // 0100
       w_or,       // 0011

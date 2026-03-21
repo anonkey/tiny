@@ -54,8 +54,8 @@ async def test_field_extraction_l_type(dut):
 
 @cocotb.test()
 async def test_reg_we_r_type(dut):
-    """R-type ALU ops (0000-1000) should assert reg_we."""
-    for opcode in range(9):  # ADD through XNOR
+    """R-type ALU ops (0000-0101) should assert reg_we."""
+    for opcode in range(6):  # ADD through NOT
         instr = build_r_type(opcode, 1, 2, 3)
         dut.instr.value = instr
         await Timer(1, units="ns")
@@ -77,8 +77,8 @@ async def test_reg_we_addi_ldi_load(dut):
 
 @cocotb.test()
 async def test_reg_we_off(dut):
-    """JMP (1011), BEQ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
-    for opcode in [0b1011, 0b1100, 0b1110, 0b1111]:
+    """Unused (1000), JMP (1011), BEQ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
+    for opcode in [0b1000, 0b1011, 0b1100, 0b1110, 0b1111]:
         dut.instr.value = opcode << 12
         await Timer(1, units="ns")
         assert int(dut.reg_we.value) == 0, (
@@ -100,7 +100,7 @@ async def test_alu_src_immediate(dut):
 @cocotb.test()
 async def test_alu_src_register(dut):
     """R-type ops should deassert alu_src (use rs2)."""
-    for opcode in range(9):
+    for opcode in range(6):
         dut.instr.value = opcode << 12
         await Timer(1, units="ns")
         assert int(dut.alu_src.value) == 0, (

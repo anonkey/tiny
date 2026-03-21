@@ -11,9 +11,6 @@ Assembly syntax:
     OR   r0, r5, r6     ; r0 = r5 | r6
     XOR  r1, r5, r6     ; r1 = r5 ^ r6
     NOT  r3, r2         ; r3 = ~r2
-    NAND r0, r1, r2     ; r0 = ~(r1 & r2)
-    NOR  r0, r1, r2     ; r0 = ~(r1 | r2)
-    XNOR r0, r1, r2     ; r0 = ~(r1 ^ r2)
     ADDI r1, r0, 5      ; r1 = r0 + 5 (imm6, signed -32..31)
     LDI  r0, 42         ; r0 = 42 (imm8, 0..255)
     JMP  label           ; jump to label
@@ -43,9 +40,6 @@ OPCODES = {
     "OR":   0b0011,
     "XOR":  0b0100,
     "NOT":  0b0101,
-    "NAND": 0b0110,
-    "NOR":  0b0111,
-    "XNOR": 0b1000,
     "ADDI": 0b1001,
     "LDI":  0b1010,
     "JMP":  0b1011,
@@ -53,7 +47,7 @@ OPCODES = {
     "NOP":  0b1111,
 }
 
-R_TYPE = {"ADD", "SUB", "AND", "OR", "XOR", "NAND", "NOR", "XNOR"}
+R_TYPE = {"ADD", "SUB", "AND", "OR", "XOR"}
 I_TYPE = {"ADDI"}
 L_TYPE = {"LDI", "JMP", "BEQ"}
 U_TYPE = {"NOT"}

@@ -21,10 +21,6 @@ SUB  r4, r2, r3     ; r4 = r2 - r3
 AND  r7, r5, r6     ; r7 = r5 & r6
 OR   r0, r5, r6     ; r0 = r5 | r6
 XOR  r1, r5, r6     ; r1 = r5 ^ r6
-NAND r0, r1, r2     ; r0 = ~(r1 & r2)
-NOR  r0, r1, r2     ; r0 = ~(r1 | r2)
-XNOR r0, r1, r2     ; r0 = ~(r1 ^ r2)
-
 ; U-type: op rd, rs1
 NOT  r3, r2         ; r3 = ~r2
 

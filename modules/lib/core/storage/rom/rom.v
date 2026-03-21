@@ -1,3 +1,5 @@
+`default_nettype none
+
 module rom(o_data, i_addr);
 
    parameter DEPTH = 256;

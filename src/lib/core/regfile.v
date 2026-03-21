@@ -1,1 +1,1 @@
-../../../modules/lib/core/regfile/regfile.v
+../../../modules/lib/core/storage/regfile/regfile.v

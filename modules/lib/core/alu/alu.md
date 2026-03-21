@@ -2,7 +2,7 @@
 
 # ALU - Arithmetic Logic Unit
 
-> **9-operation 8-bit ALU using a Kogge-Stone adder for arithmetic**
+> **6-operation 8-bit ALU using a Kogge-Stone adder for arithmetic**
 
 ## Interface
 
@@ -24,14 +24,11 @@
 | `0011` | OR | `a \| b` |
 | `0100` | XOR | `a ^ b` |
 | `0101` | NOT | `~a` |
-| `0110` | NAND | `~(a & b)` |
-| `0111` | NOR | `~(a \| b)` |
-| `1000` | XNOR | `~(a ^ b)` |
 
 ## Implementation
 
 - ADD/SUB share a single `kogge_stone` instance; `opcode[0]` selects subtraction (two's complement via XOR + carry-in)
-- All 9 results are computed in parallel, then a 16:1 mux selects the output based on `opcode`
+- All 6 results are computed in parallel, then a 16:1 mux selects the output based on `opcode`
 - Carry flag is only valid for ADD (`0000`) and SUB (`0001`)
 - Purely dataflow — no `always` blocks
 

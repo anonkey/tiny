@@ -1,3 +1,5 @@
+`default_nettype none
+
 module cpu(
    output [7:0]  o_pc,
    output [15:0] o_instr,
@@ -12,6 +14,7 @@ module cpu(
    wire [7:0] w_imm8;
    wire [5:0] w_imm6;
    wire       w_reg_we, w_alu_src, w_pc_load, w_use_imm8;
+   wire       w_is_load, w_is_store, w_is_beq;
 
    // --- FETCH: ROM addressed by PC ---
    wire [15:0] w_instr;
@@ -34,6 +37,9 @@ module cpu(
       .o_alu_src(w_alu_src),
       .o_pc_load(w_pc_load),
       .o_use_imm8(w_use_imm8),
+      .o_is_load(w_is_load),
+      .o_is_store(w_is_store),
+      .o_is_beq(w_is_beq),
       .i_instr(w_instr)
    );
 
@@ -60,9 +66,7 @@ module cpu(
       .o_alu_b(w_alu_b),
       .i_rs2_data(w_rd2_data),
       .i_imm6(w_imm6),
-      .i_sel(w_alu_src),
-      .i_clk(i_clk),
-      .i_rst_n(i_rst_n)
+      .i_sel(w_alu_src)
    );
 
    // --- EXECUTE: ALU ---
@@ -98,14 +102,8 @@ module cpu(
    );
 
    // --- PC: jump on JMP or BEQ (when zero) ---
-   wire w_beq;
-   wire [3:0] w_opcode;
-   assign w_opcode = w_instr[15:12];
-   // BEQ = opcode 1100
-   assign w_beq = w_opcode[3] & w_opcode[2] & ~w_opcode[1] & ~w_opcode[0];
-
    wire w_do_jump;
-   assign w_do_jump = w_pc_load | (w_beq & w_zero_flag);
+   assign w_do_jump = w_pc_load | (w_is_beq & w_zero_flag);
 
    pc pc_unit (
       .o_pc(o_pc),

@@ -1,7 +1,7 @@
 {
   "name": "pc",
   "deps": [
-    "kogge-stone",
+    "pc_inc",
     "mux",
     "register",
     "dff"

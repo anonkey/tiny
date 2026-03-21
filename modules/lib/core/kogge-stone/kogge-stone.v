@@ -1,3 +1,5 @@
+`default_nettype none
+
 module ks_black(o_P, o_G, i_Pi, i_Pj, i_Gi, i_Gj);
    output o_P, o_G;
    input  i_Pi, i_Pj, i_Gi, i_Gj;

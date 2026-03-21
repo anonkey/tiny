@@ -37,12 +37,6 @@ def compute_expected(a, b, opcode):
         return (a ^ b) & 0xFF, 0
     elif opcode == 5:  # NOT
         return (~a) & 0xFF, 0
-    elif opcode == 6:  # NAND
-        return (~(a & b)) & 0xFF, 0
-    elif opcode == 7:  # NOR
-        return (~(a | b)) & 0xFF, 0
-    elif opcode == 8:  # XNOR
-        return (~(a ^ b)) & 0xFF, 0
     else:
         return 0, 0
 
@@ -65,7 +59,7 @@ async def test_alu_sub(dut):
 
 @cocotb.test()
 async def test_alu_logic_exhaustive(dut):
-    for opcode in range(2, 9):
+    for opcode in range(2, 6):
         for a in range(256):
             for b in range(256):
                 exp_r, exp_c = compute_expected(a, b, opcode)
@@ -75,7 +69,7 @@ async def test_alu_logic_exhaustive(dut):
 @cocotb.test()
 async def test_alu_edge_cases(dut):
     edges = [0x00, 0x01, 0x7F, 0x80, 0xFE, 0xFF]
-    for opcode in range(9):
+    for opcode in range(6):
         for a in edges:
             for b in edges:
                 exp_r, exp_c = compute_expected(a, b, opcode)
@@ -84,7 +78,7 @@ async def test_alu_edge_cases(dut):
 
 @cocotb.test()
 async def test_alu_unused_opcodes_zero(dut):
-    for opcode in range(9, 16):
+    for opcode in range(6, 16):
         for _ in range(16):
             a = random.randint(0, 255)
             b = random.randint(0, 255)

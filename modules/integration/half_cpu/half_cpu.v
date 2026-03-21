@@ -66,6 +66,7 @@ module half_cpu (
   wire [7:0] w_imm8;
   wire [5:0] w_imm6;
   wire       w_dec_reg_we, w_alu_src, w_pc_load, w_use_imm8;
+  wire       w_is_load, w_is_store, w_is_beq;
 
   decoder dec (
     .o_alu_op(w_alu_op),
@@ -78,17 +79,11 @@ module half_cpu (
     .o_alu_src(w_alu_src),
     .o_pc_load(w_pc_load),
     .o_use_imm8(w_use_imm8),
+    .o_is_load(w_is_load),
+    .o_is_store(w_is_store),
+    .o_is_beq(w_is_beq),
     .i_instr(w_instr)
   );
-
-  // --- Derive LOAD/STORE/BEQ from opcode ---
-  wire [3:0] w_opcode;
-  assign w_opcode = w_instr[15:12];
-
-  // LOAD = 1101, STORE = 1110, BEQ = 1100
-  wire w_is_load  = w_opcode[3] & w_opcode[2] & ~w_opcode[1] & w_opcode[0];
-  wire w_is_store = w_opcode[3] & w_opcode[2] & w_opcode[1] & ~w_opcode[0];
-  wire w_is_beq   = w_opcode[3] & w_opcode[2] & ~w_opcode[1] & ~w_opcode[0];
 
   // --- Register File ---
   wire [7:0] w_rd1_data, w_rd2_data;
@@ -116,9 +111,7 @@ module half_cpu (
     .o_alu_b(w_alu_b),
     .i_rs2_data(w_rd2_data),
     .i_imm6(w_imm6),
-    .i_sel(w_alu_src),
-    .i_clk(i_clk),
-    .i_rst_n(i_rst_n)
+    .i_sel(w_alu_src)
   );
 
   // --- ALU ---

@@ -1,3 +1,5 @@
+`default_nettype none
+
 // D flip-flop with async active-low reset and enable
 
 module dff (o_Q, o_Qn, i_D, i_clk, i_rst_n, i_en);

@@ -38,7 +38,7 @@ A single-cycle CPU executing 16-bit instructions from a 256-entry ROM. Each cloc
   │    │            ▼                     ▼    ▼                        │
   │    │       ┌──────────┐          ┌───────────┐                      │
   │    │       │ Regfile  │◀─────────│   ALU     │                      │
-  │    │       │  (write) │  result  │  9 ops    │                      │
+  │    │       │  (write) │  result  │  6 ops    │                      │
   │    │       └──────────┘          └─────┬─────┘                      │
   │    │                                   │                            │
   │    └──── zero ─────────────────────────┘                            │
@@ -61,9 +61,6 @@ A single-cycle CPU executing 16-bit instructions from a 256-entry ROM. Each cloc
 | `0011` | OR | R | `rd = rs1 \| rs2` |
 | `0100` | XOR | R | `rd = rs1 ^ rs2` |
 | `0101` | NOT | U | `rd = ~rs1` |
-| `0110` | NAND | R | `rd = ~(rs1 & rs2)` |
-| `0111` | NOR | R | `rd = ~(rs1 \| rs2)` |
-| `1000` | XNOR | R | `rd = ~(rs1 ^ rs2)` |
 | `1001` | ADDI | I | `rd = rs1 + imm6` |
 | `1010` | LDI | L | `rd = imm8` |
 | `1011` | JMP | L | `PC = imm8` |
@@ -93,7 +90,7 @@ L-type:  [opcode:4][rd:3][imm8:8][0:1]
 | `rom` | `src/rom.v` | 256x16 instruction memory (`$readmemh`) |
 | `decoder` | `src/decoder.v` | Instruction field extraction + control signals |
 | `regfile` | `src/regfile.v` | 8x8 register file, 2 read / 1 write port |
-| `alu` | `src/alu.v` | 9-operation ALU with Kogge-Stone adder |
+| `alu` | `src/alu.v` | 6-operation ALU with Kogge-Stone adder |
 | `kogge_stone` | `src/kogge-stone.v` | Parameterized parallel prefix adder |
 | `pc` | `src/pc.v` | Program counter with load/increment |
 | `alu_operand_mux` | `src/alu_operand_mux.v` | ALU operand B selector (rs2 or sign-ext imm6) |

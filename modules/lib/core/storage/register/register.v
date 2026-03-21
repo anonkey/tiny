@@ -1,3 +1,5 @@
+`default_nettype none
+
 module register(o_Q, i_D, i_clk, i_rst_n, i_en);
 
    parameter N = 8;

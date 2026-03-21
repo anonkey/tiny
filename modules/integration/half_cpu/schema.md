@@ -41,8 +41,11 @@
   │  │             │  └─────────── w_pc_load                        │                     │   │       │
   │  │             └────────────── w_use_imm8                       │                     │   │       │
   │  │             │                                                │                     │   │       │
-  │  │             │   w_rd[2:0], w_rs1[2:0], w_rs2[2:0]           │                     │   │       │
-  │  │             │   w_imm8[7:0], w_imm6[5:0]                    │                     │   │       │
+  │  │             ├── w_rd[2:0] ──────────────────┐                │                     │   │       │
+  │  │             ├── w_rs1[2:0] ─────────────────┤ to regfile     │                     │   │       │
+  │  │             ├── w_rs2[2:0] ─────────────────┘                │                     │   │       │
+  │  │             ├── w_imm6[5:0] ─────────────────── to alu_op_mux│                     │   │       │
+  │  │             ├── w_imm8[7:0] ─────── to writeback_mux + pc   │                     │   │       │
   │  │             │                                                │                     │   │       │
   │  │             ▼                                                │                     │   │       │
   │  │    ┌─────────────────────┐                                   │                     │   │       │
@@ -72,9 +75,8 @@
   │  │        ▼          ▼                                          │                     │   │       │
   │  │  ┌──────────────────────┐                                    │                     │   │       │
   │  │  │        alu           │                                    │                     │   │       │
-  │  │  │  9 ops: ADD SUB AND  │                                    │                     │   │       │
-  │  │  │  OR XOR NOT NAND     │                                    │                     │   │       │
-  │  │  │  NOR XNOR            │                                    │                     │   │       │
+  │  │  │  6 ops: ADD SUB AND  │                                    │                     │   │       │
+  │  │  │  OR XOR NOT          │                                    │                     │   │       │
   │  │  │                      │                                    │                     │   │       │
   │  │  │  i_a ← w_rd1_data   │                                    │                     │   │       │
   │  │  │  i_b ← w_alu_b      │                                    │                     │   │       │
@@ -110,7 +112,7 @@
   │  │  ┌──────────┴──────────┐                                     │                     │   │       │
   │  │  │         pc          │                                     │                     │   │       │
   │  │  │  8-bit counter      │                                     │                     │   │       │
-  │  │  │  + kogge-stone add  │                                     │                     │   │       │
+  │  │  │  +   adder          │                                     │                     │   │       │
   │  │  │                     │                                     │                     │   │       │
   │  │  │  i_load ← w_do_jump│                                     │                     │   │       │
   │  │  │  i_load_addr ← imm8│                                     │                     │   │       │
@@ -221,7 +223,7 @@ half_cpu
 ├── alu_operand_mux .................. selects rs2 or sign-extended imm6
 │   └── mux .......................... 2:1, 8-bit
 │
-├── alu .............................. 9-operation ALU
+├── alu .............................. 6-operation ALU (ADD SUB AND OR XOR NOT)
 │   ├── kogge-stone #8 .............. parallel prefix adder (ADD)
 │   ├── kogge-stone #8 .............. parallel prefix subtractor (SUB)
 │   └── mux .......................... 16:1 result selector

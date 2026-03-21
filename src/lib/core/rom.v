@@ -1,1 +1,1 @@
-../../../modules/lib/core/rom/rom.v
+../../../modules/lib/core/storage/rom/rom.v

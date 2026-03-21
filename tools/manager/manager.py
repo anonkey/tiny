@@ -74,6 +74,9 @@ def run_tests(console, name, registry, fst=False):
     sources.append(tb_file)
 
     test_dir = os.path.join(info["path"], "test")
+    artifacts_dir = os.path.join(PROJECT_ROOT, "artifacts", test_name)
+    os.makedirs(artifacts_dir, exist_ok=True)
+
     cmd = [
         "/usr/bin/make",
         f"-f{MAKEFILE_SIM}",
@@ -84,9 +87,12 @@ def run_tests(console, name, registry, fst=False):
     if fst:
         cmd.append("FST=-fst")
 
+    env = make_env()
+    env["PYTHONPATH"] = test_dir + os.pathsep + env.get("PYTHONPATH", "")
+
     console.print(f"\n[bold]Running tests for {name}...[/bold]")
     console.print(f"[dim]─── {' '.join(cmd[:4])} ... ───[/dim]")
-    ret = subprocess.call(cmd, cwd=test_dir, env=make_env())
+    ret = subprocess.call(cmd, cwd=artifacts_dir, env=env)
     console.print(f"[dim]─── exit {ret} ───[/dim]")
     return ret
 
