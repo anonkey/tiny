@@ -31,7 +31,7 @@ BEQ  = 0b1100
 NOP  = 0b1111
 
 # Single program loaded into ROM at elaboration time.
-# After reset, PC=1 (addr 0 executes during reset's first real edge).
+# After reset, PC=0. The first rising edge with rst_n=1 captures PC+1=1.
 # On falling edge, PC shows the address just executed and combinational
 # outputs (alu_out, instr_out) reflect the NEXT instruction at the new PC.
 #
@@ -139,9 +139,9 @@ async def test_pc_increments(dut):
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
 
-    # After reset, PC=1 on falling edge
-    assert int(dut.pc_out.value) == 1
-    # First tick: PC stays 1 (re-latches same value)
+    # After reset, PC=0 (rst_n released on falling edge, no posedge yet)
+    assert int(dut.pc_out.value) == 0
+    # First tick: posedge captures next_pc=1
     await tick(dut)
     assert int(dut.pc_out.value) == 1
     # Second tick: PC advances to 2
@@ -157,7 +157,7 @@ async def test_ldi_add(dut):
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
 
-    # PC=1 after reset. addr 0 (LDI r0,10) already executed.
+    # PC=0 after reset. run_until_pc ticks until PC reaches target.
     await run_until_pc(dut, 2)
     # PC=2: ADD r2, r0, r1 is being decoded. ALU computes r0+r1.
     assert int(dut.alu_out.value) == 30, (

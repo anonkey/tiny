@@ -66,15 +66,18 @@ def run_tests(console, name, registry, fst=False):
         console.print(f"[red]No tests for '{name}'[/red]")
         return 1
 
+    # Test files use underscores (e.g. tb_kogge_stone.v for module kogge-stone)
+    test_name = name.replace("-", "_")
+
     sources = resolve_deps(name, registry)
-    tb_file = os.path.join(info["path"], "test", f"tb_{name}.v")
+    tb_file = os.path.join(info["path"], "test", f"tb_{test_name}.v")
     sources.append(tb_file)
 
     test_dir = os.path.join(info["path"], "test")
     cmd = [
         "/usr/bin/make",
         f"-f{MAKEFILE_SIM}",
-        f"MOD_NAME={name}",
+        f"MOD_NAME={test_name}",
         f"PROJECT_ROOT={PROJECT_ROOT}",
         f"VERILOG_SOURCES={' '.join(sources)}",
     ]
