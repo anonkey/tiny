@@ -6,13 +6,13 @@
 
 ## Overview
 
-The `tt_um_jalcim` module wraps the single-cycle CPU and maps its outputs to TinyTapeout pins.
+The `tt_um_anonkey` module wraps the single-cycle CPU and maps its outputs to TinyTapeout pins.
 
 ## Block Diagram
 
 ```mermaid
 flowchart TB
-    subgraph TOP ["tt_um_jalcim"]
+    subgraph TOP ["tt_um_anonkey"]
         subgraph INPUTS
             CLK["clk"]
             RST["rst_n"]

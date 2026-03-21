@@ -106,6 +106,7 @@ module cpu(
       .o_pc(o_pc),
       .i_load_addr(w_imm8),
       .i_load(w_do_jump),
+      .i_en(1'b1),
       .i_clk(i_clk),
       .i_rst_n(i_rst_n)
    );

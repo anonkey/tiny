@@ -1,20 +1,13 @@
-module mux(input [SIZE_IN - 1:0] i_in,
-	   input [SIZE_CTRL-1:0] i_ctrl,
-	   output [WIRE-1:0]	 o_out);
+module mux #(
+   parameter WAY = 8,  // Nombre de voies par défaut
+   parameter WIRE = 1  // taille de la sortie
+)(
+   input  [WAY * WIRE - 1:0]    i_in,
+   input  [$clog2(WAY) - 1:0]   i_ctrl,
+   output [WIRE - 1:0]          o_out
+);
 
-   parameter WAY = 8;  // Nombre de voies par défaut
-   parameter WIRE = 1; // taille de la sortie
-
-   function integer log2;
-    input integer i_value;
-      begin
-      i_value = i_value - 1;
-      for (log2 = 0; i_value > 0; log2 = log2 + 1)
-        i_value = i_value >> 1;
-      end
-   endfunction
-
-   localparam SIZE_CTRL = log2(WAY);
+   localparam SIZE_CTRL = $clog2(WAY);
    localparam SIZE_IN = WAY * WIRE;
 
    if (SIZE_CTRL == 1)
@@ -22,7 +15,7 @@ module mux(input [SIZE_IN - 1:0] i_in,
      assign o_out = i_ctrl ? i_in[2 * WIRE - 1 : WIRE] : i_in[WIRE - 1 : 0];
    else
      begin
-	wire [WIRE-1:0]w_out1, w_out2;
+	wire [WIRE-1:0] w_out1, w_out2;
 
 	assign o_out = i_ctrl[SIZE_CTRL - 1] ? w_out2 : w_out1;
 	mux #(.WAY(WAY/2), .WIRE(WIRE)) mux1(.i_in(i_in[(WAY/2) * WIRE - 1:0]),
@@ -36,23 +29,16 @@ module mux(input [SIZE_IN - 1:0] i_in,
      end
 endmodule
 
-module demux(input [WIRE-1:0]	   i_in,
-	     input [SIZE_CTRL-1:0] i_ctrl,
-	     output [SIZE_OUT-1:0] o_out);
+module demux #(
+   parameter WAY = 8,   // Nombre de voies par défaut
+   parameter WIRE = 1   // Taille des sorties
+)(
+   input  [WIRE - 1:0]          i_in,
+   input  [$clog2(WAY) - 1:0]   i_ctrl,
+   output [WAY * WIRE - 1:0]    o_out
+);
 
-   parameter WAY = 8;   // Nombre de voies par défaut
-   parameter WIRE = 1;  // Taille des sorties
-
-   function integer log2;
-    input integer i_value;
-      begin
-      i_value = i_value - 1;
-      for (log2 = 0; i_value > 0; log2 = log2 + 1)
-        i_value = i_value >> 1;
-      end
-   endfunction
-
-   localparam SIZE_CTRL = log2(WAY);
+   localparam SIZE_CTRL = $clog2(WAY);
    localparam SIZE_OUT  = WAY * WIRE;
 
    supply0 padding;

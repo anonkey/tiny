@@ -2,6 +2,7 @@ module pc(
    output [7:0] o_pc,
    input  [7:0] i_load_addr,
    input        i_load,
+   input        i_en,
    input        i_clk,
    input        i_rst_n
 );
@@ -32,7 +33,7 @@ module pc(
       .i_D(w_next_pc),
       .i_clk(i_clk),
       .i_rst_n(i_rst_n),
-      .i_en(1'b1)
+      .i_en(i_en)
    );
 
 endmodule

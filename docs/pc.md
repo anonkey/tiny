@@ -8,11 +8,12 @@
 
 | Port | Dir | Width | Description |
 |------|-----|-------|-------------|
-| `pc_out` | out | 8 | Current PC value |
-| `load_addr` | in | 8 | Jump target address |
-| `load` | in | 1 | 1=load address, 0=increment |
-| `clk` | in | 1 | Clock |
-| `rst_n` | in | 1 | Async active-low reset |
+| `o_pc` | out | 8 | Current PC value |
+| `i_load_addr` | in | 8 | Jump target address |
+| `i_load` | in | 1 | 1=load address, 0=increment |
+| `i_en` | in | 1 | PC update enable |
+| `i_clk` | in | 1 | Clock |
+| `i_rst_n` | in | 1 | Async active-low reset |
 
 ## Implementation
 

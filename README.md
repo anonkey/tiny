@@ -55,7 +55,10 @@ See [cpu.md](docs/cpu.md) for full ISA reference.
 ```
 src/
 ├── top.v           # TinyTapeout wrapper
-├── cpu.v           # CPU top module
+├── cpu.v           # CPU top module (single-cycle)
+├── half_cpu.v      # CPU top module (multi-cycle, SPI)
+├── cpu_fsm.v       # FSM controller for multi-cycle CPU
+├── spi_slave.v     # SPI slave interface
 ├── rom.v           # 256x16 instruction memory
 ├── decoder.v       # Instruction decoder + control
 ├── regfile.v       # 8x8 register file (2R/1W)
@@ -67,26 +70,26 @@ src/
 └── dff.v           # D flip-flop
 
 tools/
-├── assembler.py    # Assembly → hex
-├── trace.py        # FST waveform trace viewer
-└── example.asm     # Example program
+├── assembler/      # Assembly → hex
+├── trace/          # FST waveform trace viewer
+└── waveform/       # Waveform visualization
 
 test/
-├── test_cpu.py     # CPU integration tests (cocotb)
-├── test_alu.py     # ALU unit tests
-├── ...             # 54 tests total
+├── cpu/            # CPU integration tests (cocotb)
+├── alu/            # ALU unit tests
+├── ...             # One subdirectory per module
 ```
 
 ## Tooling
 
 ```bash
 # Assemble a program
-python tools/assembler.py tools/example.asm -o test/program.hex -v
+python tools/assembler/assembler.py tools/assembler/example.asm -o test/program.hex -v
 
 # Run tests
 source .venv/bin/activate
-make -f Makefile.cpu
+make -C test/cpu
 
 # View execution trace
-python tools/trace.py test/tb_cpu.fst --last
+python tools/trace/trace.py test/cpu/tb_cpu.fst --last
 ```

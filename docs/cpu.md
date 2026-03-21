@@ -10,21 +10,43 @@ A single-cycle CPU executing 16-bit instructions from a 256-entry ROM. Each cloc
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    PC["PC\n8-bit"] --> ROM["ROM\n256x16"]
-    ROM -->|instr| DEC["Decoder"]
-    DEC -->|rs1,rs2| RF["Regfile\n8x8"]
-    DEC -->|rd,we| RF
-    RF -->|rd1| ALU
-    DEC -->|imm6| MUX_B["ALU B\nMux"]
-    RF -->|rd2| MUX_B
-    MUX_B --> ALU["ALU\n9 ops"]
-    ALU -->|result| MUX_WB["Writeback\nMux"]
-    DEC -->|imm8| MUX_WB
-    MUX_WB -->|wd| RF
-    DEC -->|imm8| PC
-    ALU -->|zero| PC
+```
+                         i_clk ──┐  i_rst_n ──┐
+                                 │             │
+  ┌──────────────────────────────┼─────────────┼──────────────────────────┐
+  │ cpu                          │             │                          │
+  │                              ▼             ▼                          │
+  │  ┌─────────┐  pc[7:0]  ┌─────────┐  instr[15:0]  ┌───────────┐      │
+  │  │   PC    │──────────▶│  ROM    │───────────────▶│  Decoder  │      │
+  │  │  8-bit  │           │ 256x16  │                │           │      │
+  │  └─────────┘           └─────────┘                └───────────┘      │
+  │    ▲     ▲                                  rs1,rs2│  │rd,we         │
+  │    │     │                                    ┌────┘  │              │
+  │    │  imm8                                    ▼       ▼              │
+  │    │     │  ┌──────────────────────────  ┌──────────┐                │
+  │    │     └──┤                            │ Regfile  │                │
+  │    │        │         ┌─ imm8 ──────────▶│  8 x 8   │                │
+  │    │        │         │                  └──────────┘                │
+  │    │        │         │              rd1 │       │ rd2               │
+  │    │        │         │                  ▼       ▼                   │
+  │    │     ┌──┴─────────┴──┐          ┌──────────────┐  imm6          │
+  │    │     │  Writeback    │          │  ALU B Mux   │◀─────          │
+  │    │     │    Mux        │          └──────┬───────┘                │
+  │    │     └──────┬────────┘                 │                        │
+  │    │            │ wd                  rd1  │  alu_b                 │
+  │    │            │                     │    │                        │
+  │    │            ▼                     ▼    ▼                        │
+  │    │       ┌──────────┐          ┌───────────┐                      │
+  │    │       │ Regfile  │◀─────────│   ALU     │                      │
+  │    │       │  (write) │  result  │  9 ops    │                      │
+  │    │       └──────────┘          └─────┬─────┘                      │
+  │    │                                   │                            │
+  │    └──── zero ─────────────────────────┘                            │
+  │                                                                     │
+  ├─── o_pc[7:0]                                                        │
+  ├─── o_instr[15:0]                                                    │
+  ├─── o_alu[7:0]                                                       │
+  └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Instruction Set
@@ -82,9 +104,8 @@ L-type:  [opcode:4][rd:3][imm8:8][0:1]
 
 | Tool | Usage |
 |------|-------|
-| `tools/assembler.py` | `python assembler.py program.asm -o program.hex` |
-| `tools/trace.py` | `python trace.py test/tb_cpu.fst --last` |
-| `tools/example.asm` | Example assembly program |
+| `tools/assembler/` | `python tools/assembler/assembler.py program.asm -o program.hex` |
+| `tools/trace/` | `python tools/trace/trace.py test/tb_cpu.fst --last` |
 
 ## Testing
 
