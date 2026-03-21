@@ -1,0 +1,8 @@
+{
+  "name": "cpu_fsm",
+  "deps": [
+    "register",
+    "pipeline_reg",
+    "dff"
+  ]
+}

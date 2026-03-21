@@ -17,14 +17,19 @@ project:
   # Source files must be in ./src and you must list each source file separately, one per line.
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
-    - "top.v"
-    - "cpu.v"
-    - "decoder.v"
-    - "alu.v"
-    - "dff.v"
-    - "mux.v"
-    - "regfile.v"
-    - "register.v"
+    - "integration/top.v"
+    - "integration/cpu.v"
+    - "lib/core/decoder.v"
+    - "lib/core/alu.v"
+    - "lib/cells/dff.v"
+    - "lib/cells/mux.v"
+    - "lib/core/regfile.v"
+    - "lib/core/register.v"
+    - "lib/core/kogge-stone.v"
+    - "lib/core/pc.v"
+    - "lib/core/rom.v"
+    - "lib/core/alu_operand_mux.v"
+    - "lib/cells/zero_flag.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).

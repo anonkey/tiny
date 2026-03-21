@@ -1,0 +1,7 @@
+{
+  "name": "alu",
+  "deps": [
+    "kogge-stone",
+    "mux"
+  ]
+}

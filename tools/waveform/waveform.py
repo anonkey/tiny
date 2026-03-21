@@ -38,43 +38,36 @@ except ImportError:
 # --- Project root detection ---
 
 def find_project_root():
-    """Walk up from script location to find the project root (contains src/ and test/)."""
+    """Walk up from script location to find the project root (contains modules/ and tools/)."""
     d = os.path.dirname(os.path.abspath(__file__))
     for _ in range(5):
-        if os.path.isdir(os.path.join(d, "src")) and os.path.isdir(os.path.join(d, "test")):
+        if os.path.isdir(os.path.join(d, "modules")) and os.path.isdir(os.path.join(d, "tools")):
             return d
         d = os.path.dirname(d)
     return os.getcwd()
 
 
 PROJECT_ROOT = find_project_root()
-TEST_DIR = os.path.join(PROJECT_ROOT, "test")
+ARTIFACTS_DIR = os.path.join(PROJECT_ROOT, "artifacts")
 
 
 # --- Module name → FST file resolution ---
 
 def list_available_modules():
-    """Scan test/ and test/artifacts/ for tb_*.fst files and return module names."""
+    """Scan test/artifacts/ for tb_*.fst files and return module names."""
     modules = {}
-    # Search test/, test/artifacts/, and test/*/ for FST files
+    # Search test/artifacts/*/ for FST files (new layout: test/artifacts/<module>/...)
     patterns = [
-        os.path.join(TEST_DIR, "tb_*.fst"),
-        os.path.join(TEST_DIR, "artifacts", "tb_*.fst"),
-        os.path.join(TEST_DIR, "*", "tb_*.fst"),
+        os.path.join(ARTIFACTS_DIR, "*", "tb_*.fst"),
+        os.path.join(ARTIFACTS_DIR, "tb_*.fst"),
+        os.path.join(ARTIFACTS_DIR, "*", "*.fst"),
     ]
     for pat in patterns:
         for fst in sorted(glob.glob(pat)):
             basename = os.path.basename(fst)
             module = basename.removeprefix("tb_").removesuffix(".fst")
-            # Prefer files closer to test/ root (don't overwrite)
             if module not in modules:
                 modules[module] = fst
-    # Also check for tb.fst (the top-level)
-    for d in [TEST_DIR, os.path.join(TEST_DIR, "artifacts")]:
-        top_fst = os.path.join(d, "tb.fst")
-        if os.path.isfile(top_fst):
-            modules["top"] = top_fst
-            break
     return modules
 
 

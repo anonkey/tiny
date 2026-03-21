@@ -1,0 +1,9 @@
+{
+  "name": "spi_slave",
+  "deps": [
+    "cdc_sync",
+    "spi_shift_tx",
+    "spi_shift_rx",
+    "spi_byte_counter"
+  ]
+}

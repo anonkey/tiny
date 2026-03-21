@@ -1,0 +1,7 @@
+{
+  "name": "spi_byte_counter",
+  "deps": [
+    "register",
+    "dff"
+  ]
+}

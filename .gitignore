@@ -5,8 +5,7 @@ tt_submission
 __pycache__/
 src/user_config.json
 src/config_merged.json
-test/artifacts/
-test/*/results.xml
-test/top/gate_level_netlist.v
+artifacts/
+**/results.xml
 *~
 *#

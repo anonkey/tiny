@@ -1,0 +1,6 @@
+{
+  "name": "alu_operand_mux",
+  "deps": [
+    "mux"
+  ]
+}

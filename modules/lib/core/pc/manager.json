@@ -1,0 +1,9 @@
+{
+  "name": "pc",
+  "deps": [
+    "kogge-stone",
+    "mux",
+    "register",
+    "dff"
+  ]
+}

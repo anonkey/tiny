@@ -1,0 +1,29 @@
+# Generic cocotb simulation Makefile.
+# Invoked by the manager with MOD_NAME, VERILOG_SOURCES, and PROJECT_ROOT injected.
+#
+# Required variables (set by caller):
+#   MOD_NAME         - module name (e.g. alu)
+#   VERILOG_SOURCES  - space-separated list of .v files (deps + module + testbench)
+#   PROJECT_ROOT     - absolute path to project root
+#
+# Optional:
+#   FST              - set to "-fst" to enable FST waveform output (default: empty)
+
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+
+SIM_BUILD = $(PROJECT_ROOT)/artifacts/$(MOD_NAME)
+
+TOPLEVEL = tb_$(MOD_NAME)
+COCOTB_TEST_MODULES = test_$(MOD_NAME)
+
+COMPILE_ARGS += -I$(PROJECT_ROOT)/modules
+
+PYTHON ?= $(PROJECT_ROOT)/.venv/bin/python
+COCOTB_MAKEFILES := $(shell $(PYTHON) -m cocotb_tools.config --makefiles 2>/dev/null || cocotb-config --makefiles 2>/dev/null)
+
+ifeq ($(strip $(COCOTB_MAKEFILES)),)
+$(error Could not find cocotb makefiles. Create .venv and install deps)
+endif
+
+include $(COCOTB_MAKEFILES)/Makefile.sim

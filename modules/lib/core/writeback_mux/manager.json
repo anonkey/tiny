@@ -1,0 +1,6 @@
+{
+  "name": "writeback_mux",
+  "deps": [
+    "mux"
+  ]
+}

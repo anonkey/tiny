@@ -1,0 +1,8 @@
+{
+  "name": "regfile",
+  "deps": [
+    "register",
+    "mux",
+    "dff"
+  ]
+}

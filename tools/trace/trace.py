@@ -154,7 +154,8 @@ def main():
         fst_path = args.fst
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        fst_path = os.path.join(base, "test", "tb_cpu.fst")
+        base = os.path.dirname(base)  # up from tools/trace/ to project root
+        fst_path = os.path.join(base, "artifacts", "cpu", "tb_cpu.fst")
 
     if not os.path.exists(fst_path):
         print(f"Error: {fst_path} not found. Run CPU tests first.", file=sys.stderr)

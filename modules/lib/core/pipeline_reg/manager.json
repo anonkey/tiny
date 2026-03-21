@@ -1,0 +1,7 @@
+{
+  "name": "pipeline_reg",
+  "deps": [
+    "register",
+    "dff"
+  ]
+}

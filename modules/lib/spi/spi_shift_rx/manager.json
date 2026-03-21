@@ -1,0 +1,7 @@
+{
+  "name": "spi_shift_rx",
+  "deps": [
+    "register",
+    "dff"
+  ]
+}

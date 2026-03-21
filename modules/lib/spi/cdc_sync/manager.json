@@ -1,0 +1,6 @@
+{
+  "name": "cdc_sync",
+  "deps": [
+    "dff"
+  ]
+}

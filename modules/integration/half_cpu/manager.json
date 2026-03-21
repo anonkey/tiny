@@ -1,0 +1,16 @@
+{
+  "name": "half_cpu",
+  "deps": [
+    "register",
+    "decoder",
+    "regfile",
+    "alu",
+    "alu_operand_mux",
+    "zero_flag",
+    "writeback_mux",
+    "pc",
+    "cpu_fsm",
+    "mem_ctrl",
+    "spi_slave"
+  ]
+}

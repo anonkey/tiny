@@ -1,0 +1,13 @@
+{
+  "name": "cpu",
+  "deps": [
+    "rom",
+    "decoder",
+    "regfile",
+    "alu",
+    "alu_operand_mux",
+    "zero_flag",
+    "mux",
+    "pc"
+  ]
+}

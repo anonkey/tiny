@@ -1,0 +1,9 @@
+{
+  "name": "mem_ctrl",
+  "deps": [
+    "register",
+    "mux",
+    "dff",
+    "read_data_accum"
+  ]
+}
