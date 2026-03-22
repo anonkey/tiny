@@ -1,5 +1,7 @@
 # Project Conventions
 
+Always update concerned README after changes (if exists)
+
 ## Module structure (monorepo)
 
 Each Verilog module is a self-contained package under `modules/`:

@@ -1,0 +1,1583 @@
+{
+  "_meta": {
+    "description": "CircuitVerse component reference — dimensions, pins, parameters, and size formulas",
+    "source": "Extracted from CircuitVerse simulator JS sources",
+    "coordinate_system": "Dimensions are half-extents from center (left/right/up/down). Total width = left + right, total height = up + down.",
+    "pin_coordinates": "Relative to component center. type: 0 = input, 1 = output, 2 = intermediate.",
+    "direction_values": ["RIGHT", "LEFT", "UP", "DOWN"]
+  },
+
+  "gates": {
+    "AndGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Distributed vertically centered at x = -10. For 2 inputs: [(-10, -10), (-10, 10)]. For N inputs: spaced 20px apart, centered around y=0."
+        },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "OrGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Same as AndGate — distributed vertically at x = -10"
+        },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "NandGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Same as AndGate"
+        },
+        "output1": { "type": "output", "x": 25, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "NorGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Same as AndGate"
+        },
+        "output1": { "type": "output", "x": 25, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "XorGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Same as AndGate"
+        },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "XnorGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "inputLength", "type": "int", "default": 2, "range": [2, 32] },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "param:inputLength",
+          "positions_formula": "Same as AndGate"
+        },
+        "output1": { "type": "output", "x": 25, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "size_formulas": {
+        "height": "Scales with inputLength: up/down = max(20, inputLength * 10)"
+      },
+      "customSave_fields": ["direction", "inputLength", "bitWidth"]
+    },
+
+    "NotGate": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "Buffer": {
+      "category": "gates",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "reset": { "type": "input", "x": 0, "y": 0, "bitWidth": 1 },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    }
+  },
+
+  "routing": {
+    "Multiplexer": {
+      "category": "routing",
+      "dimensions_formula": {
+        "description": "Dynamic sizing based on controlSignalSize",
+        "variables": {
+          "inputSize": "2 ** controlSignalSize",
+          "xOff": "controlSignalSize === 1 ? 10 : 0",
+          "yOff": "controlSignalSize <= 3 ? 2 : 1"
+        },
+        "left": "20 - xOff",
+        "right": "20 - xOff",
+        "up": "yOff * 5 * inputSize",
+        "down": "yOff * 5 * inputSize"
+      },
+      "dimensions_examples": {
+        "controlSignalSize=1": { "inputSize": 2, "xOff": 10, "yOff": 2, "left": 10, "right": 10, "up": 20, "down": 20 },
+        "controlSignalSize=2": { "inputSize": 4, "xOff": 0, "yOff": 2, "left": 20, "right": 20, "up": 40, "down": 40 },
+        "controlSignalSize=3": { "inputSize": 8, "xOff": 0, "yOff": 2, "left": 20, "right": 20, "up": 80, "down": 80 },
+        "controlSignalSize=4": { "inputSize": 16, "xOff": 0, "yOff": 1, "left": 20, "right": 20, "up": 80, "down": 80 }
+      },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "controlSignalSize", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp": {
+          "type": "input",
+          "bitWidth": "param:bitWidth",
+          "count": "2 ** controlSignalSize",
+          "positions_formula": "inp[i] at (-20 + xOff, yOff * 10 * (i - inputSize/2) + 10)"
+        },
+        "output1": {
+          "type": "output",
+          "position_formula": "(20 - xOff, 0)",
+          "bitWidth": "param:bitWidth"
+        },
+        "controlSignalInput": {
+          "type": "input",
+          "position_formula": "(0, yOff * 10 * (inputSize/2 - 1) + xOff + 10)",
+          "bitWidth": "param:controlSignalSize",
+          "label": "Control Signal"
+        }
+      },
+      "customSave_fields": ["direction", "bitWidth", "controlSignalSize"]
+    },
+
+    "Demultiplexer": {
+      "category": "routing",
+      "dimensions_formula": {
+        "description": "Same formula as Multiplexer but input/output swapped",
+        "variables": {
+          "outputSize": "2 ** controlSignalSize",
+          "xOff": "controlSignalSize === 1 ? 10 : 0",
+          "yOff": "controlSignalSize <= 3 ? 2 : 1"
+        },
+        "left": "20 - xOff",
+        "right": "20 - xOff",
+        "up": "yOff * 5 * outputSize",
+        "down": "yOff * 5 * outputSize"
+      },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "LEFT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "controlSignalSize", "type": "int", "default": 1, "range": [1, 10] }
+      ],
+      "pins": {
+        "input": {
+          "type": "input",
+          "position_formula": "(20 - xOff, 0)",
+          "bitWidth": "param:bitWidth"
+        },
+        "output1": {
+          "type": "output",
+          "count": "2 ** controlSignalSize",
+          "positions_formula": "output1[i] at (-20 + xOff, yOff * 10 * (i - outputSize/2) + 10)",
+          "bitWidth": "param:bitWidth"
+        },
+        "controlSignalInput": {
+          "type": "input",
+          "position_formula": "(0, yOff * 10 * (outputSize/2 - 1) + xOff + 10)",
+          "bitWidth": "param:controlSignalSize",
+          "label": "Control Signal"
+        }
+      },
+      "customSave_fields": ["direction", "bitWidth", "controlSignalSize"]
+    },
+
+    "Decoder": {
+      "category": "routing",
+      "dimensions_formula": {
+        "description": "Same sizing formula as Mux/Demux, bitWidth controls output count",
+        "variables": {
+          "outputSize": "2 ** bitWidth",
+          "xOff": "bitWidth === 1 ? 10 : 0",
+          "yOff": "bitWidth <= 3 ? 2 : 1"
+        },
+        "left": "20 - xOff",
+        "right": "20 - xOff",
+        "up": "yOff * 5 * outputSize",
+        "down": "yOff * 5 * outputSize"
+      },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "LEFT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "input": {
+          "type": "input",
+          "position_formula": "(20 - xOff, 0)",
+          "bitWidth": "param:bitWidth"
+        },
+        "output1": {
+          "type": "output",
+          "count": "2 ** bitWidth",
+          "positions_formula": "output1[i] at (-20 + xOff, yOff * 10 * (i - outputSize/2) + 10)",
+          "bitWidth": 1
+        }
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "Splitter": {
+      "category": "routing",
+      "dimensions_formula": {
+        "description": "Height scales with number of split outputs",
+        "variables": {
+          "splitCount": "bitWidthSplit.length",
+          "yOffset": "(splitCount / 2 - 1) * 20"
+        },
+        "left": 10,
+        "right": 10,
+        "up": "(splitCount - 1) * 10 + 10",
+        "down": "(splitCount - 1) * 10 + 10"
+      },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": null, "note": "Prompted if undefined" },
+        { "name": "bitWidthSplit", "type": "int[]", "default": null, "note": "Array of bit widths per output. Sum must equal bitWidth." }
+      ],
+      "pins": {
+        "inp1": {
+          "type": "input",
+          "position_formula": "(-10, 10 + yOffset)",
+          "bitWidth": "param:bitWidth"
+        },
+        "outputs": {
+          "type": "output",
+          "count": "bitWidthSplit.length",
+          "positions_formula": "outputs[i] at (20, i * 20 - yOffset - 20)",
+          "bitWidth_formula": "bitWidthSplit[i] per output"
+        }
+      },
+      "notes": "Bidirectional — works as splitter or combiner depending on signal direction",
+      "customSave_fields": ["direction", "bitWidth", "bitWidthSplit"]
+    },
+
+    "Tunnel": {
+      "category": "routing",
+      "dimensions_formula": {
+        "description": "Dynamic bounds based on direction and identifier length",
+        "variables": {
+          "len": "identifier.length",
+          "xSize": "len === 1 ? 40 : (len > 1 && len < 4 ? 20 : 0)"
+        },
+        "LEFT":  { "left": "120 - xSize", "right": 0, "up": 0, "down": 0 },
+        "RIGHT": { "left": "120 - xSize", "right": "adjusted", "up": 0, "down": 0 },
+        "UP":    { "left": "60 - xSize/2", "right": "60 - xSize/2", "up": 20, "down": 0 },
+        "DOWN":  { "left": "60 - xSize/2", "right": "60 - xSize/2", "up": 0, "down": 20 }
+      },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "centerElement": true,
+      "overrideDirectionRotation": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "LEFT" },
+        { "name": "bitWidth", "type": "int", "default": 1 },
+        { "name": "identifier", "type": "string", "default": "" }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": 0, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Wirelessly connects tunnels with the same identifier. Prevents bitWidth conflicts between paired tunnels.",
+      "customSave_fields": ["direction", "bitWidth", "identifier"]
+    }
+  },
+
+  "io": {
+    "Input": {
+      "category": "io",
+      "dimensions_formula": {
+        "left": "bitWidth * 10",
+        "right": "bitWidth * 10",
+        "up": 10,
+        "down": 10
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "canShowInSubcircuit": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "layoutProperties", "type": "object", "default": null, "note": "{ x, y, id } for subcircuit layout" }
+      ],
+      "pins": {
+        "output1": {
+          "type": "output",
+          "position_formula": "(bitWidth * 10, 0)",
+          "bitWidth": "param:bitWidth"
+        }
+      },
+      "notes": "Click individual bits to toggle. Width scales linearly with bitWidth.",
+      "customSave_fields": ["direction", "bitWidth", "layoutProperties"]
+    },
+
+    "Output": {
+      "category": "io",
+      "dimensions_formula": {
+        "left": "bitWidth * 10",
+        "right": "bitWidth * 10",
+        "up": 10,
+        "down": 10
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "canShowInSubcircuit": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "layoutProperties", "type": "object", "default": null }
+      ],
+      "pins": {
+        "inp1": {
+          "type": "input",
+          "position_formula": "(bitWidth * 10, 0)",
+          "bitWidth": "param:bitWidth"
+        }
+      },
+      "customSave_fields": ["direction", "bitWidth", "layoutProperties"]
+    },
+
+    "ConstantVal": {
+      "category": "io",
+      "dimensions_formula": {
+        "left": "bitWidth * 10",
+        "right": "bitWidth * 10",
+        "up": 10,
+        "down": 10
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "state", "type": "string", "default": "0", "note": "Binary string representation of the constant value" }
+      ],
+      "pins": {
+        "output1": {
+          "type": "output",
+          "position_formula": "(bitWidth * 10, 0)",
+          "bitWidth": "param:bitWidth"
+        }
+      },
+      "customSave_fields": ["direction", "bitWidth", "state"]
+    },
+
+    "Button": {
+      "category": "io",
+      "dimensions": { "left": 10, "right": 10, "up": 10, "down": 10 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "canShowInSubcircuit": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" }
+      ],
+      "pins": {
+        "output1": { "type": "output", "x": 30, "y": 0, "bitWidth": 1 }
+      },
+      "notes": "User-clickable momentary button. Not supported in Verilog.",
+      "customSave_fields": ["direction"]
+    },
+
+    "Ground": {
+      "category": "io",
+      "dimensions": { "left": 10, "right": 10, "up": 10, "down": 10 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "propagationDelay": 0,
+      "constructor_params": [
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "output1": { "type": "output", "x": 0, "y": -10, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Always outputs 0.",
+      "customSave_fields": ["bitWidth"]
+    },
+
+    "Power": {
+      "category": "io",
+      "dimensions": { "left": 10, "right": 10, "up": 10, "down": 10 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "propagationDelay": 0,
+      "constructor_params": [
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "output1": { "type": "output", "x": 0, "y": 10, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Always outputs all 1s: ~0 >>> (32 - bitWidth).",
+      "customSave_fields": ["bitWidth"]
+    },
+
+    "Flag": {
+      "category": "io",
+      "dimensions": { "left": 60, "right": 60, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "propagationDelay": 0,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": 40, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Measurement/monitoring probe. Records transitions for waveform display. xSize adjusts with identifier length.",
+      "customSave_fields": ["direction", "bitWidth"],
+      "customSave_values": ["identifier"]
+    },
+
+    "TriState": {
+      "category": "io",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" },
+        "state": { "type": "input", "x": 0, "y": 0, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "Passes input when enable=1, high-impedance (undefined) when enable=0.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "ControlledInverter": {
+      "category": "io",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 30, "y": 0, "bitWidth": "param:bitWidth" },
+        "state": { "type": "input", "x": 0, "y": 0, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "Inverts when enable=1, high-impedance when enable=0.",
+      "customSave_fields": ["direction", "bitWidth"]
+    }
+  },
+
+  "arithmetic": {
+    "Adder": {
+      "category": "arithmetic",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inpA": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "A" },
+        "inpB": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "B" },
+        "carryIn": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Cin" },
+        "sum": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth", "label": "Sum" },
+        "carryOut": { "type": "output", "x": 20, "y": 10, "bitWidth": 1, "label": "Cout" }
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "ALU": {
+      "category": "arithmetic",
+      "dimensions": { "left": 30, "right": 30, "up": 40, "down": 40 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -30, "y": -30, "bitWidth": "param:bitWidth", "label": "A" },
+        "inp2": { "type": "input", "x": -30, "y": 30, "bitWidth": "param:bitWidth", "label": "B" },
+        "controlSignalInput": { "type": "input", "x": -10, "y": -40, "bitWidth": 3, "label": "Control" },
+        "output": { "type": "output", "x": 30, "y": 0, "bitWidth": "param:bitWidth", "label": "Result" },
+        "carryOut": { "type": "output", "x": -10, "y": 40, "bitWidth": 1, "label": "Carry" }
+      },
+      "operations": {
+        "0": "AND",
+        "1": "OR",
+        "2": "ADD",
+        "3": "AND_NOT_B",
+        "4": "OR_NOT_B",
+        "5": "SUBTRACT",
+        "6": "SLT (set less than)"
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "TwoComplement": {
+      "category": "arithmetic",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Inverts all bits and adds 1 (two's complement negation).",
+      "customSave_fields": ["direction", "bitWidth"]
+    }
+  },
+
+  "bit_operations": {
+    "BitSelector": {
+      "category": "bit_operations",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "selectorBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": 1 },
+        "bitSelectorInp": { "type": "input", "x": 0, "y": 20, "bitWidth": "param:selectorBitWidth", "label": "Bit Selector" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "selectorBitWidth"]
+    },
+
+    "LSB": {
+      "category": "bit_operations",
+      "dimensions": { "left": 10, "right": 20, "up": 30, "down": 30 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" },
+        "enable": { "type": "output", "x": 20, "y": 20, "bitWidth": 1 }
+      },
+      "notes": "Outputs index of lowest set bit. Enable=1 if any bit is set.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "MSB": {
+      "category": "bit_operations",
+      "dimensions": { "left": 10, "right": 20, "up": 30, "down": 30 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -10, "y": 0, "bitWidth": "param:bitWidth" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" },
+        "enable": { "type": "output", "x": 20, "y": 20, "bitWidth": 1 }
+      },
+      "notes": "Outputs index of highest set bit. Enable=1 if any bit is set.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "PriorityEncoder": {
+      "category": "bit_operations",
+      "dimensions_formula": {
+        "description": "Height scales with 2^bitWidth inputs",
+        "variables": {
+          "inputSize": "2 ** bitWidth",
+          "yOff": "bitWidth <= 3 ? 2 : 1"
+        },
+        "left": 20,
+        "right": 20,
+        "up": "yOff * 5 * inputSize + 10",
+        "down": "yOff * 5 * inputSize + 10"
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": {
+          "type": "input",
+          "count": "2 ** bitWidth",
+          "positions_formula": "inp1[i] at (-10, yOff * 10 * (i - inputSize/2) + 10)",
+          "bitWidth": 1
+        },
+        "output1": {
+          "type": "output",
+          "count": "bitWidth",
+          "positions_formula": "output1[i] at (30, 2 * 10 * (i - bitWidth/2) + 10)",
+          "bitWidth": 1
+        },
+        "enable": {
+          "type": "output",
+          "position_formula": "(10, 20 + inp1[last].y)",
+          "bitWidth": 1
+        }
+      },
+      "notes": "Encodes the highest active input bit index.",
+      "customSave_fields": ["direction", "bitWidth"]
+    }
+  },
+
+  "sequential": {
+    "DflipFlop": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "clockInp": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Clock" },
+        "dInp": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "D" },
+        "qOutput": { "type": "output", "x": 20, "y": -10, "bitWidth": "param:bitWidth", "label": "Q" },
+        "qInvOutput": { "type": "output", "x": 20, "y": 10, "bitWidth": "param:bitWidth", "label": "Q'" },
+        "reset": { "type": "input", "x": 10, "y": 20, "bitWidth": 1, "label": "Reset" },
+        "preset": { "type": "input", "x": 0, "y": 20, "bitWidth": "param:bitWidth", "label": "Preset" },
+        "en": { "type": "input", "x": -10, "y": 20, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "Master-slave D flip-flop. Edge-triggered on rising clock.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "Dlatch": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "clockInp": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Enable" },
+        "dInp": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "D" },
+        "qOutput": { "type": "output", "x": 20, "y": -10, "bitWidth": "param:bitWidth", "label": "Q" },
+        "qInvOutput": { "type": "output", "x": 20, "y": 10, "bitWidth": "param:bitWidth", "label": "Q'" }
+      },
+      "notes": "Level-triggered latch. Transparent when enable=1.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "SRflipFlop": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" }
+      ],
+      "pins": {
+        "S": { "type": "input", "x": -20, "y": -10, "bitWidth": 1, "label": "Set" },
+        "R": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Reset" },
+        "qOutput": { "type": "output", "x": 20, "y": -10, "bitWidth": 1, "label": "Q" },
+        "qInvOutput": { "type": "output", "x": 20, "y": 10, "bitWidth": 1, "label": "Q'" },
+        "reset": { "type": "input", "x": 10, "y": 20, "bitWidth": 1, "label": "Async Reset" },
+        "preset": { "type": "input", "x": 0, "y": 20, "bitWidth": 1, "label": "Preset" },
+        "en": { "type": "input", "x": -10, "y": 20, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "SR flip-flop. S=1 sets, R=1 resets. S=R=1 is invalid.",
+      "customSave_fields": ["direction"]
+    },
+
+    "JKflipFlop": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" }
+      ],
+      "pins": {
+        "J": { "type": "input", "x": -20, "y": -10, "bitWidth": 1, "label": "J" },
+        "K": { "type": "input", "x": -20, "y": 0, "bitWidth": 1, "label": "K" },
+        "clockInp": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Clock" },
+        "qOutput": { "type": "output", "x": 20, "y": -10, "bitWidth": 1, "label": "Q" },
+        "qInvOutput": { "type": "output", "x": 20, "y": 10, "bitWidth": 1, "label": "Q'" },
+        "reset": { "type": "input", "x": 10, "y": 20, "bitWidth": 1, "label": "Reset" },
+        "preset": { "type": "input", "x": 0, "y": 20, "bitWidth": 1, "label": "Preset" },
+        "en": { "type": "input", "x": -10, "y": 20, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "Master-slave JK flip-flop. J=K=1 toggles.",
+      "customSave_fields": ["direction"]
+    },
+
+    "TflipFlop": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1 }
+      ],
+      "pins": {
+        "dInp": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "T" },
+        "clockInp": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Clock" },
+        "qOutput": { "type": "output", "x": 20, "y": -10, "bitWidth": "param:bitWidth", "label": "Q" },
+        "qInvOutput": { "type": "output", "x": 20, "y": 10, "bitWidth": "param:bitWidth", "label": "Q'" },
+        "reset": { "type": "input", "x": 10, "y": 20, "bitWidth": 1, "label": "Reset" },
+        "preset": { "type": "input", "x": 0, "y": 20, "bitWidth": "param:bitWidth", "label": "Preset" },
+        "en": { "type": "input", "x": -10, "y": 20, "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "Toggle flip-flop. XOR-based master-slave.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "Clock": {
+      "category": "sequential",
+      "dimensions": { "left": 10, "right": 10, "up": 10, "down": 10 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": true,
+      "propagationDelay": 0,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" }
+      ],
+      "pins": {
+        "output1": { "type": "output", "x": 10, "y": 0, "bitWidth": 1 }
+      },
+      "notes": "User-toggleable clock source. Click to toggle 0/1.",
+      "customSave_fields": ["direction"]
+    },
+
+    "Counter": {
+      "category": "sequential",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "canShowInSubcircuit": true,
+      "constructor_params": [
+        { "name": "bitWidth", "type": "int", "default": 8, "range": [1, 32] }
+      ],
+      "pins": {
+        "maxValue": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "Max" },
+        "clock": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Clock" },
+        "reset": { "type": "input", "x": 0, "y": 20, "bitWidth": 1, "label": "Reset" },
+        "output": { "type": "output", "x": 20, "y": -10, "bitWidth": "param:bitWidth", "label": "Count" },
+        "zero": { "type": "output", "x": 20, "y": 10, "bitWidth": 1, "label": "Zero" }
+      },
+      "customSave_fields": ["bitWidth"]
+    },
+
+    "RAM": {
+      "category": "sequential",
+      "dimensions": { "left": 60, "right": 60, "up": 40, "down": 40 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "labelDirection": "UP",
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 8, "range": [1, 32] },
+        { "name": "addressWidth", "type": "int", "default": 10, "range": [1, 20] }
+      ],
+      "pins": {
+        "address": { "type": "input", "x": -60, "y": -20, "bitWidth": "param:addressWidth", "label": "Address" },
+        "dataIn": { "type": "input", "x": -60, "y": 0, "bitWidth": "param:bitWidth", "label": "Data In" },
+        "write": { "type": "input", "x": -60, "y": 20, "bitWidth": 1, "label": "Write" },
+        "reset": { "type": "input", "x": 0, "y": 40, "bitWidth": 1, "label": "Reset" },
+        "coreDump": { "type": "input", "x": -20, "y": 40, "bitWidth": 1, "label": "Core Dump" },
+        "dataOut": { "type": "output", "x": 60, "y": 0, "bitWidth": "param:bitWidth", "label": "Data Out" }
+      },
+      "notes": "Volatile RAM. 2^addressWidth words. Async read, sync write. Memory not persisted in save.",
+      "customSave_fields": ["direction", "bitWidth", "addressWidth"]
+    },
+
+    "Rom": {
+      "category": "sequential",
+      "dimensions": { "left": 80, "right": 80, "up": 50, "down": 50 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "data", "type": "int[]", "default": "[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]", "note": "16 entries of 8-bit values" }
+      ],
+      "pins": {
+        "memAddr": { "type": "input", "x": -80, "y": 0, "bitWidth": 4, "label": "Address" },
+        "en": { "type": "input", "x": 0, "y": 50, "bitWidth": 1, "label": "Enable" },
+        "dataOut": { "type": "output", "x": 80, "y": 0, "bitWidth": 8, "label": "Data Out" }
+      },
+      "notes": "16x8 ROM. Fixed size: 16 addresses, 8-bit data. Interactive hex editing.",
+      "customSave_fields": ["data"]
+    },
+
+    "EEPROM": {
+      "category": "sequential",
+      "dimensions": { "left": 60, "right": 60, "up": 40, "down": 40 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 8, "range": [1, 32] },
+        { "name": "addressWidth", "type": "int", "default": 8, "range": [1, 10] },
+        { "name": "data", "type": "int[]", "default": null, "note": "Initial data, persisted on save" }
+      ],
+      "pins": {
+        "address": { "type": "input", "x": -60, "y": -20, "bitWidth": "param:addressWidth", "label": "Address" },
+        "dataIn": { "type": "input", "x": -60, "y": 0, "bitWidth": "param:bitWidth", "label": "Data In" },
+        "write": { "type": "input", "x": -60, "y": 20, "bitWidth": 1, "label": "Write" },
+        "reset": { "type": "input", "x": 0, "y": 40, "bitWidth": 1, "label": "Reset" },
+        "coreDump": { "type": "input", "x": -20, "y": 40, "bitWidth": 1, "label": "Core Dump" },
+        "dataOut": { "type": "output", "x": 60, "y": 0, "bitWidth": "param:bitWidth", "label": "Data Out" }
+      },
+      "notes": "Non-volatile EEPROM. Max 1KB (addressWidth <= 10). Data persisted in save. Extends RAM.",
+      "customSave_fields": ["direction", "bitWidth", "addressWidth", "data"]
+    },
+
+    "Keyboard": {
+      "category": "sequential",
+      "dimensions_formula": {
+        "description": "Width scales with buffer size",
+        "elementWidth": "max(80, ceil(bufferSize / 2) * 20)",
+        "elementHeight": 40,
+        "left": "elementWidth / 2",
+        "right": "elementWidth / 2",
+        "up": "elementHeight / 2",
+        "down": "elementHeight / 2"
+      },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "bufferSize", "type": "int", "default": 32, "range": [20, 100] }
+      ],
+      "pins": {
+        "clockInp": { "type": "input", "position_formula": "(-elementWidth/2, elementHeight/2 - 10)", "bitWidth": 1, "label": "Clock" },
+        "asciiOutput": { "type": "output", "position_formula": "(30, elementHeight/2)", "bitWidth": 7, "label": "ASCII" },
+        "available": { "type": "output", "position_formula": "(10, elementHeight/2)", "bitWidth": 1, "label": "Available" },
+        "reset": { "type": "input", "position_formula": "(-10, elementHeight/2)", "bitWidth": 1, "label": "Reset" },
+        "en": { "type": "input", "position_formula": "(-30, elementHeight/2)", "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "ASCII keyboard input buffer. Outputs one character per clock edge.",
+      "customSave_fields": ["bufferSize"]
+    },
+
+    "TTY": {
+      "category": "sequential",
+      "dimensions_formula": {
+        "description": "Width scales with cols, height with rows",
+        "elementWidth": "max(40, ceil(cols / 2) * 20)",
+        "elementHeight": "max(40, ceil(rows * 15 / 20) * 20)",
+        "left": "elementWidth / 2",
+        "right": "elementWidth / 2",
+        "up": "elementHeight / 2",
+        "down": "elementHeight / 2"
+      },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "rows", "type": "int", "default": 3, "range": [1, 10] },
+        { "name": "cols", "type": "int", "default": 32, "range": [20, 100] }
+      ],
+      "pins": {
+        "clockInp": { "type": "input", "position_formula": "(-elementWidth/2, elementHeight/2 - 10)", "bitWidth": 1, "label": "Clock" },
+        "asciiInp": { "type": "input", "position_formula": "(-elementWidth/2, elementHeight/2 - 30)", "bitWidth": 7, "label": "ASCII In" },
+        "reset": { "type": "input", "position_formula": "(30 - elementWidth/2, elementHeight/2)", "bitWidth": 1, "label": "Reset" },
+        "en": { "type": "input", "position_formula": "(10 - elementWidth/2, elementHeight/2)", "bitWidth": 1, "label": "Enable" }
+      },
+      "notes": "ASCII terminal display. One character per clock pulse. Line-wrapped.",
+      "customSave_fields": ["rows", "cols"]
+    },
+
+    "verilogRAM": {
+      "category": "sequential",
+      "dimensions": { "left": 60, "right": 60, "up": 40, "down": 40 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "labelDirection": "UP",
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 8, "range": [1, 32] },
+        { "name": "addressWidth", "type": "int", "default": 10, "range": [1, 20] },
+        { "name": "memData", "type": "object", "default": null },
+        { "name": "words", "type": "int", "default": "2 ** addressWidth" },
+        { "name": "numRead", "type": "int", "default": 1 },
+        { "name": "numWrite", "type": "int", "default": 1 },
+        { "name": "rdports", "type": "object[]", "default": null, "note": "Array of read port configs" },
+        { "name": "wrports", "type": "object[]", "default": null, "note": "Array of write port configs" }
+      ],
+      "pins": {
+        "readAddress": { "type": "input", "count": "param:numRead", "bitWidth": "param:addressWidth" },
+        "writeAddress": { "type": "input", "count": "param:numWrite", "bitWidth": "param:addressWidth" },
+        "writeDataIn": { "type": "input", "count": "param:numWrite", "bitWidth": "param:bitWidth" },
+        "writeEnable": { "type": "input", "count": "param:numWrite", "bitWidth": 1 },
+        "dataOut": { "type": "output", "count": "param:numRead", "bitWidth": "param:bitWidth" },
+        "reset": { "type": "input", "x": 0, "y": 40, "bitWidth": 1 },
+        "coreDump": { "type": "input", "x": -20, "y": 40, "bitWidth": 1 }
+      },
+      "notes": "Multi-port RAM with configurable read/write ports and clock/enable polarity per port.",
+      "customSave_fields": ["direction", "bitWidth", "addressWidth", "memData", "words", "numRead", "numWrite", "rdports", "wrports"]
+    }
+  },
+
+  "display": {
+    "DigitalLed": {
+      "category": "display",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 40 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "color", "type": "string", "default": "Red" }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -40, "y": 0, "bitWidth": 1 }
+      },
+      "notes": "Single-bit LED. Gray when 0, specified color when 1.",
+      "customSave_fields": ["color"]
+    },
+
+    "VariableLed": {
+      "category": "display",
+      "dimensions": { "left": 10, "right": 10, "up": 20, "down": 40 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "color", "type": "string", "default": "Red" }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -40, "y": 0, "bitWidth": 8 }
+      },
+      "notes": "8-bit variable brightness LED.",
+      "customSave_fields": ["color"]
+    },
+
+    "RGBLed": {
+      "category": "display",
+      "dimensions": { "left": 10, "right": 10, "up": 10, "down": 40 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [],
+      "pins": {
+        "inp1": { "type": "input", "x": -40, "y": -10, "bitWidth": 8, "label": "R" },
+        "inp2": { "type": "input", "x": -40, "y": 0, "bitWidth": 8, "label": "G" },
+        "inp3": { "type": "input", "x": -40, "y": 10, "bitWidth": 8, "label": "B" }
+      },
+      "customSave_fields": []
+    },
+
+    "SquareRGBLed": {
+      "category": "display",
+      "dimensions": { "left": 15, "right": 15, "up": 15, "down": 15 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "UP" },
+        { "name": "pinLength", "type": "int", "default": 1 }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "position_formula": "(-10 - 10*pinLength, -10)", "bitWidth": 8, "label": "R" },
+        "inp2": { "type": "input", "position_formula": "(-10 - 10*pinLength, 0)", "bitWidth": 8, "label": "G" },
+        "inp3": { "type": "input", "position_formula": "(-10 - 10*pinLength, 10)", "bitWidth": 8, "label": "B" }
+      },
+      "size_formulas": {
+        "pin_offset": "Pin X position moves left with pinLength: x = -10 - 10 * pinLength"
+      },
+      "customSave_fields": ["direction", "pinLength"]
+    },
+
+    "HexDisplay": {
+      "category": "display",
+      "dimensions": { "left": 30, "right": 30, "up": 50, "down": 50 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "color", "type": "string", "default": "Red" }
+      ],
+      "pins": {
+        "inp": { "type": "input", "x": 0, "y": -50, "bitWidth": 4 }
+      },
+      "notes": "4-bit hex display. Shows 0-F using 7-segment rendering.",
+      "customSave_fields": ["color"]
+    },
+
+    "SevenSegDisplay": {
+      "category": "display",
+      "dimensions": { "left": 30, "right": 30, "up": 50, "down": 50 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "layoutProperties": { "right": 20, "left": 15, "up": 42, "down": 10 },
+      "constructor_params": [
+        { "name": "color", "type": "string", "default": "Red" }
+      ],
+      "pins": {
+        "g": { "type": "input", "x": -20, "y": -50, "bitWidth": 1, "label": "g" },
+        "f": { "type": "input", "x": -10, "y": -50, "bitWidth": 1, "label": "f" },
+        "a": { "type": "input", "x": 10, "y": -50, "bitWidth": 1, "label": "a" },
+        "b": { "type": "input", "x": 20, "y": -50, "bitWidth": 1, "label": "b" },
+        "e": { "type": "input", "x": -20, "y": 50, "bitWidth": 1, "label": "e" },
+        "d": { "type": "input", "x": -10, "y": 50, "bitWidth": 1, "label": "d" },
+        "c": { "type": "input", "x": 10, "y": 50, "bitWidth": 1, "label": "c" },
+        "dot": { "type": "input", "x": 20, "y": 50, "bitWidth": 1, "label": "dp" }
+      },
+      "notes": "Individual segment control (a-g + dp). 8 input pins, 1 bit each.",
+      "customSave_fields": ["color"]
+    },
+
+    "SixteenSegDisplay": {
+      "category": "display",
+      "dimensions": { "left": 30, "right": 30, "up": 50, "down": 50 },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "layoutProperties": { "right": 20, "left": 15, "up": 42, "down": 10 },
+      "constructor_params": [
+        { "name": "color", "type": "string", "default": "Red" }
+      ],
+      "pins": {
+        "input1": { "type": "input", "x": 0, "y": -50, "bitWidth": 16, "label": "Segments" },
+        "dot": { "type": "input", "x": 0, "y": 50, "bitWidth": 1, "label": "dp" }
+      },
+      "notes": "16-segment alphanumeric display. Single 16-bit input for all segments.",
+      "customSave_fields": ["color"]
+    },
+
+    "RGBLedMatrix": {
+      "category": "display",
+      "dimensions_formula": {
+        "description": "Grid of LEDs with configurable size",
+        "variables": {
+          "ledWidth": "10 * ledSize",
+          "ledHeight": "10 * ledSize",
+          "gridWidth": "ledWidth * columns",
+          "gridHeight": "ledHeight * rows",
+          "padding": "ledSize % 2 ? 5 : 10"
+        },
+        "left": "gridWidth / 2 + padding",
+        "right": "gridWidth / 2 + padding",
+        "up": "gridHeight / 2 + padding",
+        "down": "gridHeight / 2 + padding"
+      },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "alwaysResolve": true,
+      "constructor_params": [
+        { "name": "rows", "type": "int", "default": 8 },
+        { "name": "columns", "type": "int", "default": 8 },
+        { "name": "ledSize", "type": "int", "default": 2 },
+        { "name": "showGrid", "type": "bool", "default": true },
+        { "name": "colors", "type": "int[]", "default": "[]" }
+      ],
+      "pins": {
+        "rowEnableNodes": {
+          "type": "input",
+          "count": "param:rows",
+          "positions_formula": "(-halfWidth, i * ledHeight + nodeOffsetY)",
+          "bitWidth": 1,
+          "label_formula": "R{i}"
+        },
+        "columnEnableNodes": {
+          "type": "input",
+          "count": "param:columns",
+          "positions_formula": "(i * ledWidth + nodeOffsetX, halfHeight)",
+          "bitWidth": 1,
+          "label_formula": "C{i}"
+        },
+        "columnColorNodes": {
+          "type": "input",
+          "count": "param:columns",
+          "positions_formula": "(i * ledWidth + nodeOffsetX, -halfHeight)",
+          "bitWidth": 24,
+          "label_formula": "CLR{i}"
+        },
+        "colorNode": { "type": "input", "x": 0, "y": -10, "bitWidth": 24, "label": "COLOR" },
+        "rowNode": { "type": "input", "x": 0, "y": 0, "bitWidth": "ceil(log2(rows))", "label": "ROW" },
+        "columnNode": { "type": "input", "x": 0, "y": 10, "bitWidth": "ceil(log2(columns))", "label": "COLUMN" }
+      },
+      "customSave_fields": ["rows", "columns", "ledSize", "showGrid", "colors"]
+    }
+  },
+
+  "annotation": {
+    "Text": {
+      "category": "annotation",
+      "dimensions_formula": {
+        "description": "Dynamic based on text content and font size",
+        "width": "10 + measureText(label).width",
+        "height": "fontSize * lineCount"
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "label", "type": "string", "default": "" },
+        { "name": "fontSize", "type": "int", "default": 14 }
+      ],
+      "pins": {},
+      "notes": "Pure annotation. No pins, no simulation. Editable via keyboard when selected.",
+      "customSave_fields": ["label", "fontSize"]
+    },
+
+    "Arrow": {
+      "category": "annotation",
+      "dimensions": { "left": 30, "right": 30, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" }
+      ],
+      "pins": {},
+      "notes": "Decorative arrow. No pins, no simulation.",
+      "customSave_fields": ["direction"]
+    },
+
+    "Rectangle": {
+      "category": "annotation",
+      "dimensions_formula": {
+        "description": "Configurable size in grid units",
+        "elementWidth": "cols * 10",
+        "elementHeight": "rows * 10",
+        "left": "elementWidth / 2",
+        "right": "elementWidth / 2",
+        "up": "elementHeight / 2",
+        "down": "elementHeight / 2"
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "rows", "type": "int", "default": 15, "range": [5, 1000] },
+        { "name": "cols", "type": "int", "default": 20, "range": [5, 1000] }
+      ],
+      "pins": {},
+      "notes": "Decorative rectangle. No pins, no simulation.",
+      "customSave_fields": ["rows", "cols"]
+    },
+
+    "ImageAnnotation": {
+      "category": "annotation",
+      "dimensions_formula": {
+        "elementWidth": "cols * 10",
+        "elementHeight": "rows * 10",
+        "left": "elementWidth / 2",
+        "right": "elementWidth / 2",
+        "up": "elementHeight / 2",
+        "down": "elementHeight / 2"
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "rows", "type": "int", "default": 15, "range": [5, 1000] },
+        { "name": "cols", "type": "int", "default": 20, "range": [5, 1000] },
+        { "name": "imageUrl", "type": "string", "default": "" }
+      ],
+      "pins": {},
+      "notes": "Image overlay annotation. No pins, no simulation.",
+      "customSave_fields": ["rows", "cols", "imageUrl"]
+    }
+  },
+
+  "verilog_ops": {
+    "verilogDivider": {
+      "category": "verilog_ops",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "outputBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inpA": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "A" },
+        "inpB": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "B" },
+        "quotient": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Quotient" },
+        "remainder": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Remainder" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "outputBitWidth"]
+    },
+
+    "verilogMultiplier": {
+      "category": "verilog_ops",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "outputBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inpA": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "A" },
+        "inpB": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "B" },
+        "product": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Product" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "outputBitWidth"]
+    },
+
+    "verilogPower": {
+      "category": "verilog_ops",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "outputBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inpA": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "A" },
+        "inpB": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "B" },
+        "answer": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Answer" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "outputBitWidth"]
+    },
+
+    "verilogShiftLeft": {
+      "category": "verilog_ops",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "outputBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "Input" },
+        "shiftInp": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "ShiftInput" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Output" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "outputBitWidth"]
+    },
+
+    "verilogShiftRight": {
+      "category": "verilog_ops",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] },
+        { "name": "outputBitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "inp1": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "Input" },
+        "shiftInp": { "type": "input", "x": -20, "y": 0, "bitWidth": "param:bitWidth", "label": "ShiftInput" },
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:outputBitWidth", "label": "Output" }
+      },
+      "customSave_fields": ["direction", "bitWidth", "outputBitWidth"]
+    }
+  },
+
+  "special": {
+    "Stepper": {
+      "category": "special",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": false,
+      "directionFixed": false,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 8, "range": [1, 32] }
+      ],
+      "pins": {
+        "output1": { "type": "output", "x": 20, "y": 0, "bitWidth": "param:bitWidth" }
+      },
+      "notes": "Manual stepper. Click to increment/set value.",
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "Random": {
+      "category": "special",
+      "dimensions": { "left": 20, "right": 20, "up": 20, "down": 20 },
+      "rectangleObject": true,
+      "directionFixed": true,
+      "fixedBitWidth": false,
+      "constructor_params": [
+        { "name": "direction", "type": "string", "default": "RIGHT" },
+        { "name": "bitWidth", "type": "int", "default": 1, "range": [1, 32] }
+      ],
+      "pins": {
+        "clockInp": { "type": "input", "x": -20, "y": 10, "bitWidth": 1, "label": "Clock" },
+        "maxValue": { "type": "input", "x": -20, "y": -10, "bitWidth": "param:bitWidth", "label": "MaxValue" },
+        "output": { "type": "output", "x": 20, "y": -10, "bitWidth": "param:bitWidth", "label": "RandomValue" }
+      },
+      "customSave_fields": ["direction", "bitWidth"]
+    },
+
+    "SubCircuit": {
+      "category": "special",
+      "dimensions_formula": {
+        "description": "Loaded from referenced circuit scope's layout",
+        "left": 0,
+        "right": "subcircuitScope.layout.width",
+        "up": 0,
+        "down": "subcircuitScope.layout.height"
+      },
+      "rectangleObject": false,
+      "directionFixed": true,
+      "fixedBitWidth": true,
+      "constructor_params": [
+        { "name": "id", "type": "string", "note": "Identifier of the referenced circuit scope" },
+        { "name": "savedData", "type": "object", "default": null }
+      ],
+      "pins": {
+        "inputNodes": {
+          "type": "input",
+          "count": "dynamic (from referenced circuit's Input elements)",
+          "positions": "From referenced circuit's Input layoutProperties"
+        },
+        "outputNodes": {
+          "type": "output",
+          "count": "dynamic (from referenced circuit's Output elements)",
+          "positions": "From referenced circuit's Output layoutProperties"
+        }
+      },
+      "notes": "Hierarchical subcircuit instantiation. Dimensions and pins from referenced scope layout. Supports v1.0 and v2.0 coordinate systems.",
+      "customSave_fields": ["id"]
+    }
+  },
+
+  "_formulas_summary": {
+    "mux_demux_decoder_sizing": {
+      "description": "Shared formula for Multiplexer, Demultiplexer, Decoder, PriorityEncoder",
+      "formula": {
+        "count": "2 ** controlBits",
+        "xOff": "controlBits === 1 ? 10 : 0",
+        "yOff": "controlBits <= 3 ? 2 : 1",
+        "body_half_height": "yOff * 5 * count",
+        "pin_spacing": "yOff * 10",
+        "pin_y": "yOff * 10 * (i - count/2) + 10",
+        "control_y": "yOff * 10 * (count/2 - 1) + xOff + 10"
+      },
+      "examples": [
+        { "controlBits": 1, "count": 2, "body_height": 40, "pin_spacing": 20 },
+        { "controlBits": 2, "count": 4, "body_height": 80, "pin_spacing": 20 },
+        { "controlBits": 3, "count": 8, "body_height": 160, "pin_spacing": 20 },
+        { "controlBits": 4, "count": 16, "body_height": 160, "pin_spacing": 10 },
+        { "controlBits": 5, "count": 32, "body_height": 320, "pin_spacing": 10 }
+      ]
+    },
+    "io_width_scaling": {
+      "description": "Input, Output, ConstantVal width scales linearly with bitWidth",
+      "formula": "width = bitWidth * 10 (each side), pin at (bitWidth * 10, 0)"
+    },
+    "splitter_height": {
+      "description": "Splitter height based on number of split outputs",
+      "formula": {
+        "splitCount": "bitWidthSplit.length",
+        "half_height": "(splitCount - 1) * 10 + 10",
+        "yOffset": "(splitCount / 2 - 1) * 20",
+        "inp_y": "10 + yOffset",
+        "output_y": "i * 20 - yOffset - 20"
+      }
+    },
+    "keyboard_width": {
+      "description": "Keyboard width based on buffer size",
+      "formula": "elementWidth = max(80, ceil(bufferSize / 2) * 20)"
+    },
+    "tty_dimensions": {
+      "description": "TTY dimensions based on rows and columns",
+      "formula": {
+        "width": "max(40, ceil(cols / 2) * 20)",
+        "height": "max(40, ceil(rows * 15 / 20) * 20)"
+      }
+    },
+    "rgb_led_matrix": {
+      "description": "RGB LED Matrix sizing",
+      "formula": {
+        "ledSize_px": "10 * ledSize",
+        "gridWidth": "ledSize_px * columns",
+        "gridHeight": "ledSize_px * rows",
+        "padding": "ledSize % 2 ? 5 : 10",
+        "total_half_width": "gridWidth / 2 + padding",
+        "total_half_height": "gridHeight / 2 + padding"
+      }
+    },
+    "gate_input_distribution": {
+      "description": "Variable-input gates distribute inputs vertically",
+      "formula": "For N inputs: spaced 20px apart (10px per half), centered around y=0. Input pins at x=-10, output at x=20."
+    },
+    "tunnel_bounds": {
+      "description": "Tunnel sizing based on identifier length",
+      "formula": {
+        "xSize": "len === 1 ? 40 : (len > 1 && len < 4 ? 20 : 0)",
+        "note": "Longer identifiers get more space. Direction affects which dimension expands."
+      }
+    },
+    "square_rgb_led_pin_length": {
+      "description": "SquareRGBLed pin wire length",
+      "formula": "pin_x = -10 - 10 * pinLength"
+    },
+    "annotation_sizing": {
+      "description": "Rectangle and ImageAnnotation use grid units",
+      "formula": "width = cols * 10, height = rows * 10"
+    }
+  }
+}

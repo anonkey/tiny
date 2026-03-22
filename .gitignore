@@ -10,4 +10,4 @@ artifacts/
 **/*.vcd
 *~
 *#
-kicad
+export
