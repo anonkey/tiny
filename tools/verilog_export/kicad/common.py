@@ -1,13 +1,9 @@
 """Shared KiCad schematic helpers: placement, symbol emission, net labels."""
 
 import re
-import os
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from utils import _uuid
-from kicad_symbol import (
+from kicad.utils import _uuid
+from kicad.symbol import (
     PIN_LEN, PIN_PITCH, BOX_PAD_X, FONT_SYM, FONT_REF,
     _symbol_height, generate_symbol,
 )

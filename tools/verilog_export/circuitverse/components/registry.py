@@ -34,12 +34,18 @@ def _resolve_bw(bw_spec, params):
 
 # ── Pin position lookup ─────────────────────────────────────────────────
 
-def pin_pos(component_type, pin_name, index=None, **params):
+def _apply_direction(x, y, direction):
+  """Pin positions are always in RIGHT orientation; CV rotates them."""
+  return (x, y)
+
+
+def pin_pos(component_type, pin_name, index=None, direction="RIGHT", **params):
   """Return (x, y) for a pin on a component.
 
   For multi-pin arrays (like gate inputs), pass index=0, 1, ...
   Keyword params supply constructor values: bitWidth, inputLength,
   controlSignalSize, bitWidthSplit, etc.
+  direction flips the x axis when set to "LEFT".
   """
   comp = _COMPONENTS.get(component_type)
   if comp is None:
@@ -52,40 +58,40 @@ def pin_pos(component_type, pin_name, index=None, **params):
 
   # Static pin with x/y
   if "x" in pin and "y" in pin:
-    return (pin["x"], pin["y"])
+    return _apply_direction(pin["x"], pin["y"], direction)
 
   # IO scaling: Input, Output, ConstantVal — pin at (bitWidth * 10, 0)
   if "position_formula" in pin:
     formula = pin["position_formula"]
     if component_type in ("Input", "Output", "ConstantVal"):
       bw = params.get("bitWidth", 1)
-      return (bw * 10, 0)
+      return _apply_direction(bw * 10, 0, direction)
     # Mux/Demux/Decoder: evaluate shared formula
     if component_type == "Multiplexer":
-      return _mux_pin(pin_name, index, **params)
+      return _apply_direction(*_mux_pin(pin_name, index, **params), direction)
     if component_type == "Demultiplexer":
-      return _demux_pin(pin_name, index, **params)
+      return _apply_direction(*_demux_pin(pin_name, index, **params), direction)
     if component_type == "Decoder":
-      return _decoder_pin(pin_name, index, **params)
+      return _apply_direction(*_decoder_pin(pin_name, index, **params), direction)
 
   # Multi-pin arrays (gate inputs, mux inputs, etc.)
   if "positions_formula" in pin:
     if component_type in ("AndGate", "OrGate", "NandGate", "NorGate",
                           "XorGate", "XnorGate"):
-      return _gate_input_pos(pin_name, index, **params)
+      return _apply_direction(*_gate_input_pos(pin_name, index, **params), direction)
     if component_type == "Multiplexer":
-      return _mux_pin(pin_name, index, **params)
+      return _apply_direction(*_mux_pin(pin_name, index, **params), direction)
     if component_type == "Demultiplexer":
-      return _demux_pin(pin_name, index, **params)
+      return _apply_direction(*_demux_pin(pin_name, index, **params), direction)
     if component_type == "Decoder":
-      return _decoder_pin(pin_name, index, **params)
+      return _apply_direction(*_decoder_pin(pin_name, index, **params), direction)
 
   # Splitter — dynamic based on bitWidthSplit
   if component_type == "Splitter":
-    return _splitter_pin(pin_name, index, **params)
+    return _apply_direction(*_splitter_pin(pin_name, index, **params), direction)
 
   # Fallback
-  return (pin.get("x", 0), pin.get("y", 0))
+  return _apply_direction(pin.get("x", 0), pin.get("y", 0), direction)
 
 
 def _gate_input_pos(pin_name, index, **params):

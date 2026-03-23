@@ -8,6 +8,8 @@ Usage:
     python manage.py --run alu --fst              # run with FST waveforms
     python manage.py --deps half_cpu              # show dependency tree
     python manage.py --tool assembler -- --help   # run tool directly
+    python manage.py --export-all                 # export all modules (circuitverse-yosys --gate)
+    python manage.py --export-all -f kicad-flat   # export all modules with specific format
 """
 
 import os
@@ -78,6 +80,27 @@ def main():
             sys.exit(1)
         mod = resolve_name(args[1], list(registry.keys()), key_fn=lambda n: n)
         show_deps_tree(console, mod, registry, MODULES_DIR)
+        sys.exit(0)
+
+    if args and args[0] == "--export-all":
+        export_script = os.path.join(TOOLS_DIR, "verilog_export", "verilog_export.py")
+        passthrough = args[1:]  # e.g. -f kicad-flat, --gate
+        if not any(a in ("-f", "--format") for a in passthrough):
+            passthrough = ["-f", "circuitverse-yosys", "--gate"] + passthrough
+        modules = sorted(registry.keys())
+        failed = []
+        for mod in modules:
+            console.print(f"[bold]=== {mod} ===[/bold]")
+            ret = subprocess.call(
+                [sys.executable, export_script, mod] + passthrough,
+                cwd=PROJECT_ROOT,
+            )
+            if ret != 0:
+                failed.append(mod)
+        if failed:
+            console.print(f"\n[red]Failed: {', '.join(failed)}[/red]")
+            sys.exit(1)
+        console.print(f"\n[green]All {len(modules)} modules exported[/green]")
         sys.exit(0)
 
     if args and args[0] == "--tool":

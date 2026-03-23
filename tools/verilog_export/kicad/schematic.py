@@ -1,13 +1,8 @@
 """KiCad schematic generation (flat and hierarchical)."""
 
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from utils import _uuid
-from kicad_symbol import PIN_PITCH, FONT_SYM, FONT_REF
-from kicad_common import (
+from kicad.utils import _uuid
+from kicad.symbol import PIN_PITCH, FONT_SYM, FONT_REF
+from kicad.common import (
     GRID_X, ORIGIN_X,
     _place_modules, _emit_lib_symbols, _emit_symbol_instance, _emit_net_labels,
 )

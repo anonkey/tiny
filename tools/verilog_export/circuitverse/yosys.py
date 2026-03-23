@@ -13,7 +13,7 @@ import sys
 import tempfile
 
 from cv_common import _CVNodeAlloc, _cv_scope_id, _cv_layout
-from circuitverse.yosys_layout import CELL_GAP, COL_GAP, topo_sort_cells, place_cells
+from circuitverse.yosys_layout import CELL_GAP, COL_GAP, topo_sort_cells, place_cells, compute_col_x
 from circuitverse.yosys_ports import place_ports
 from circuitverse.components._common import X_START
 
@@ -86,9 +86,10 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
     bit_nodes = {}
 
     _, col_cells = topo_sort_cells(ymod)
+    col_x = compute_col_x(col_cells)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells)
-    components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level)
+        ymod, na, bit_nodes, col_cells, col_x)
+    components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
 
     # Wire nodes sharing the same Yosys net — chain topology
     # (each node connects to the next, not full mesh)
@@ -103,7 +104,7 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
         all_comps.extend(comp_list)
     _set_node_abs_positions(na, all_comps)
     na.route_orthogonal(all_comps)
-    na.verify_routing()
+    na.verify_routing(all_comps)
 
     wired_ids = sorted(set(
         i for i, n in enumerate(na.nodes) if n["connections"]
@@ -217,9 +218,10 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
     _, col_cells = topo_sort_cells(native_ymod)
 
     # Place ports and native cells
+    col_x = compute_col_x(col_cells)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells)
-    components = place_cells(col_cells, na, bit_nodes, gate_level=False)
+        ymod, na, bit_nodes, col_cells, col_x)
+    components = place_cells(col_cells, na, bit_nodes, gate_level=False, col_x=col_x)
 
     # Place subcircuit instances
     cv_subcircuits = []

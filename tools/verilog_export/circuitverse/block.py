@@ -1,10 +1,6 @@
 """CircuitVerse JSON generation (block-level)."""
 
-import os
 import re
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cv_common import _CVNodeAlloc, _cv_scope_id, _cv_layout, _build_cv_scope, unique_pos
 

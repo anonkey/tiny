@@ -1,7 +1,9 @@
 # Project Conventions
 
 Always update concerned README after changes (if exists)
-
+Use debug output (or add logs) for debbuging errors
+use shell tools as far as possible it's faster (sed for replacement e.g.)
+write test when you fix a bug to avoid regression
 ## Module structure (monorepo)
 
 Each Verilog module is a self-contained package under `modules/`:
