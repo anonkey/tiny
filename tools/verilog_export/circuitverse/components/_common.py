@@ -25,10 +25,10 @@ _YOSYS_DFF_PREFIX = "$_DFF"
 # ── Layout constants ─────────────────────────────────────────────────────
 # All values are multiples of 10 (CircuitVerse grid = 10x10).
 
-CELL_GAP = 100   # vertical gap between components in the same column (legacy)
-COL_GAP = 200    # horizontal gap between columns
-X_START = 300    # x of first gate column (leaves room for input + splitter)
-CELL_MARGIN = 20 # spacing between adjacent components
+CELL_GAP = 300   # vertical gap between components in the same column
+COL_GAP = 300    # horizontal gap between columns (room for routing)
+X_START = 400    # x of first gate column (leaves room for input + splitter)
+CELL_MARGIN = 100 # spacing between adjacent components (room for routing)
 
 
 # ── Pin helpers ──────────────────────────────────────────────────────────

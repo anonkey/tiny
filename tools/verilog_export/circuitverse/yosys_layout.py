@@ -6,12 +6,12 @@ Cell handlers live in components/ — this module provides topo sort and dispatc
 
 import sys
 
-from components._common import (
+from circuitverse.components._common import (
   _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START,
   _new_pin, _new_bus_pin, _param_int, _param_bits,
   _adapt_width, _maybe_invert,
 )
-from components import (
+from circuitverse.components import (
   place_gate_cells,
   place_logic, place_mux,
   place_add, place_sub, place_mul, place_divmod, place_neg,
@@ -133,9 +133,36 @@ _HL_DISPATCH = {
 }
 
 
+def _count_crossing_nets(col_cells):
+  """Count max nets crossing between any adjacent column pair.
+
+  This determines how much vertical space is needed for routing.
+  Includes port→first_column crossings (splitter outputs to first cells).
+  """
+  # Collect all input bits per column (bits consumed from the left)
+  max_crossing = 0
+  for depth, cells in col_cells.items():
+    in_bits = set()
+    for _, cell in cells:
+      dirs = cell.get("port_directions", {})
+      for pn, d in dirs.items():
+        if d == "input":
+          for b in cell["connections"].get(pn, []):
+            if not isinstance(b, str):
+              in_bits.add(b)
+    # The number of input bits is the crossing count from the left
+    max_crossing = max(max_crossing, len(in_bits))
+  return max_crossing
+
+
 def _place_hl_cells(col_cells, na, bit_nodes):
   """Place high-level (multi-bit) cells. Returns components dict."""
   components = {}
+
+  # Dynamic spacing: ensure enough vertical room for crossing nets
+  max_crossing = _count_crossing_nets(col_cells)
+  # Each crossing net needs ~20 deci-grid units of vertical space (2 grid cells)
+  dynamic_extra = max(0, (max_crossing - 4) * 20)  # extra beyond base CELL_MARGIN
 
   for depth in sorted(col_cells.keys()):
     x_cell = X_START + depth * COL_GAP
@@ -149,6 +176,7 @@ def _place_hl_cells(col_cells, na, bit_nodes):
       if handler:
         y_cell += handler(cell_name, cell, conns, na, bit_nodes,
                           components, x_cell, y_cell)
+        y_cell += dynamic_extra  # extra space for routing channels
       else:
         print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
               file=sys.stderr)

@@ -2,6 +2,30 @@
 and common component patterns (zero-extension, polarity inversion, constants)."""
 
 
+def _extract_comp_params(comp_type, comp):
+    """Extract dimension-relevant params from a component's constructorParamaters."""
+    ctor = comp.get("customData", {}).get("constructorParamaters", [])
+    params = {}
+    if comp_type in ("Input", "Output", "ConstantVal"):
+        if len(ctor) >= 2:
+            bw = ctor[1]
+            params["bitWidth"] = int(bw) if isinstance(bw, (int, str)) and str(bw).isdigit() else 1
+    elif comp_type in ("Multiplexer", "Demultiplexer"):
+        if len(ctor) >= 3 and not isinstance(ctor[2], list):
+            params["controlSignalSize"] = int(ctor[2])
+    elif comp_type == "Decoder":
+        if len(ctor) >= 2:
+            params["bitWidth"] = int(ctor[1]) if not isinstance(ctor[1], list) else 1
+    elif comp_type == "Splitter":
+        if len(ctor) >= 3 and isinstance(ctor[2], list):
+            params["bitWidthSplit"] = ctor[2]
+    elif comp_type in ("AndGate", "OrGate", "NandGate", "NorGate",
+                        "XorGate", "XnorGate"):
+        if len(ctor) >= 2:
+            params["inputLength"] = int(ctor[1])
+    return params
+
+
 class _CVNodeAlloc:
     """Allocate sequential node IDs for CircuitVerse allNodes list."""
 
@@ -33,28 +57,90 @@ class _CVNodeAlloc:
         if a not in self.nodes[b]["connections"]:
             self.nodes[b]["connections"].append(a)
 
-    def route_orthogonal(self):
+    def verify_routing(self):
+        """Check for routing issues: diagonals, visual shorts, pin overlaps.
+
+        Prints warnings to stderr.  Returns number of issues found.
+        """
+        import sys
+        issues = 0
+        GRID = 10
+
+        # Build absolute positions (bend nodes already absolute)
+        # Collect all wire segments per net (BFS from each connected component)
+        visited = set()
+        nets = []  # list of (set_of_nids, set_of_cells)
+
+        for start in range(len(self.nodes)):
+            if start in visited or not self.nodes[start]["connections"]:
+                continue
+            net_nids = set()
+            queue = [start]
+            while queue:
+                nid = queue.pop(0)
+                if nid in net_nids:
+                    continue
+                net_nids.add(nid)
+                for cid in self.nodes[nid]["connections"]:
+                    if cid not in net_nids:
+                        queue.append(cid)
+            visited |= net_nids
+
+            # Collect grid cells occupied by this net's segments
+            net_cells = set()
+            for nid in net_nids:
+                ax, ay = self.abs_pos[nid]
+                for cid in self.nodes[nid]["connections"]:
+                    if cid > nid:
+                        bx, by = self.abs_pos[cid]
+                        if ax == bx:
+                            for y in range(min(ay, by), max(ay, by) + GRID, GRID):
+                                net_cells.add((ax, y))
+                        elif ay == by:
+                            for x in range(min(ax, bx), max(ax, bx) + GRID, GRID):
+                                net_cells.add((x, ay))
+                        else:
+                            issues += 1
+                            print(f"ROUTE DIAG: node {nid}({ax},{ay}) <-> node {cid}({bx},{by})",
+                                  file=sys.stderr)
+            nets.append((net_nids, net_cells))
+
+        # Check for visual shorts: two different nets sharing a grid cell
+        for i in range(len(nets)):
+            for j in range(i + 1, len(nets)):
+                shared = nets[i][1] & nets[j][1]
+                if shared:
+                    issues += len(shared)
+                    # Find representative node labels
+                    sample_i = min(nets[i][0])
+                    sample_j = min(nets[j][0])
+                    print(f"ROUTE SHORT: nets (node {sample_i}...) and (node {sample_j}...) "
+                          f"share {len(shared)} cells, e.g. {sorted(shared)[:3]}",
+                          file=sys.stderr)
+
+        if issues == 0:
+            print("ROUTE OK: no diagonals or visual shorts", file=sys.stderr)
+        else:
+            print(f"ROUTE: {issues} issue(s) found", file=sys.stderr)
+        return issues
+
+    def route_orthogonal(self, components=None):
         """Insert intermediate type-2 nodes so all wires are orthogonal.
 
-        Simple L-bend routing: one bend node at (bx, ay) or (ax, by).
+        Uses Left-Edge channel routing on a 2D occupancy grid.
+        Component bounding boxes are marked as blocked so wires never
+        pass through component bodies.
         """
-        pairs = set()
-        for i, n in enumerate(self.nodes):
-            for j in n["connections"]:
-                pairs.add((min(i, j), max(i, j)))
+        GRID = 10  # 1 grid cell = 10 deci-grid units
+        PAD = 0    # no extra clearance — pins are at component edge
 
-        used = set()
-        for pos in self.abs_pos:
-            used.add(pos)
+        num_original = len(self.nodes)
 
-        def _nudge(x, y):
-            while (x, y) in used:
-                y += 10
-            used.add((x, y))
-            return x, y
+        def _snap(v):
+            return round(v / GRID) * GRID
 
         def _make_bend(x, y, bw):
-            x, y = _nudge(x, y)
+            x, y = _snap(x), _snap(y)
             nid = len(self.nodes)
             self.nodes.append({
                 "x": x, "y": y,
@@ -66,24 +152,366 @@ class _CVNodeAlloc:
             self.abs_pos.append((x, y))
             return nid
 
+        def _disconnect(a, b):
+            if b in self.nodes[a]["connections"]:
+                self.nodes[a]["connections"].remove(b)
+            if a in self.nodes[b]["connections"]:
+                self.nodes[b]["connections"].remove(a)
+
+        def _wire(a, b):
+            if b not in self.nodes[a]["connections"]:
+                self.nodes[a]["connections"].append(b)
+            if a not in self.nodes[b]["connections"]:
+                self.nodes[b]["connections"].append(a)
+
+        # ── Phase 1: collect connection pairs ──
+        pairs = set()
+        for i in range(num_original):
+            for j in self.nodes[i]["connections"]:
+                if j < num_original:
+                    pairs.add((min(i, j), max(i, j)))
+        if not pairs:
+            return
+
+        # ── Phase 2: build nets via union-find ──
+        parent = list(range(num_original))
+
+        def _find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def _union(a, b):
+            ra, rb = _find(a), _find(b)
+            if ra != rb:
+                parent[ra] = rb
+
         for a, b in pairs:
-            ax, ay = self.abs_pos[a]
-            bx, by = self.abs_pos[b]
-            if ax == bx or ay == by:
+            _union(a, b)
+
+        net_nodes = {}
+        for a, b in pairs:
+            root = _find(a)
+            net_nodes.setdefault(root, set()).update([a, b])
+
+        # ── Phase 3: characterize nets ──
+        nets = []
+        for root, node_ids in net_nodes.items():
+            positions = [self.abs_pos[n] for n in node_ids]
+            xs = [p[0] for p in positions]
+            ys = [p[1] for p in positions]
+            min_x, max_x = min(xs), max(xs)
+            min_y, max_y = min(ys), max(ys)
+            bw = self.nodes[next(iter(node_ids))]["bitWidth"]
+
+            if min_x == max_x and min_y == max_y:
                 continue
+            if min_x == max_x or min_y == max_y:
+                continue  # straight wire — no routing needed
 
-            bw = self.nodes[a]["bitWidth"]
+            area = (max_x - min_x) * (max_y - min_y)
+            nets.append({
+                "root": root,
+                "node_ids": node_ids,
+                "min_x": min_x, "max_x": max_x,
+                "min_y": min_y, "max_y": max_y,
+                "bw": bw,
+                "area": area,
+            })
 
-            # Single L-bend: horizontal first, then vertical
-            bend_id = _make_bend(bx, ay, bw)
+        if not nets:
+            return
 
-            self.nodes[a]["connections"].remove(b)
-            self.nodes[b]["connections"].remove(a)
+        # ── Phase 4: build occupancy grid ──
+        orig_xs = [self.abs_pos[i][0] for i in range(num_original)]
+        orig_ys = [self.abs_pos[i][1] for i in range(num_original)]
+        # Grid: 1 cell = GRID deci-grid units. All abs_pos are in deci-grid.
+        # Divide by GRID to get grid coords, multiply back when emitting bends.
+        MARGIN = 30  # grid cells of margin around the layout
+        min_gx = min(orig_xs) // GRID - MARGIN
+        min_gy = min(orig_ys) // GRID - MARGIN
+        max_gx = max(orig_xs) // GRID + MARGIN
+        max_gy = max(orig_ys) // GRID + MARGIN
+        gcols = max_gx - min_gx + 1
+        grows = max_gy - min_gy + 1
 
-            self.nodes[a]["connections"].append(bend_id)
-            self.nodes[bend_id]["connections"].append(a)
-            self.nodes[bend_id]["connections"].append(b)
-            self.nodes[b]["connections"].append(bend_id)
+        blocked = set()
+
+        # Collect pin grid positions — these must NOT be blocked
+        pin_grid = set()
+        for i in range(num_original):
+            ax, ay = self.abs_pos[i]
+            c = ax // GRID - min_gx
+            r = ay // GRID - min_gy
+            if 0 <= c < gcols and 0 <= r < grows:
+                pin_grid.add((c, r))
+
+        # Block component bodies — derive bounding box from pin positions
+        # (more accurate than reference formulas).
+        if components:
+            for comp in components:
+                cx, cy = comp.get("x", 0), comp.get("y", 0)
+                cd = comp.get("customData", {}).get("nodes", {})
+                # Collect all pin relative positions
+                pin_xs, pin_ys = [], []
+                for val in cd.values():
+                    if isinstance(val, int) and val < num_original:
+                        n = self.nodes[val]
+                        pin_xs.append(n["x"])
+                        pin_ys.append(n["y"])
+                    elif isinstance(val, list):
+                        for nid in val:
+                            if isinstance(nid, int) and nid < num_original:
+                                n = self.nodes[nid]
+                                pin_xs.append(n["x"])
+                                pin_ys.append(n["y"])
+                if not pin_xs:
+                    continue
+                # Body = bounding box of pins (in world coords)
+                body_x0 = (cx + min(pin_xs)) // GRID
+                body_x1 = (cx + max(pin_xs)) // GRID
+                body_y0 = (cy + min(pin_ys)) // GRID
+                body_y1 = (cy + max(pin_ys)) // GRID
+                for gx in range(body_x0, body_x1 + 1):
+                    for gy in range(body_y0, body_y1 + 1):
+                        c = gx - min_gx
+                        r = gy - min_gy
+                        if 0 <= c < gcols and 0 <= r < grows:
+                            if (c, r) not in pin_grid:
+                                blocked.add((c, r))
+
+        def _col(x):
+            """Convert deci-grid x to grid column."""
+            return x // GRID - min_gx
+
+        def _row(y):
+            """Convert deci-grid y to grid row."""
+            return y // GRID - min_gy
+
+        def _to_world(c, r):
+            """Convert grid (col, row) to deci-grid (x, y)."""
+            return (c + min_gx) * GRID, (r + min_gy) * GRID
+
+        # ── Phase 5: BFS maze router (Lee algorithm) ──
+        from collections import deque
+
+        # Directions: 0=right, 1=down, 2=left, 3=up
+        DC = [1, 0, -1, 0]
+        DR = [0, 1, 0, -1]
+
+        def _bfs_route(sc, sr, tc, tr):
+            """BFS shortest path on the grid. Returns list of (col, row) waypoints."""
+            if sc == tc and sr == tr:
+                return [(sc, sr)]
+
+            # Source must not be blocked
+            if (sc, sr) in blocked:
+                import sys
+                sys.stderr.write(f"  BFS: SOURCE ({sc},{sr}) IS BLOCKED!\n")
+                sys.stderr.flush()
+                return None
+
+            if (tc, tr) in blocked:
+                import sys
+                sys.stderr.write(f"  BFS: TARGET ({tc},{tr}) IS BLOCKED!\n")
+                sys.stderr.flush()
+
+            dist = {}
+            prev = {}
+            dist[(sc, sr)] = 0
+            queue = deque([(sc, sr)])
+
+            while queue:
+                c, r = queue.popleft()
+                if c == tc and r == tr:
+                    break
+                d = dist[(c, r)]
+                for i in range(4):
+                    nc, nr = c + DC[i], r + DR[i]
+                    if not (0 <= nc < gcols and 0 <= nr < grows):
+                        continue
+                    if (nc, nr) in blocked and not (nc == tc and nr == tr):
+                        continue
+                    if (nc, nr) not in dist:
+                        dist[(nc, nr)] = d + 1
+                        prev[(nc, nr)] = (c, r)
+                        queue.append((nc, nr))
+
+            if (tc, tr) not in dist:
+                import sys
+                sys.stderr.write(f"  BFS: explored {len(dist)} cells, target ({tc},{tr}) unreachable\n")
+                sys.stderr.flush()
+                return None
+
+            # Reconstruct path
+            path = []
+            c, r = tc, tr
+            while (c, r) != (sc, sr):
+                path.append((c, r))
+                c, r = prev[(c, r)]
+            path.append((sc, sr))
+            path.reverse()
+
+            # Extract waypoints (only turns + endpoints)
+            if len(path) <= 2:
+                return path
+            waypoints = [path[0]]
+            for i in range(1, len(path) - 1):
+                pc, pr = path[i - 1]
+                cc, cr = path[i]
+                nc, nr = path[i + 1]
+                if (nc - cc) != (cc - pc) or (nr - cr) != (cr - pr):
+                    waypoints.append(path[i])
+            waypoints.append(path[-1])
+            return waypoints
+
+        # Sort nets: smallest bounding box first (they block less)
+        nets.sort(key=lambda n: n["area"])
+
+        # ── Phase 6: route each net with A* ──
+        for net_idx, net in enumerate(nets):
+            import sys as _sys
+            _sys.stderr.write(f"NET {net_idx}/{len(nets)} nodes={len(net['node_ids'])} bw={net['bw']}\n")
+            _sys.stderr.flush()
+            bw = net["bw"]
+            node_ids = net["node_ids"]
+
+            # Remove existing direct connections within this net
+            existing_pairs = set()
+            for nid in node_ids:
+                for conn in list(self.nodes[nid]["connections"]):
+                    if conn in node_ids:
+                        existing_pairs.add((min(nid, conn), max(nid, conn)))
+            for a, b in existing_pairs:
+                _disconnect(a, b)
+
+            # Decompose multi-pin net into 2-pin subnets (nearest-sink)
+            nid_list = list(node_ids)
+            routed_set = {nid_list[0]}  # start from first node
+            remaining = set(nid_list[1:])
+            # Collect all routed cells for this net (for blocking after)
+            net_cells = set()
+
+            while remaining:
+                # Find nearest unrouted node to any routed node
+                best_pair = None
+                best_dist = float("inf")
+                for src in routed_set:
+                    sx, sy = self.abs_pos[src]
+                    for dst in remaining:
+                        dx, dy = self.abs_pos[dst]
+                        dist = abs(sx - dx) + abs(sy - dy)
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_pair = (src, dst)
+
+                src, dst = best_pair
+                sx, sy = self.abs_pos[src]
+                dx, dy = self.abs_pos[dst]
+
+                sc, sr = _col(sx), _row(sy)
+                tc, tr = _col(dx), _row(dy)
+
+                # Temporarily unblock src/dst cells and their departure
+                # neighbors so the router can leave/enter pins.
+                temp_unblocked = set()
+                for cell in [(sc, sr), (tc, tr)]:
+                    if cell in blocked:
+                        blocked.discard(cell)
+                        temp_unblocked.add(cell)
+                # Unblock a corridor from each pin outward through
+                # the component body so the router can exit/enter.
+                for nid, nc, nr in [(src, sc, sr), (dst, tc, tr)]:
+                    nt = self.nodes[nid]["type"]
+                    if nid < num_original and nt in (0, 1):
+                        dep_dc = 1 if nt == 1 else -1
+                        cc = nc + dep_dc
+                        while 0 <= cc < gcols and (cc, nr) in blocked:
+                            blocked.discard((cc, nr))
+                            temp_unblocked.add((cc, nr))
+                            cc += dep_dc
+                # Unblock cells of already-routed segments of THIS net
+                restored = set()
+                for cell in net_cells:
+                    if cell in blocked:
+                        blocked.discard(cell)
+                        restored.add(cell)
+
+                import sys, time
+                t0 = time.time()
+                # Skip if src and dst are at the same grid cell
+                if sc == tc and sr == tr:
+                    _wire(src, dst)
+                    routed_set.add(dst)
+                    remaining.discard(dst)
+                    continue
+
+                import sys as _sys
+                _sys.stderr.write(f"DBG {src}({sx},{sy})->{dst}({dx},{dy}) blk={len(blocked)}\n")
+                _sys.stderr.flush()
+                _t0 = time.time()
+                path = _bfs_route(sc, sr, tc, tr)
+                _sys.stderr.write(f"  -> {time.time()-_t0:.3f}s {'OK' if path else 'FAIL'}\n")
+                _sys.stderr.flush()
+
+                # Restore blocked state
+                for cell in temp_unblocked:
+                    blocked.add(cell)
+                for cell in restored:
+                    blocked.add(cell)
+
+                if path is None:
+                    import sys as _sys
+                    # Debug: check if src/dst cells are reachable
+                    src_blocked = (sc, sr) in blocked
+                    dst_blocked = (tc, tr) in blocked
+                    # Check immediate neighbors of src
+                    src_neighbors = sum(1 for d in range(4)
+                                        if 0 <= sc+DC[d] < gcols and 0 <= sr+DR[d] < grows
+                                        and (sc+DC[d], sr+DR[d]) not in blocked)
+                    dst_neighbors = sum(1 for d in range(4)
+                                        if 0 <= tc+DC[d] < gcols and 0 <= tr+DR[d] < grows
+                                        and (tc+DC[d], tr+DR[d]) not in blocked)
+                    _sys.stderr.write(
+                        f"ROUTE FAIL: {src}({sx},{sy})->{dst}({dx},{dy}) "
+                        f"grid={gcols}x{grows} blk={len(blocked)} "
+                        f"sc=({sc},{sr})blk={src_blocked} nbrs={src_neighbors} "
+                        f"tc=({tc},{tr})blk={dst_blocked} nbrs={dst_neighbors}\n"
+                    )
+                    # Skip this subnet, connect directly (will create diagonal)
+                    _wire(src, dst)
+                    routed_set.add(dst)
+                    remaining.discard(dst)
+                    continue
+
+                # Convert waypoints to bend nodes and wire them
+                # path = [(c0,r0), (c1,r1), ...] in grid coords
+                prev_nid = src
+                for i in range(1, len(path) - 1):
+                    wx, wy = _to_world(path[i][0], path[i][1])
+                    bend = _make_bend(wx, wy, bw)
+                    _wire(prev_nid, bend)
+                    prev_nid = bend
+                # Wire last bend to destination
+                if len(path) >= 2:
+                    _wire(prev_nid, dst)
+
+                # Block all cells along the path
+                for i in range(len(path) - 1):
+                    c0, r0 = path[i]
+                    c1, r1 = path[i + 1]
+                    if c0 == c1:
+                        for r in range(min(r0, r1), max(r0, r1) + 1):
+                            net_cells.add((c0, r))
+                            blocked.add((c0, r))
+                    elif r0 == r1:
+                        for c in range(min(c0, c1), max(c0, c1) + 1):
+                            net_cells.add((c, r0))
+                            blocked.add((c, r0))
+
+                routed_set.add(dst)
+                remaining.discard(dst)
 
 
 def _cv_scope_id():
@@ -344,7 +772,7 @@ def emit_split_reduce(na, bit_nodes, components, bw, inp_node,
     na.connect(inp_node, spl_inp)
     components.setdefault("Splitter", []).append(spl_comp)
 
-    from cv_component_registry import pin_pos, gate_output_pos
+    from circuitverse.components.registry import pin_pos, gate_output_pos
     gate_inputs = []
     for i, spl_out in enumerate(spl_outputs):
         ix, iy = pin_pos(gate_type, "inp", index=i, inputLength=bw)
@@ -379,7 +807,7 @@ def emit_component(na, component_type, x, y, direction="RIGHT", label="",
 
     Returns (component_dict, {pin_name: node_id}).
     """
-    from cv_component_registry import _COMPONENTS, _resolve_bw, pin_pos
+    from circuitverse.components.registry import _COMPONENTS, _resolve_bw, pin_pos
 
     comp_ref = _COMPONENTS.get(component_type)
     if comp_ref is None:

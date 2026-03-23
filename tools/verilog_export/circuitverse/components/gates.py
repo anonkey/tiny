@@ -2,16 +2,20 @@
 
 import sys
 
-from components._common import (
+from circuitverse.components._common import (
   _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, CELL_GAP, CELL_MARGIN, COL_GAP, X_START,
   _new_pin,
 )
-from cv_component_registry import pin_pos, gate_output_pos, component_height
+from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_gate_cells(col_cells, na, bit_nodes):
   """Place gate-level (1-bit) cells. Returns components dict."""
+  from circuitverse.yosys_layout import _count_crossing_nets
   components = {}
+
+  max_crossing = _count_crossing_nets(col_cells)
+  dynamic_extra = max(0, (max_crossing - 4) * 20)
 
   for depth in sorted(col_cells.keys()):
     x_cell = X_START + depth * COL_GAP
@@ -46,7 +50,7 @@ def place_gate_cells(col_cells, na, bit_nodes):
           },
         }
         components.setdefault(cv_type, []).append(comp)
-        y_cell += component_height(cv_type, inputLength=2) + CELL_MARGIN
+        y_cell += component_height(cv_type, inputLength=2) + CELL_MARGIN + dynamic_extra
 
       elif ctype == "$_NOT_":
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=-10, ry=0)
@@ -64,7 +68,7 @@ def place_gate_cells(col_cells, na, bit_nodes):
           },
         }
         components.setdefault("NotGate", []).append(comp)
-        y_cell += component_height("NotGate") + CELL_MARGIN
+        y_cell += component_height("NotGate") + CELL_MARGIN + dynamic_extra
 
       elif ctype.startswith(_YOSYS_DFF_PREFIX):
         conns = cell["connections"]
@@ -103,7 +107,7 @@ def place_gate_cells(col_cells, na, bit_nodes):
           },
         }
         components.setdefault("DflipFlop", []).append(comp)
-        y_cell += component_height("DflipFlop") + CELL_MARGIN
+        y_cell += component_height("DflipFlop") + CELL_MARGIN + dynamic_extra
 
       elif ctype == "$_MUX_":
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=-10, ry=-10)
@@ -127,7 +131,7 @@ def place_gate_cells(col_cells, na, bit_nodes):
           },
         }
         components.setdefault("Multiplexer", []).append(comp)
-        y_cell += component_height("Multiplexer", controlSignalSize=1) + CELL_MARGIN
+        y_cell += component_height("Multiplexer", controlSignalSize=1) + CELL_MARGIN + dynamic_extra
 
       else:
         print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",

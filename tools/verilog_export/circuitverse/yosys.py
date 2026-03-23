@@ -12,12 +12,10 @@ import subprocess
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from cv_common import _CVNodeAlloc, _cv_scope_id, _cv_layout
-from cv_yosys_layout import CELL_GAP, COL_GAP, topo_sort_cells, place_cells
-from cv_yosys_ports import place_ports
-from components._common import X_START
+from circuitverse.yosys_layout import CELL_GAP, COL_GAP, topo_sort_cells, place_cells
+from circuitverse.yosys_ports import place_ports
+from circuitverse.components._common import X_START
 
 
 def _yosys_synth(verilog_paths, top_name, gate_level=False):
@@ -104,7 +102,8 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
     for comp_list in components.values():
         all_comps.extend(comp_list)
     _set_node_abs_positions(na, all_comps)
-    na.route_orthogonal()
+    na.route_orthogonal(all_comps)
+    na.verify_routing()
 
     wired_ids = sorted(set(
         i for i, n in enumerate(na.nodes) if n["connections"]
@@ -346,7 +345,7 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
         sx, sy = sc["x"], sc["y"]
         for nid in sc["inputNodes"] + sc["outputNodes"]:
             na.set_parent_pos(nid, sx, sy)
-    na.route_orthogonal()
+    na.route_orthogonal(all_comps)
 
     wired_ids = sorted(set(
         i for i, n in enumerate(na.nodes) if n["connections"]

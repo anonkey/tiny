@@ -11,7 +11,7 @@ Layout columns (left to right):
 All positions snap to 10×10 grid.
 """
 
-from components._common import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START
+from circuitverse.components._common import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START
 
 # Columns for I/O
 _INP_X = 0       # Input component

@@ -30,10 +30,8 @@ if _SCRIPT_DIR not in sys.path:
 from manager_utils import discover_modules, find_project_root, resolve_deps
 
 from verilog_parser import parse_verilog
-from kicad_symbol import generate_sym_lib
-from kicad_schematic import generate_flat_schematic, generate_hier_schematic
-from circuitverse import generate_circuitverse
-from circuitverse_yosys import generate_circuitverse_yosys, generate_circuitverse_yosys_hier
+from kicad import generate_sym_lib, generate_flat_schematic, generate_hier_schematic
+from circuitverse import generate_circuitverse, generate_circuitverse_yosys, generate_circuitverse_yosys_hier
 
 _FORMATS = ["kicad-flat", "kicad-hier", "kicad-sym", "circuitverse", "circuitverse-yosys", "circuitverse-yosys-hier"]
 
