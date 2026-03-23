@@ -1,6 +1,6 @@
 """Bus operations: $slice, $concat."""
 
-from components._common import CELL_MARGIN, _new_bus_pin, _param_int
+from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
 from cv_common import emit_splitter, register_bits
 
 
@@ -30,7 +30,7 @@ def place_slice(cell_name, cell, conns, na, bit_nodes, components, x, y):
     na, a_bw, groups, "RIGHT", x, y,
     inp_node=spl_inp, out_nodes=out_nodes)
   components.setdefault("Splitter", []).append(spl_comp)
-  return 60 + CELL_MARGIN
+  return 60 + pin_clearance(max(1, len(groups)))
 
 
 def place_concat(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -48,4 +48,4 @@ def place_concat(cell_name, cell, conns, na, bit_nodes, components, x, y):
     na, y_bw, [a_bw, b_bw], "LEFT", x, y,
     inp_node=spl_inp, out_nodes=[spl_out_a, spl_out_b])
   components.setdefault("Splitter", []).append(spl_comp)
-  return 60 + CELL_MARGIN
+  return 60 + pin_clearance(2)

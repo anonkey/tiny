@@ -1,10 +1,10 @@
 """High-level DFF variants: $dff, $dffe, $adff, $adffe, $sdff, $sdffe."""
 
-from components._common import (
-  CELL_MARGIN, _new_bus_pin, _param_int, _maybe_invert,
+from circuitverse.components._common import (
+  pin_clearance, _new_bus_pin, _param_int, _maybe_invert,
 )
 from cv_common import emit_constant, register_bits
-from cv_component_registry import pin_pos, component_height
+from circuitverse.components.registry import pin_pos, component_height
 
 
 def place_dff(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -88,4 +88,4 @@ def place_dff(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("DflipFlop", []).append(comp)
-  return component_height("DflipFlop") + CELL_MARGIN
+  return component_height("DflipFlop") + pin_clearance(2)

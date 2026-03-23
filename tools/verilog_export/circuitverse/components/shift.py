@@ -1,8 +1,8 @@
 """Shift operations: $shl, $sshl, $shr, $sshr (merged)."""
 
-from components._common import CELL_MARGIN, _new_bus_pin, _param_int
+from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
 from cv_common import register_bits
-from cv_component_registry import pin_pos, component_height
+from circuitverse.components.registry import pin_pos, component_height
 
 
 def place_shift(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -38,4 +38,4 @@ def place_shift(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault(cv_type, []).append(comp)
-  return component_height(cv_type) + CELL_MARGIN
+  return component_height(cv_type) + pin_clearance(2)

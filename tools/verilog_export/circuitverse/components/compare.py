@@ -1,13 +1,13 @@
 """Comparison cells: $eq, $ne, $lt, $gt, $le, $ge."""
 
-from components._common import (
-  CELL_MARGIN, _new_bus_pin, _param_int, _adapt_width,
+from circuitverse.components._common import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
 )
 from cv_common import (
   emit_constant, emit_not_gate, emit_splitter, emit_split_reduce,
   register_bits,
 )
-from cv_component_registry import pin_pos, component_height
+from circuitverse.components.registry import pin_pos, component_height
 
 
 def place_eq_ne(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -43,7 +43,7 @@ def place_eq_ne(cell_name, cell, conns, na, bit_nodes, components, x, y):
     reduce_type, x + 60, y, x + 120, y)
   register_bits(na, bit_nodes, conns["Y"], reduce_out, 1)
 
-  return component_height("XnorGate", inputLength=2) + CELL_MARGIN + eh
+  return component_height("XnorGate", inputLength=2) + pin_clearance(2) + eh
 
 
 def place_lt_gt_le_ge(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -123,4 +123,4 @@ def place_lt_gt_le_ge(cell_name, cell, conns, na, bit_nodes, components, x, y):
   else:
     register_bits(na, bit_nodes, conns["Y"], bit0, 1)
 
-  return component_height("ALU") + CELL_MARGIN + eh
+  return component_height("ALU") + pin_clearance(2) + eh

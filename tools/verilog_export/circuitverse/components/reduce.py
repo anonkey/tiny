@@ -1,10 +1,10 @@
 """Reduction and logic operations: $reduce_*, $logic_not, $logic_and, $logic_or."""
 
-from components._common import (
-  CELL_GAP, CELL_MARGIN, _new_bus_pin, _param_int,
+from circuitverse.components._common import (
+  CELL_GAP, pin_clearance, _new_bus_pin, _param_int,
 )
 from cv_common import emit_split_reduce, register_bits
-from cv_component_registry import pin_pos, gate_output_pos, component_height
+from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_reduce(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -24,7 +24,7 @@ def place_reduce(cell_name, cell, conns, na, bit_nodes, components, x, y):
     na, bit_nodes, components, a_bw, spl_inp,
     gate_type, x - 40, y, x + 40, y)
   register_bits(na, bit_nodes, conns["Y"], gate_out, 1)
-  return component_height(gate_type, inputLength=a_bw) + CELL_MARGIN
+  return component_height(gate_type, inputLength=a_bw) + pin_clearance(1)
 
 
 def place_logic_not(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -35,7 +35,7 @@ def place_logic_not(cell_name, cell, conns, na, bit_nodes, components, x, y):
     na, bit_nodes, components, a_bw, spl_inp,
     "NorGate", x - 60, y, x + 20, y)
   register_bits(na, bit_nodes, conns["Y"], gate_out, 1)
-  return component_height("NorGate", inputLength=a_bw) + CELL_MARGIN
+  return component_height("NorGate", inputLength=a_bw) + pin_clearance(1)
 
 
 def place_logic_and_or(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -77,4 +77,4 @@ def place_logic_and_or(cell_name, cell, conns, na, bit_nodes, components, x, y):
       "nodes": {"inp": [ga, gb], "output1": gout},
     },
   })
-  return component_height(gate_type, inputLength=2) + CELL_MARGIN + 40
+  return component_height(gate_type, inputLength=2) + pin_clearance(1) + 40

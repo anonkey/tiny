@@ -28,7 +28,12 @@ _YOSYS_DFF_PREFIX = "$_DFF"
 CELL_GAP = 300   # vertical gap between components in the same column
 COL_GAP = 300    # horizontal gap between columns (room for routing)
 X_START = 400    # x of first gate column (leaves room for input + splitter)
-CELL_MARGIN = 100 # spacing between adjacent components (room for routing)
+CELL_MARGIN = 100 # legacy — prefer pin_clearance() for dynamic vertical spacing
+
+
+def pin_clearance(n):
+  """Clearance for n pins on one side: 20 if n<=1, else (n+1)*10."""
+  return 20 if n <= 1 else (n + 1) * 10
 
 
 # ── Pin helpers ──────────────────────────────────────────────────────────

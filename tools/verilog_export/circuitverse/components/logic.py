@@ -1,10 +1,10 @@
 """High-level multi-bit logic gates: $and, $or, $xor, $xnor, $not."""
 
-from components._common import (
-  CELL_MARGIN, _new_bus_pin, _param_int, _adapt_width,
+from circuitverse.components._common import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
 )
 from cv_common import emit_zero_extend, register_bits
-from cv_component_registry import pin_pos, gate_output_pos, component_height
+from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_logic(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -38,7 +38,7 @@ def place_logic(cell_name, cell, conns, na, bit_nodes, components, x, y):
       },
     }
     components.setdefault(cv_type, []).append(comp)
-    return component_height(cv_type, inputLength=2) + CELL_MARGIN + eh
+    return component_height(cv_type, inputLength=2) + pin_clearance(2) + eh
 
   # $not
   bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
@@ -65,4 +65,4 @@ def place_logic(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("NotGate", []).append(comp)
-  return component_height("NotGate") + CELL_MARGIN
+  return component_height("NotGate") + pin_clearance(1)

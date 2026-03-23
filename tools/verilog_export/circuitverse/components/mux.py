@@ -1,7 +1,7 @@
 """High-level multiplexer: $mux."""
 
-from components._common import CELL_MARGIN, _new_bus_pin, _param_int
-from cv_component_registry import component_height
+from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
+from circuitverse.components.registry import component_height
 
 
 def place_mux(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -28,4 +28,4 @@ def place_mux(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("Multiplexer", []).append(comp)
-  return component_height("Multiplexer", controlSignalSize=1) + CELL_MARGIN
+  return component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)

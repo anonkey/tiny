@@ -1,6 +1,6 @@
 """Memory cell: $mem_v2."""
 
-from components._common import _new_bus_pin, _param_int
+from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
 
 
 def place_mem_v2(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -148,4 +148,4 @@ def place_mem_v2(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("verilogRAM", []).append(comp)
-  return 160  # CELL_GAP + 60
+  return 110 + pin_clearance(4)

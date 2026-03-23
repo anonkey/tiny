@@ -1,10 +1,10 @@
 """Arithmetic cells: $add, $sub, $mul, $div, $mod, $neg."""
 
-from components._common import (
-  CELL_MARGIN, _new_bus_pin, _param_int, _adapt_width,
+from circuitverse.components._common import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
 )
 from cv_common import emit_constant, emit_not_gate, emit_zero_extend, register_bits
-from cv_component_registry import pin_pos, component_height
+from circuitverse.components.registry import pin_pos, component_height
 
 
 def place_add(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -67,7 +67,7 @@ def place_add(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("Adder", []).append(comp)
-  return component_height("Adder") + CELL_MARGIN + eh
+  return component_height("Adder") + pin_clearance(3) + eh
 
 
 def place_sub(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -115,7 +115,7 @@ def place_sub(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("ALU", []).append(comp)
-  return component_height("ALU") + CELL_MARGIN + eh
+  return component_height("ALU") + pin_clearance(2) + eh
 
 
 def place_mul(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -151,7 +151,7 @@ def place_mul(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("verilogMultiplier", []).append(comp)
-  return component_height("verilogMultiplier") + CELL_MARGIN + eh
+  return component_height("verilogMultiplier") + pin_clearance(2) + eh
 
 
 def place_divmod(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -193,7 +193,7 @@ def place_divmod(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("verilogDivider", []).append(comp)
-  return component_height("verilogDivider") + CELL_MARGIN + eh
+  return component_height("verilogDivider") + pin_clearance(2) + eh
 
 
 def place_neg(cell_name, cell, conns, na, bit_nodes, components, x, y):
@@ -230,4 +230,4 @@ def place_neg(cell_name, cell, conns, na, bit_nodes, components, x, y):
     },
   }
   components.setdefault("TwoComplement", []).append(comp)
-  return component_height("TwoComplement") + CELL_MARGIN
+  return component_height("TwoComplement") + pin_clearance(1)
