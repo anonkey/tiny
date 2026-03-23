@@ -161,8 +161,8 @@ def _place_hl_cells(col_cells, na, bit_nodes):
 
   # Dynamic spacing: ensure enough vertical room for crossing nets
   max_crossing = _count_crossing_nets(col_cells)
-  # Each crossing net needs ~20 deci-grid units of vertical space (2 grid cells)
-  dynamic_extra = max(0, (max_crossing - 4) * 20)  # extra beyond base CELL_MARGIN
+  # Each crossing net needs ~30 deci-grid units of vertical space (3 grid cells)
+  dynamic_extra = max(0, max_crossing * 30)  # enough vertical room for routing
 
   for depth in sorted(col_cells.keys()):
     x_cell = X_START + depth * COL_GAP

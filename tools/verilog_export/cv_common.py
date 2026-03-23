@@ -236,9 +236,12 @@ class _CVNodeAlloc:
         gcols = max_gx - min_gx + 1
         grows = max_gy - min_gy + 1
 
-        blocked = set()
+        blocked = set()       # component body cells — always impassable
+        wire_cells = set()    # cells occupied by routed wires — crossable with penalty
 
-        # Collect pin grid positions — these must NOT be blocked
+        # Collect pin grid positions and their neighbors — these must NOT
+        # be blocked by component bodies, so the router can reach pins
+        # and maneuver around them.
         pin_grid = set()
         for i in range(num_original):
             ax, ay = self.abs_pos[i]
@@ -246,6 +249,13 @@ class _CVNodeAlloc:
             r = ay // GRID - min_gy
             if 0 <= c < gcols and 0 <= r < grows:
                 pin_grid.add((c, r))
+                # Also keep neighbors free (departure + vertical maneuver)
+                nt = self.nodes[i]["type"]
+                dep_dc = 1 if nt == 1 else -1 if nt == 0 else 0
+                for dc, dr in [(dep_dc, 0), (0, -1), (0, 1)]:
+                    nc, nr = c + dc, r + dr
+                    if 0 <= nc < gcols and 0 <= nr < grows:
+                        pin_grid.add((nc, nr))
 
         # Block component bodies — derive bounding box from pin positions
         # (more accurate than reference formulas).
@@ -293,78 +303,71 @@ class _CVNodeAlloc:
             """Convert grid (col, row) to deci-grid (x, y)."""
             return (c + min_gx) * GRID, (r + min_gy) * GRID
 
-        # ── Phase 5: BFS maze router (Lee algorithm) ──
-        from collections import deque
+        # ── Phase 5: A* maze router (crossing = last resort) ──
+        import heapq
 
-        # Directions: 0=right, 1=down, 2=left, 3=up
         DC = [1, 0, -1, 0]
         DR = [0, 1, 0, -1]
 
-        def _bfs_route(sc, sr, tc, tr):
-            """BFS shortest path on the grid. Returns list of (col, row) waypoints."""
+        CROSS_PENALTY = 100  # heavy cost for crossing an existing wire
+
+        def _astar_route(sc, sr, tc, tr):
+            """A* shortest path. Wire cells are crossable but expensive."""
             if sc == tc and sr == tr:
                 return [(sc, sr)]
 
-            # Source must not be blocked
-            if (sc, sr) in blocked:
-                import sys
-                sys.stderr.write(f"  BFS: SOURCE ({sc},{sr}) IS BLOCKED!\n")
-                sys.stderr.flush()
-                return None
-
-            if (tc, tr) in blocked:
-                import sys
-                sys.stderr.write(f"  BFS: TARGET ({tc},{tr}) IS BLOCKED!\n")
-                sys.stderr.flush()
-
-            dist = {}
+            # (f, g, c, r)
+            INF = float("inf")
+            best = {}
             prev = {}
-            dist[(sc, sr)] = 0
-            queue = deque([(sc, sr)])
+            pq = []
+            g0 = 0
+            h0 = abs(sc - tc) + abs(sr - tr)
+            heapq.heappush(pq, (g0 + h0, g0, sc, sr))
+            best[(sc, sr)] = g0
 
-            while queue:
-                c, r = queue.popleft()
+            while pq:
+                f, g, c, r = heapq.heappop(pq)
+                if g > best.get((c, r), INF):
+                    continue
                 if c == tc and r == tr:
-                    break
-                d = dist[(c, r)]
+                    # Reconstruct
+                    path = [(c, r)]
+                    while (c, r) in prev:
+                        c, r = prev[(c, r)]
+                        path.append((c, r))
+                    path.reverse()
+                    # Extract waypoints
+                    if len(path) <= 2:
+                        return path
+                    waypoints = [path[0]]
+                    for i in range(1, len(path) - 1):
+                        pc, pr = path[i - 1]
+                        cc, cr = path[i]
+                        nc, nr = path[i + 1]
+                        if (nc - cc) != (cc - pc) or (nr - cr) != (cr - pr):
+                            waypoints.append(path[i])
+                    waypoints.append(path[-1])
+                    return waypoints
+
                 for i in range(4):
                     nc, nr = c + DC[i], r + DR[i]
                     if not (0 <= nc < gcols and 0 <= nr < grows):
                         continue
+                    # Component body = impassable (unless it's the target pin)
                     if (nc, nr) in blocked and not (nc == tc and nr == tr):
                         continue
-                    if (nc, nr) not in dist:
-                        dist[(nc, nr)] = d + 1
+                    step = 1
+                    if (nc, nr) in wire_cells:
+                        step += CROSS_PENALTY
+                    ng = g + step
+                    if ng < best.get((nc, nr), INF):
+                        best[(nc, nr)] = ng
                         prev[(nc, nr)] = (c, r)
-                        queue.append((nc, nr))
+                        h = abs(nc - tc) + abs(nr - tr)
+                        heapq.heappush(pq, (ng + h, ng, nc, nr))
 
-            if (tc, tr) not in dist:
-                import sys
-                sys.stderr.write(f"  BFS: explored {len(dist)} cells, target ({tc},{tr}) unreachable\n")
-                sys.stderr.flush()
-                return None
-
-            # Reconstruct path
-            path = []
-            c, r = tc, tr
-            while (c, r) != (sc, sr):
-                path.append((c, r))
-                c, r = prev[(c, r)]
-            path.append((sc, sr))
-            path.reverse()
-
-            # Extract waypoints (only turns + endpoints)
-            if len(path) <= 2:
-                return path
-            waypoints = [path[0]]
-            for i in range(1, len(path) - 1):
-                pc, pr = path[i - 1]
-                cc, cr = path[i]
-                nc, nr = path[i + 1]
-                if (nc - cc) != (cc - pc) or (nr - cr) != (cr - pr):
-                    waypoints.append(path[i])
-            waypoints.append(path[-1])
-            return waypoints
+            return None  # truly no path
 
         # Sort nets: smallest bounding box first (they block less)
         nets.sort(key=lambda n: n["area"])
@@ -420,17 +423,24 @@ class _CVNodeAlloc:
                     if cell in blocked:
                         blocked.discard(cell)
                         temp_unblocked.add(cell)
-                # Unblock a corridor from each pin outward through
-                # the component body so the router can exit/enter.
+                # Unblock corridors from each pin through the component body.
                 for nid, nc, nr in [(src, sc, sr), (dst, tc, tr)]:
                     nt = self.nodes[nid]["type"]
                     if nid < num_original and nt in (0, 1):
+                        # Horizontal corridor in departure direction
                         dep_dc = 1 if nt == 1 else -1
                         cc = nc + dep_dc
                         while 0 <= cc < gcols and (cc, nr) in blocked:
                             blocked.discard((cc, nr))
                             temp_unblocked.add((cc, nr))
                             cc += dep_dc
+                    # Vertical corridors (up and down from pin)
+                    for dr in (-1, 1):
+                        rr = nr + dr
+                        while 0 <= rr < grows and (nc, rr) in blocked:
+                            blocked.discard((nc, rr))
+                            temp_unblocked.add((nc, rr))
+                            rr += dr
                 # Unblock cells of already-routed segments of THIS net
                 restored = set()
                 for cell in net_cells:
@@ -438,21 +448,24 @@ class _CVNodeAlloc:
                         blocked.discard(cell)
                         restored.add(cell)
 
-                import sys, time
-                t0 = time.time()
                 # Skip if src and dst are at the same grid cell
                 if sc == tc and sr == tr:
                     _wire(src, dst)
+                    # Restore before continuing
+                    for cell in temp_unblocked:
+                        blocked.add(cell)
+                    for cell in restored:
+                        blocked.add(cell)
                     routed_set.add(dst)
                     remaining.discard(dst)
                     continue
 
-                import sys as _sys
-                _sys.stderr.write(f"DBG {src}({sx},{sy})->{dst}({dx},{dy}) blk={len(blocked)}\n")
+                import sys as _sys, time as _time
+                _sys.stderr.write(f"DBG {src}({sx},{sy})->{dst}({dx},{dy}) blk={len(blocked)} wire_blk={len(wire_cells)} unblk={len(temp_unblocked)} restored={len(restored)}\n")
                 _sys.stderr.flush()
-                _t0 = time.time()
-                path = _bfs_route(sc, sr, tc, tr)
-                _sys.stderr.write(f"  -> {time.time()-_t0:.3f}s {'OK' if path else 'FAIL'}\n")
+                _t0 = _time.time()
+                path = _astar_route(sc, sr, tc, tr)
+                _sys.stderr.write(f"  -> {_time.time()-_t0:.3f}s {'OK' if path else 'FAIL'}\n")
                 _sys.stderr.flush()
 
                 # Restore blocked state
@@ -497,18 +510,18 @@ class _CVNodeAlloc:
                 if len(path) >= 2:
                     _wire(prev_nid, dst)
 
-                # Block all cells along the path
+                # Mark routed wire cells — crossable with heavy penalty
                 for i in range(len(path) - 1):
                     c0, r0 = path[i]
                     c1, r1 = path[i + 1]
                     if c0 == c1:
                         for r in range(min(r0, r1), max(r0, r1) + 1):
                             net_cells.add((c0, r))
-                            blocked.add((c0, r))
+                            wire_cells.add((c0, r))
                     elif r0 == r1:
                         for c in range(min(c0, c1), max(c0, c1) + 1):
                             net_cells.add((c, r0))
-                            blocked.add((c, r0))
+                            wire_cells.add((c, r0))
 
                 routed_set.add(dst)
                 remaining.discard(dst)

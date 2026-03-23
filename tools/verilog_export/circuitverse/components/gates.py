@@ -15,7 +15,7 @@ def place_gate_cells(col_cells, na, bit_nodes):
   components = {}
 
   max_crossing = _count_crossing_nets(col_cells)
-  dynamic_extra = max(0, (max_crossing - 4) * 20)
+  dynamic_extra = max(0, max_crossing * 30)
 
   for depth in sorted(col_cells.keys()):
     x_cell = X_START + depth * COL_GAP
