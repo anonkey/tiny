@@ -239,57 +239,72 @@ class _CVNodeAlloc:
         blocked = set()       # component body cells — always impassable
         wire_cells = set()    # cells occupied by routed wires — crossable with penalty
 
-        # Collect pin grid positions and their neighbors — these must NOT
-        # be blocked by component bodies, so the router can reach pins
-        # and maneuver around them.
-        pin_grid = set()
+        CLEARANCE = 1  # min distance (grid cells) between wire and component/pin
+
+        # Pin grid positions (exact cells)
+        pin_grid = set()  # (col, row) of every pin
         for i in range(num_original):
             ax, ay = self.abs_pos[i]
             c = ax // GRID - min_gx
             r = ay // GRID - min_gy
             if 0 <= c < gcols and 0 <= r < grows:
                 pin_grid.add((c, r))
-                # Also keep neighbors free (departure + vertical maneuver)
-                nt = self.nodes[i]["type"]
-                dep_dc = 1 if nt == 1 else -1 if nt == 0 else 0
-                for dc, dr in [(dep_dc, 0), (0, -1), (0, 1)]:
-                    nc, nr = c + dc, r + dr
-                    if 0 <= nc < gcols and 0 <= nr < grows:
-                        pin_grid.add((nc, nr))
 
-        # Block component bodies — derive bounding box from pin positions
-        # (more accurate than reference formulas).
+        # Build pin→component center map and block component bodies + clearance
+        pin_depart = {}  # nid -> (dc, dr) departure direction (away from comp)
+
         if components:
             for comp in components:
                 cx, cy = comp.get("x", 0), comp.get("y", 0)
                 cd = comp.get("customData", {}).get("nodes", {})
-                # Collect all pin relative positions
-                pin_xs, pin_ys = [], []
+                comp_nids = []
                 for val in cd.values():
                     if isinstance(val, int) and val < num_original:
-                        n = self.nodes[val]
-                        pin_xs.append(n["x"])
-                        pin_ys.append(n["y"])
+                        comp_nids.append(val)
                     elif isinstance(val, list):
                         for nid in val:
                             if isinstance(nid, int) and nid < num_original:
-                                n = self.nodes[nid]
-                                pin_xs.append(n["x"])
-                                pin_ys.append(n["y"])
-                if not pin_xs:
+                                comp_nids.append(nid)
+                if not comp_nids:
                     continue
-                # Body = bounding box of pins (in world coords)
-                body_x0 = (cx + min(pin_xs)) // GRID
-                body_x1 = (cx + max(pin_xs)) // GRID
-                body_y0 = (cy + min(pin_ys)) // GRID
-                body_y1 = (cy + max(pin_ys)) // GRID
+
+                # Component center in grid coords
+                comp_gc = cx // GRID - min_gx
+                comp_gr = cy // GRID - min_gy
+
+                # Compute departure direction for each pin
+                for nid in comp_nids:
+                    pc = self.abs_pos[nid][0] // GRID - min_gx
+                    pr = self.abs_pos[nid][1] // GRID - min_gy
+                    dx = pc - comp_gc
+                    dy = pr - comp_gr
+                    if abs(dx) >= abs(dy):
+                        pin_depart[nid] = (1 if dx >= 0 else -1, 0)
+                    else:
+                        pin_depart[nid] = (0, 1 if dy >= 0 else -1)
+
+                # Body bounding box from pin positions + CLEARANCE expansion
+                pin_xs = [self.nodes[n]["x"] for n in comp_nids]
+                pin_ys = [self.nodes[n]["y"] for n in comp_nids]
+                body_x0 = (cx + min(pin_xs)) // GRID - CLEARANCE
+                body_x1 = (cx + max(pin_xs)) // GRID + CLEARANCE
+                body_y0 = (cy + min(pin_ys)) // GRID - CLEARANCE
+                body_y1 = (cy + max(pin_ys)) // GRID + CLEARANCE
                 for gx in range(body_x0, body_x1 + 1):
                     for gy in range(body_y0, body_y1 + 1):
                         c = gx - min_gx
                         r = gy - min_gy
                         if 0 <= c < gcols and 0 <= r < grows:
-                            if (c, r) not in pin_grid:
-                                blocked.add((c, r))
+                            blocked.add((c, r))
+
+        # Pin cells themselves are blocked (wires can't pass over foreign pins)
+        # The component clearance zone already covers the area around pins.
+        for i in range(num_original):
+            ax, ay = self.abs_pos[i]
+            pc = ax // GRID - min_gx
+            pr = ay // GRID - min_gy
+            if 0 <= pc < gcols and 0 <= pr < grows:
+                blocked.add((pc, pr))
 
         def _col(x):
             """Convert deci-grid x to grid column."""
@@ -396,6 +411,21 @@ class _CVNodeAlloc:
             # Collect all routed cells for this net (for blocking after)
             net_cells = set()
 
+            def _pin_departure(nid):
+                """Get the departure grid offset (dc, dr) for a pin.
+
+                The wire leaves the pin 1 unit away from the component body.
+                """
+                if nid in pin_depart:
+                    return pin_depart[nid]
+                # Fallback for non-component nodes: output→right, input→left
+                nt = self.nodes[nid]["type"]
+                if nt == 1:
+                    return (1, 0)
+                elif nt == 0:
+                    return (-1, 0)
+                return (1, 0)
+
             while remaining:
                 # Find nearest unrouted node to any routed node
                 best_pair = None
@@ -416,31 +446,38 @@ class _CVNodeAlloc:
                 sc, sr = _col(sx), _row(sy)
                 tc, tr = _col(dx), _row(dy)
 
-                # Temporarily unblock src/dst cells and their departure
-                # neighbors so the router can leave/enter pins.
+                # Same grid cell — just wire directly
+                if sc == tc and sr == tr:
+                    _wire(src, dst)
+                    routed_set.add(dst)
+                    remaining.discard(dst)
+                    continue
+
+                # Pin departure: offset A* source 1 unit away from component
+                src_dc, src_dr = _pin_departure(src)
+                astar_sc, astar_sr = sc + src_dc, sr + src_dr
+
+                # Pin arrival: offset A* target 1 unit away from component
+                dst_dc, dst_dr = _pin_departure(dst)
+                astar_tc, astar_tr = tc + dst_dc, tr + dst_dr
+
+                # Temporarily unblock departure/arrival cells and a corridor
+                # out of the clearance zone in the departure direction.
                 temp_unblocked = set()
-                for cell in [(sc, sr), (tc, tr)]:
-                    if cell in blocked:
-                        blocked.discard(cell)
-                        temp_unblocked.add(cell)
-                # Unblock corridors from each pin through the component body.
-                for nid, nc, nr in [(src, sc, sr), (dst, tc, tr)]:
-                    nt = self.nodes[nid]["type"]
-                    if nid < num_original and nt in (0, 1):
-                        # Horizontal corridor in departure direction
-                        dep_dc = 1 if nt == 1 else -1
-                        cc = nc + dep_dc
-                        while 0 <= cc < gcols and (cc, nr) in blocked:
-                            blocked.discard((cc, nr))
-                            temp_unblocked.add((cc, nr))
-                            cc += dep_dc
-                    # Vertical corridors (up and down from pin)
-                    for dr in (-1, 1):
-                        rr = nr + dr
-                        while 0 <= rr < grows and (nc, rr) in blocked:
-                            blocked.discard((nc, rr))
-                            temp_unblocked.add((nc, rr))
-                            rr += dr
+                for ac, ar, ddc, ddr in [(astar_sc, astar_sr, src_dc, src_dr),
+                                         (astar_tc, astar_tr, -dst_dc, -dst_dr)]:
+                    # Unblock the cell itself
+                    if (ac, ar) in blocked:
+                        blocked.discard((ac, ar))
+                        temp_unblocked.add((ac, ar))
+                    # Unblock corridor continuing in departure direction
+                    # until we exit the clearance zone
+                    cc, cr = ac + ddc, ar + ddr
+                    while 0 <= cc < gcols and 0 <= cr < grows and (cc, cr) in blocked:
+                        blocked.discard((cc, cr))
+                        temp_unblocked.add((cc, cr))
+                        cc += ddc
+                        cr += ddr
                 # Unblock cells of already-routed segments of THIS net
                 restored = set()
                 for cell in net_cells:
@@ -448,25 +485,8 @@ class _CVNodeAlloc:
                         blocked.discard(cell)
                         restored.add(cell)
 
-                # Skip if src and dst are at the same grid cell
-                if sc == tc and sr == tr:
-                    _wire(src, dst)
-                    # Restore before continuing
-                    for cell in temp_unblocked:
-                        blocked.add(cell)
-                    for cell in restored:
-                        blocked.add(cell)
-                    routed_set.add(dst)
-                    remaining.discard(dst)
-                    continue
-
-                import sys as _sys, time as _time
-                _sys.stderr.write(f"DBG {src}({sx},{sy})->{dst}({dx},{dy}) blk={len(blocked)} wire_blk={len(wire_cells)} unblk={len(temp_unblocked)} restored={len(restored)}\n")
-                _sys.stderr.flush()
-                _t0 = _time.time()
-                path = _astar_route(sc, sr, tc, tr)
-                _sys.stderr.write(f"  -> {_time.time()-_t0:.3f}s {'OK' if path else 'FAIL'}\n")
-                _sys.stderr.flush()
+                # A* from departure to arrival
+                path = _astar_route(astar_sc, astar_sr, astar_tc, astar_tr)
 
                 # Restore blocked state
                 for cell in temp_unblocked:
@@ -476,44 +496,33 @@ class _CVNodeAlloc:
 
                 if path is None:
                     import sys as _sys
-                    # Debug: check if src/dst cells are reachable
-                    src_blocked = (sc, sr) in blocked
-                    dst_blocked = (tc, tr) in blocked
-                    # Check immediate neighbors of src
-                    src_neighbors = sum(1 for d in range(4)
-                                        if 0 <= sc+DC[d] < gcols and 0 <= sr+DR[d] < grows
-                                        and (sc+DC[d], sr+DR[d]) not in blocked)
-                    dst_neighbors = sum(1 for d in range(4)
-                                        if 0 <= tc+DC[d] < gcols and 0 <= tr+DR[d] < grows
-                                        and (tc+DC[d], tr+DR[d]) not in blocked)
                     _sys.stderr.write(
                         f"ROUTE FAIL: {src}({sx},{sy})->{dst}({dx},{dy}) "
-                        f"grid={gcols}x{grows} blk={len(blocked)} "
-                        f"sc=({sc},{sr})blk={src_blocked} nbrs={src_neighbors} "
-                        f"tc=({tc},{tr})blk={dst_blocked} nbrs={dst_neighbors}\n"
+                        f"depart({astar_sc},{astar_sr})->({astar_tc},{astar_tr}) "
+                        f"grid={gcols}x{grows} blk={len(blocked)}\n"
                     )
-                    # Skip this subnet, connect directly (will create diagonal)
+                    _sys.stderr.flush()
                     _wire(src, dst)
                     routed_set.add(dst)
                     remaining.discard(dst)
                     continue
 
-                # Convert waypoints to bend nodes and wire them
-                # path = [(c0,r0), (c1,r1), ...] in grid coords
+                # Wire: src_pin → [departure → A* path → arrival] → dst_pin
+                # The path includes departure and arrival cells.
+                # Create bend at departure (first waypoint), connect pin to it.
                 prev_nid = src
-                for i in range(1, len(path) - 1):
+                for i in range(len(path)):
                     wx, wy = _to_world(path[i][0], path[i][1])
                     bend = _make_bend(wx, wy, bw)
                     _wire(prev_nid, bend)
                     prev_nid = bend
-                # Wire last bend to destination
-                if len(path) >= 2:
-                    _wire(prev_nid, dst)
+                _wire(prev_nid, dst)
 
-                # Mark routed wire cells — crossable with heavy penalty
-                for i in range(len(path) - 1):
-                    c0, r0 = path[i]
-                    c1, r1 = path[i + 1]
+                # Mark routed wire cells (including pin→departure and arrival→pin)
+                full_path = [(sc, sr)] + list(path) + [(tc, tr)]
+                for i in range(len(full_path) - 1):
+                    c0, r0 = full_path[i]
+                    c1, r1 = full_path[i + 1]
                     if c0 == c1:
                         for r in range(min(r0, r1), max(r0, r1) + 1):
                             net_cells.add((c0, r))
