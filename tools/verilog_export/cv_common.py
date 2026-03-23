@@ -236,22 +236,19 @@ class _CVNodeAlloc:
         gcols = max_gx - min_gx + 1
         grows = max_gy - min_gy + 1
 
-        blocked = set()       # component body cells — always impassable
-        wire_cells = set()    # cells occupied by routed wires — crossable with penalty
+        # Three cell states:
+        # - hard_blocked: component body cells — NEVER unlockable
+        # - soft_blocked: pin cells + their departure corridor — unlockable
+        #   only when routing a net connected to that specific pin
+        # - wire_cells: routed wire segments — crossable with heavy penalty
+        hard_blocked = set()
+        soft_blocked = {}  # (col, row) -> set of nids that can unlock it
+        wire_cells = set()
 
-        CLEARANCE = 1  # min distance (grid cells) between wire and component/pin
+        CLEARANCE = 1
 
-        # Pin grid positions (exact cells)
-        pin_grid = set()  # (col, row) of every pin
-        for i in range(num_original):
-            ax, ay = self.abs_pos[i]
-            c = ax // GRID - min_gx
-            r = ay // GRID - min_gy
-            if 0 <= c < gcols and 0 <= r < grows:
-                pin_grid.add((c, r))
-
-        # Build pin→component center map and block component bodies + clearance
-        pin_depart = {}  # nid -> (dc, dr) departure direction (away from comp)
+        # Build pin→component center map and populate blocking
+        pin_depart = {}  # nid -> (dc, dr) departure direction
 
         if components:
             for comp in components:
@@ -276,14 +273,14 @@ class _CVNodeAlloc:
                 for nid in comp_nids:
                     pc = self.abs_pos[nid][0] // GRID - min_gx
                     pr = self.abs_pos[nid][1] // GRID - min_gy
-                    dx = pc - comp_gc
-                    dy = pr - comp_gr
-                    if abs(dx) >= abs(dy):
-                        pin_depart[nid] = (1 if dx >= 0 else -1, 0)
+                    ddx = pc - comp_gc
+                    ddy = pr - comp_gr
+                    if abs(ddx) >= abs(ddy):
+                        pin_depart[nid] = (1 if ddx >= 0 else -1, 0)
                     else:
-                        pin_depart[nid] = (0, 1 if dy >= 0 else -1)
+                        pin_depart[nid] = (0, 1 if ddy >= 0 else -1)
 
-                # Body bounding box from pin positions + CLEARANCE expansion
+                # Body bounding box + CLEARANCE → hard_blocked
                 pin_xs = [self.nodes[n]["x"] for n in comp_nids]
                 pin_ys = [self.nodes[n]["y"] for n in comp_nids]
                 body_x0 = (cx + min(pin_xs)) // GRID - CLEARANCE
@@ -295,16 +292,35 @@ class _CVNodeAlloc:
                         c = gx - min_gx
                         r = gy - min_gy
                         if 0 <= c < gcols and 0 <= r < grows:
-                            blocked.add((c, r))
+                            hard_blocked.add((c, r))
 
-        # Pin cells themselves are blocked (wires can't pass over foreign pins)
-        # The component clearance zone already covers the area around pins.
-        for i in range(num_original):
-            ax, ay = self.abs_pos[i]
-            pc = ax // GRID - min_gx
-            pr = ay // GRID - min_gy
-            if 0 <= pc < gcols and 0 <= pr < grows:
-                blocked.add((pc, pr))
+                # Pin cells + departure corridor → soft_blocked
+                # These cells are unlockable ONLY for nets connected to this pin
+                for nid in comp_nids:
+                    pc = self.abs_pos[nid][0] // GRID - min_gx
+                    pr = self.abs_pos[nid][1] // GRID - min_gy
+                    dep_dc, dep_dr = pin_depart[nid]
+                    # Pin cell itself
+                    if 0 <= pc < gcols and 0 <= pr < grows:
+                        soft_blocked.setdefault((pc, pr), set()).add(nid)
+                    # Walk in departure direction until outside hard_blocked
+                    cc, cr = pc + dep_dc, pr + dep_dr
+                    while 0 <= cc < gcols and 0 <= cr < grows and (cc, cr) in hard_blocked:
+                        soft_blocked.setdefault((cc, cr), set()).add(nid)
+                        cc += dep_dc
+                        cr += dep_dr
+                    # One more cell outside for clearance
+                    if 0 <= cc < gcols and 0 <= cr < grows:
+                        soft_blocked.setdefault((cc, cr), set()).add(nid)
+
+        # Build the effective blocked set: hard_blocked + all soft_blocked cells
+        blocked = set(hard_blocked)
+        for cell in soft_blocked:
+            blocked.add(cell)
+
+        import sys as _dbg
+        _dbg.stderr.write(f"DBG grid={gcols}x{grows} hard={len(hard_blocked)} soft={len(soft_blocked)} total_blocked={len(blocked)}\n")
+        _dbg.stderr.flush()
 
         def _col(x):
             """Convert deci-grid x to grid column."""
@@ -453,31 +469,29 @@ class _CVNodeAlloc:
                     remaining.discard(dst)
                     continue
 
-                # Pin departure: offset A* source 1 unit away from component
+                # Compute A* endpoints: walk from pin in departure direction
+                # until outside hard_blocked, then 1 more cell for clearance.
                 src_dc, src_dr = _pin_departure(src)
                 astar_sc, astar_sr = sc + src_dc, sr + src_dr
+                while (astar_sc, astar_sr) in hard_blocked:
+                    astar_sc += src_dc
+                    astar_sr += src_dr
 
-                # Pin arrival: offset A* target 1 unit away from component
                 dst_dc, dst_dr = _pin_departure(dst)
                 astar_tc, astar_tr = tc + dst_dc, tr + dst_dr
+                while (astar_tc, astar_tr) in hard_blocked:
+                    astar_tc += dst_dc
+                    astar_tr += dst_dr
 
-                # Temporarily unblock departure/arrival cells and a corridor
-                # out of the clearance zone in the departure direction.
+                # Unlock soft_blocked cells belonging to src and dst pins
+                # (pin cells + their departure corridors)
                 temp_unblocked = set()
-                for ac, ar, ddc, ddr in [(astar_sc, astar_sr, src_dc, src_dr),
-                                         (astar_tc, astar_tr, -dst_dc, -dst_dr)]:
-                    # Unblock the cell itself
-                    if (ac, ar) in blocked:
-                        blocked.discard((ac, ar))
-                        temp_unblocked.add((ac, ar))
-                    # Unblock corridor continuing in departure direction
-                    # until we exit the clearance zone
-                    cc, cr = ac + ddc, ar + ddr
-                    while 0 <= cc < gcols and 0 <= cr < grows and (cc, cr) in blocked:
-                        blocked.discard((cc, cr))
-                        temp_unblocked.add((cc, cr))
-                        cc += ddc
-                        cr += ddr
+                current_nids = {src, dst}
+                for cell, nid_set in soft_blocked.items():
+                    if current_nids & nid_set and cell in blocked:
+                        blocked.discard(cell)
+                        temp_unblocked.add(cell)
+
                 # Unblock cells of already-routed segments of THIS net
                 restored = set()
                 for cell in net_cells:
@@ -488,7 +502,7 @@ class _CVNodeAlloc:
                 # A* from departure to arrival
                 path = _astar_route(astar_sc, astar_sr, astar_tc, astar_tr)
 
-                # Restore blocked state
+                # Restore all temporarily unblocked cells
                 for cell in temp_unblocked:
                     blocked.add(cell)
                 for cell in restored:
