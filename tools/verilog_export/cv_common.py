@@ -251,8 +251,10 @@ class _CVNodeAlloc:
         pin_depart = {}  # nid -> (dc, dr) departure direction
 
         if components:
+            from circuitverse.components.registry import dimensions as _ref_dimensions
             for comp in components:
                 cx, cy = comp.get("x", 0), comp.get("y", 0)
+                ct = comp.get("objectType", "")
                 cd = comp.get("customData", {}).get("nodes", {})
                 comp_nids = []
                 for val in cd.values():
@@ -265,28 +267,21 @@ class _CVNodeAlloc:
                 if not comp_nids:
                     continue
 
-                # Component center in grid coords
-                comp_gc = cx // GRID - min_gx
-                comp_gr = cy // GRID - min_gy
+                # Body size from reference dimensions
+                if ct:
+                    params = _extract_comp_params(ct, comp)
+                    try:
+                        dim = _ref_dimensions(ct, **params)
+                    except KeyError:
+                        dim = {"left": 20, "right": 20, "up": 20, "down": 20}
+                else:
+                    dim = {"left": 20, "right": 20, "up": 20, "down": 20}
 
-                # Compute departure direction for each pin
-                for nid in comp_nids:
-                    pc = self.abs_pos[nid][0] // GRID - min_gx
-                    pr = self.abs_pos[nid][1] // GRID - min_gy
-                    ddx = pc - comp_gc
-                    ddy = pr - comp_gr
-                    if abs(ddx) >= abs(ddy):
-                        pin_depart[nid] = (1 if ddx >= 0 else -1, 0)
-                    else:
-                        pin_depart[nid] = (0, 1 if ddy >= 0 else -1)
-
-                # Body bounding box + CLEARANCE → hard_blocked
-                pin_xs = [self.nodes[n]["x"] for n in comp_nids]
-                pin_ys = [self.nodes[n]["y"] for n in comp_nids]
-                body_x0 = (cx + min(pin_xs)) // GRID - CLEARANCE
-                body_x1 = (cx + max(pin_xs)) // GRID + CLEARANCE
-                body_y0 = (cy + min(pin_ys)) // GRID - CLEARANCE
-                body_y1 = (cy + max(pin_ys)) // GRID + CLEARANCE
+                # Body bounding box in grid coords + CLEARANCE ring
+                body_x0 = (cx - dim["left"]) // GRID - CLEARANCE
+                body_x1 = (cx + dim["right"]) // GRID + CLEARANCE
+                body_y0 = (cy - dim["up"]) // GRID - CLEARANCE
+                body_y1 = (cy + dim["down"]) // GRID + CLEARANCE
                 for gx in range(body_x0, body_x1 + 1):
                     for gy in range(body_y0, body_y1 + 1):
                         c = gx - min_gx
@@ -294,16 +289,28 @@ class _CVNodeAlloc:
                         if 0 <= c < gcols and 0 <= r < grows:
                             hard_blocked.add((c, r))
 
-                # Pin cells + departure corridor → soft_blocked
-                # These cells are unlockable ONLY for nets connected to this pin
+                # Component center in grid coords (for departure direction)
+                comp_gc = cx // GRID - min_gx
+                comp_gr = cy // GRID - min_gy
+
+                # Per-pin: compute departure direction + soft_blocked corridor
                 for nid in comp_nids:
                     pc = self.abs_pos[nid][0] // GRID - min_gx
                     pr = self.abs_pos[nid][1] // GRID - min_gy
+                    # Departure direction: away from component center
+                    ddx = pc - comp_gc
+                    ddy = pr - comp_gr
+                    if abs(ddx) >= abs(ddy):
+                        pin_depart[nid] = (1 if ddx >= 0 else -1, 0)
+                    else:
+                        pin_depart[nid] = (0, 1 if ddy >= 0 else -1)
                     dep_dc, dep_dr = pin_depart[nid]
-                    # Pin cell itself
+
+                    # Pin cell itself → soft_blocked for this pin only
                     if 0 <= pc < gcols and 0 <= pr < grows:
                         soft_blocked.setdefault((pc, pr), set()).add(nid)
-                    # Walk in departure direction until outside hard_blocked
+                    # Walk from pin in departure direction through hard_blocked
+                    # until outside → soft corridor for this pin only
                     cc, cr = pc + dep_dc, pr + dep_dr
                     while 0 <= cc < gcols and 0 <= cr < grows and (cc, cr) in hard_blocked:
                         soft_blocked.setdefault((cc, cr), set()).add(nid)
