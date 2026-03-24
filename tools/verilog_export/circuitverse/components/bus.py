@@ -1,7 +1,7 @@
 """Bus operations: $slice, $concat."""
 
 from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
-from cv_common import emit_splitter, register_bits
+from cv_emit import emit_splitter, register_bits
 
 
 def place_slice(cell_name, cell, conns, na, bit_nodes, components, x, y):

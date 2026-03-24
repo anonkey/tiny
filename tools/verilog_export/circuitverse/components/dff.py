@@ -3,7 +3,7 @@
 from circuitverse.components._common import (
   pin_clearance, _new_bus_pin, _param_int, _maybe_invert,
 )
-from cv_common import emit_constant, register_bits
+from cv_emit import emit_constant, register_bits
 from circuitverse.components.registry import pin_pos, component_height
 
 

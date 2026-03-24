@@ -2,8 +2,9 @@
 
 import sys
 
-from cv_common import (
-  _CVNodeAlloc, emit_constant, emit_not_gate, emit_zero_extend,
+from cv_node_alloc import _CVNodeAlloc
+from cv_emit import (
+  emit_constant, emit_not_gate, emit_zero_extend,
   register_bits, emit_splitter, emit_split_reduce,
 )
 

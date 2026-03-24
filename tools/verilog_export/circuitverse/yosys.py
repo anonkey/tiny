@@ -12,7 +12,8 @@ import subprocess
 import sys
 import tempfile
 
-from cv_common import _CVNodeAlloc, _cv_scope_id, _cv_layout
+from cv_node_alloc import _CVNodeAlloc
+from cv_scope import _cv_scope_id, _cv_layout
 from circuitverse.yosys_layout import CELL_GAP, COL_GAP, topo_sort_cells, place_cells, compute_col_x
 from circuitverse.yosys_ports import place_ports
 from circuitverse.components._common import X_START

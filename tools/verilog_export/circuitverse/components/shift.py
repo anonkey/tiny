@@ -1,7 +1,7 @@
 """Shift operations: $shl, $sshl, $shr, $sshr (merged)."""
 
 from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
-from cv_common import register_bits
+from cv_emit import register_bits
 from circuitverse.components.registry import pin_pos, component_height
 
 

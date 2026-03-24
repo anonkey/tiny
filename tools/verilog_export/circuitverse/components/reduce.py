@@ -3,7 +3,7 @@
 from circuitverse.components._common import (
   CELL_GAP, pin_clearance, _new_bus_pin, _param_int,
 )
-from cv_common import emit_split_reduce, register_bits
+from cv_emit import emit_split_reduce, register_bits
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 

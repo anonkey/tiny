@@ -3,7 +3,7 @@
 from circuitverse.components._common import (
   pin_clearance, _new_bus_pin, _param_int, _adapt_width,
 )
-from cv_common import (
+from cv_emit import (
   emit_constant, emit_not_gate, emit_splitter, emit_split_reduce,
   register_bits,
 )

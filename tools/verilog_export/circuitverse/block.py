@@ -2,7 +2,9 @@
 
 import re
 
-from cv_common import _CVNodeAlloc, _cv_scope_id, _cv_layout, _build_cv_scope, unique_pos
+from cv_node_alloc import _CVNodeAlloc
+from cv_scope import _cv_scope_id, _cv_layout, _build_cv_scope
+from cv_emit import unique_pos
 
 
 def generate_circuitverse(top_mod, sub_modules):
