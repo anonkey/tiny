@@ -248,6 +248,132 @@ async def test_back_to_back(dut):
     assert (int(dut.read_data.value) & 0xFF) == 0xAA
 
 
+# Default TIMEOUT_W = 10 → 1023 cycles to saturate
+TIMEOUT_CYCLES = 1023
+
+
+@cocotb.test()
+async def test_timeout_fires(dut):
+    """Timeout fires when spi_byte_done never arrives in CMD_WAIT."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    await pulse_mem_req(dut, MEM_OP_FETCH, addr=0x10)
+
+    # Wait for CMD_LOAD → CMD_WAIT
+    await wait_for_tx_load(dut)
+
+    # Now in CMD_WAIT. Do NOT pulse byte_done.
+    timeout_fired = False
+    for cycle in range(TIMEOUT_CYCLES + 20):
+        await RisingEdge(dut.clk)
+        if int(dut.timeout.value) == 1:
+            timeout_fired = True
+            break
+    assert timeout_fired, "timeout never fired"
+
+    # mem_done should NOT fire on timeout
+    assert int(dut.mem_done.value) == 0, "mem_done should not fire on timeout"
+
+    # Should be back in IDLE
+    await FallingEdge(dut.clk)
+    assert int(dut.state.value) == 0, "should be back in IDLE"
+    assert int(dut.cs_n.value) == 1, "CS should be deasserted"
+
+
+@cocotb.test()
+async def test_timeout_in_wren_wait(dut):
+    """Timeout fires when spi_byte_done never arrives in WREN_WAIT."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    await pulse_mem_req(dut, MEM_OP_STORE, addr=0x30, wdata=0x55)
+
+    # Wait for WREN_LOAD → WREN_WAIT
+    tx = await wait_for_tx_load(dut)
+    assert tx == CMD_WREN
+
+    # Do NOT pulse byte_done — let it timeout
+    timeout_fired = False
+    for cycle in range(TIMEOUT_CYCLES + 20):
+        await RisingEdge(dut.clk)
+        if int(dut.timeout.value) == 1:
+            timeout_fired = True
+            break
+    assert timeout_fired, "timeout never fired in WREN_WAIT"
+
+    await FallingEdge(dut.clk)
+    assert int(dut.state.value) == 0, "should be back in IDLE"
+    assert int(dut.cs_n.value) == 1, "CS should be deasserted"
+
+
+@cocotb.test()
+async def test_recovery_after_timeout(dut):
+    """After a timeout, a normal FETCH completes successfully."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    # --- Trigger timeout ---
+    await pulse_mem_req(dut, MEM_OP_FETCH, addr=0x10)
+    await wait_for_tx_load(dut)
+
+    for _ in range(TIMEOUT_CYCLES + 20):
+        await RisingEdge(dut.clk)
+        if int(dut.timeout.value) == 1:
+            break
+
+    await tick(dut)
+    assert int(dut.state.value) == 0, "should be in IDLE after timeout"
+
+    # --- Normal FETCH should work ---
+    await pulse_mem_req(dut, MEM_OP_FETCH, addr=0x42)
+
+    tx = await wait_for_tx_load(dut)
+    assert tx == CMD_IFETCH
+    await pulse_byte_done(dut)
+
+    tx = await wait_for_tx_load(dut)
+    assert tx == 0x42
+    await pulse_byte_done(dut)
+
+    await wait_for_tx_load(dut)
+    await pulse_byte_done(dut, rx_data=0xCA)
+
+    await wait_for_tx_load(dut)
+    await pulse_byte_done(dut, rx_data=0xFE)
+
+    await wait_for_mem_done(dut)
+    assert int(dut.read_data.value) == 0xCAFE
+
+
+@cocotb.test()
+async def test_no_false_timeout(dut):
+    """Normal FETCH with timely byte_done never triggers timeout."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    await pulse_mem_req(dut, MEM_OP_FETCH, addr=0x00)
+
+    tx = await wait_for_tx_load(dut)
+    assert tx == CMD_IFETCH
+    await pulse_byte_done(dut)
+
+    tx = await wait_for_tx_load(dut)
+    assert tx == 0x00
+    await pulse_byte_done(dut)
+
+    await wait_for_tx_load(dut)
+    await pulse_byte_done(dut, rx_data=0xAB)
+
+    await wait_for_tx_load(dut)
+    await pulse_byte_done(dut, rx_data=0xCD)
+
+    await wait_for_mem_done(dut)
+
+    # Verify timeout never fired during the whole operation
+    assert int(dut.timeout.value) == 0, "timeout should not fire during normal op"
+
+
 @cocotb.test()
 async def test_idle_no_done(dut):
     """No mem_done pulse when idle (no spurious signals)."""

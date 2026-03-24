@@ -8,6 +8,7 @@ module half_cpu (
   output [7:0]  o_pc,
   output [7:0]  o_alu,
   output [6:0]  o_state,          // {mem_state[3:0], cpu_state[2:0]}
+  output        o_timeout,        // SPI timeout from mem_ctrl
 
   // Physical SPI bus (4 wires)
   output        o_mosi,
@@ -31,6 +32,7 @@ module half_cpu (
   wire [7:0]  w_mem_addr;
   wire [7:0]  w_mem_wdata;
   wire        w_mem_done;
+  wire        w_mem_timeout;
 
   // --- Internal SPI signals (mem_ctrl <-> spi_phy) ---
   wire [7:0]  w_spi_tx_data;
@@ -40,6 +42,7 @@ module half_cpu (
   wire        w_cs_n;
 
   assign o_cs_n = w_cs_n;
+  assign o_timeout = w_mem_timeout;
 
   // --- Read data from mem_ctrl (accumulated RX bytes) ---
   wire [15:0] w_read_data;
@@ -180,6 +183,7 @@ module half_cpu (
     .i_rs2_data(w_rd2_data),
     .i_is_load(w_is_load),
     .i_is_store(w_is_store),
+    .i_timeout(w_mem_timeout),
     .i_clk(i_clk),
     .i_rst_n(i_rst_n)
   );
@@ -197,6 +201,7 @@ module half_cpu (
     .i_mem_addr(w_mem_addr),
     .i_mem_wdata(w_mem_wdata),
     .o_mem_done(w_mem_done),
+    .o_timeout(w_mem_timeout),
     .o_state(w_mem_state),
     .i_clk(i_clk),
     .i_rst_n(i_rst_n)

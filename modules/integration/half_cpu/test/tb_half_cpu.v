@@ -10,7 +10,7 @@ module tb_half_cpu ();
 
   reg        clk, rst_n;
   reg        sclk, miso;
-  wire       mosi, cs_n;
+  wire       mosi, cs_n, timeout;
   wire [7:0] pc_out, alu_out;
   wire [6:0] state;
 
@@ -18,6 +18,7 @@ module tb_half_cpu ();
     .o_pc(pc_out),
     .o_alu(alu_out),
     .o_state(state),
+    .o_timeout(timeout),
     .o_mosi(mosi),
     .i_miso(miso),
     .o_cs_n(cs_n),

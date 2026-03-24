@@ -19,9 +19,16 @@
 | `mem_addr` | in | 8 | Address |
 | `mem_wdata` | in | 8 | Write data (STORE only) |
 | `mem_done` | out | 1 | Pulse: operation complete |
+| `timeout` | out | 1 | Pulse: SPI timeout (bus stall detected) |
 | `state` | out | 4 | Current FSM state (debug) |
 | `clk` | in | 1 | System clock |
 | `rst_n` | in | 1 | Async active-low reset |
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `TIMEOUT_W` | 10 | Timeout counter width. FSM returns to IDLE after `2^TIMEOUT_W - 1` clocks in any `*_WAIT` state without `spi_byte_done`. |
 
 ## State Machine
 
@@ -104,6 +111,12 @@ CS_n:  ↓───────────────────────�
 |-----------|-------------------|-------------------|
 | FETCH | RX byte 1 (instr hi) | RX byte 2 (instr lo) |
 | LOAD | (unchanged) | RX byte 1 (data) |
+
+## Timeout
+
+A saturating counter runs while the FSM is in any `*_WAIT` state. If it reaches `2^TIMEOUT_W - 1` clocks without `spi_byte_done`, the FSM forces a transition to `S_IDLE` and pulses `o_timeout`. The counter resets on entering IDLE, on each `spi_byte_done`, or on saturation.
+
+`o_mem_done` does **not** fire on timeout — only `o_timeout` fires. The upstream `cpu_fsm` uses `i_timeout` to exit its own wait states and restart from `FETCH_REQ`.
 
 ## Dependencies
 

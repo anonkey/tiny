@@ -20,6 +20,7 @@ module tb_mem_ctrl ();
   wire        cs_n;
   wire [15:0] read_data;
   wire        mem_done;
+  wire        timeout;
   wire [3:0]  state;
 
   mem_ctrl dut (
@@ -34,6 +35,7 @@ module tb_mem_ctrl ();
     .i_mem_addr(mem_addr),
     .i_mem_wdata(mem_wdata),
     .o_mem_done(mem_done),
+    .o_timeout(timeout),
     .o_state(state),
     .i_clk(clk),
     .i_rst_n(rst_n)

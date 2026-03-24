@@ -28,6 +28,9 @@ module cpu_fsm (
   input  wire        i_is_load,       // decoder says LOAD
   input  wire        i_is_store,      // decoder says STORE
 
+  // Timeout (from mem_ctrl)
+  input  wire        i_timeout,       // pulse: SPI timeout occurred
+
   // System
   input  wire        i_clk,
   input  wire        i_rst_n
@@ -70,12 +73,14 @@ module cpu_fsm (
   wire [2:0] w_next_state =
     w_in_fetch_req                            ? S_FETCH_WAIT :
     (w_in_fetch_wait & i_mem_done)            ? S_DECODE :
+    (w_in_fetch_wait & i_timeout)            ? S_FETCH_REQ :
     w_in_fetch_wait                           ? S_FETCH_WAIT :
     w_in_decode                               ? S_EXECUTE :
     (w_in_execute & (i_is_load | i_is_store)) ? S_MEM_REQ :
     w_in_execute                              ? S_WRITEBACK :
     w_in_mem_req                              ? S_MEM_WAIT :
     (w_in_mem_wait & i_mem_done)              ? S_WRITEBACK :
+    (w_in_mem_wait & i_timeout)              ? S_FETCH_REQ :
     w_in_mem_wait                             ? S_MEM_WAIT :
     w_in_writeback                            ? S_PC_UPDATE :
     w_in_pc_update                            ? S_FETCH_REQ :

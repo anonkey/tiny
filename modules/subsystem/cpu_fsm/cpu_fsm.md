@@ -23,6 +23,7 @@
 | `rs2_data` | in | 8 | Register source 2 (STORE data) |
 | `is_load` | in | 1 | Decoder indicates LOAD instruction |
 | `is_store` | in | 1 | Decoder indicates STORE instruction |
+| `timeout` | in | 1 | SPI timeout pulse from mem_ctrl |
 | `clk` | in | 1 | System clock |
 | `rst_n` | in | 1 | Async active-low reset |
 
@@ -52,6 +53,10 @@ FETCH_REQ → FETCH_WAIT → DECODE → EXECUTE
 | STORE | `10` | ALU result | rs2_data |
 
 The CPU FSM issues abstract memory requests. The memory controller (`mem_ctrl`) translates them into SPI transactions.
+
+## Timeout Recovery
+
+On `i_timeout` from `mem_ctrl`, both `FETCH_WAIT` and `MEM_WAIT` transition to `FETCH_REQ`, restarting the pipeline from fetch.
 
 ## Dependencies
 

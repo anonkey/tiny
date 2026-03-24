@@ -11,6 +11,7 @@
 | `pc` | out | 8 | Current program counter (debug) |
 | `alu` | out | 8 | ALU result (debug) |
 | `state` | out | 7 | FSM state: {mem_state[3:0], cpu_state[2:0]} |
+| `timeout` | out | 1 | SPI timeout pulse from mem_ctrl |
 | `mosi` | out | 1 | SPI master-out (TX to nvSRAM) |
 | `miso` | in | 1 | SPI master-in (RX from nvSRAM) |
 | `cs_n` | out | 1 | SPI chip select (active low) |

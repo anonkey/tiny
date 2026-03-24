@@ -5,7 +5,9 @@
 // Drives CS_n to frame variable-length commands.
 // Structural: no always blocks.
 
-module mem_ctrl (
+module mem_ctrl #(
+  parameter TIMEOUT_W = 10
+) (
   // SPI byte interface
   output wire [7:0]  o_spi_tx_data,
   output wire        o_spi_tx_load,
@@ -24,6 +26,9 @@ module mem_ctrl (
   input  wire [7:0]  i_mem_addr,      // address
   input  wire [7:0]  i_mem_wdata,     // write data (STORE only)
   output wire        o_mem_done,      // pulse: operation complete
+
+  // Timeout
+  output wire        o_timeout,       // pulse: SPI timeout occurred
 
   // Debug
   output wire [3:0]  o_state,
@@ -86,6 +91,10 @@ module mem_ctrl (
   wire w_in_rx2_load   = (r_state == S_RX2_LOAD);
   wire w_in_rx2_wait   = (r_state == S_RX2_WAIT);
 
+  wire w_in_any_wait   = w_in_wren_wait | w_in_cmd_wait | w_in_addr_wait |
+                          w_in_wdata_wait | w_in_dummy_wait | w_in_rx1_wait |
+                          w_in_rx2_wait;
+
   // =====================================================================
   // Latched request registers (captured on IDLE & mem_req)
   // =====================================================================
@@ -140,6 +149,8 @@ module mem_ctrl (
                                               ? S_WREN_LOAD :
     (w_in_idle & i_mem_req)                   ? S_CMD_LOAD :
     w_in_idle                                 ? S_IDLE :
+    // TIMEOUT — any WAIT state, counter saturated → force IDLE
+    w_timeout                                 ? S_IDLE :
     // WREN sequence
     w_in_wren_load                            ? S_WREN_WAIT :
     (w_in_wren_wait & i_spi_byte_done)        ? S_WREN_CS_HI :
@@ -182,6 +193,24 @@ module mem_ctrl (
     .o_Q(r_state), .i_D(w_next_state),
     .i_clk(i_clk), .i_rst_n(i_rst_n), .i_en(1'b1)
   );
+
+  // =====================================================================
+  // Timeout counter — counts system clocks while in any *_WAIT state.
+  // Resets on IDLE, byte_done, or saturation. Saturates at all-ones.
+  // =====================================================================
+  wire [TIMEOUT_W-1:0] w_tmo_cnt;
+  wire w_tmo_max  = &w_tmo_cnt;
+  wire w_tmo_rst  = w_in_idle | i_spi_byte_done | w_tmo_max;
+  wire w_tmo_en   = w_in_any_wait | w_tmo_rst;
+  wire [TIMEOUT_W-1:0] w_tmo_next = w_tmo_rst ? {TIMEOUT_W{1'b0}}
+                                               : (w_tmo_cnt + {{(TIMEOUT_W-1){1'b0}}, 1'b1});
+
+  register #(.N(TIMEOUT_W)) tmo_cnt_reg (
+    .o_Q(w_tmo_cnt), .i_D(w_tmo_next),
+    .i_clk(i_clk), .i_rst_n(i_rst_n), .i_en(w_tmo_en)
+  );
+
+  wire w_timeout = w_tmo_max & w_in_any_wait;
 
   // =====================================================================
   // CS_n output (registered)
@@ -253,6 +282,15 @@ module mem_ctrl (
   dff mem_done_ff (
     .o_Q(o_mem_done), .o_Qn(),
     .i_D(w_next_mem_done),
+    .i_clk(i_clk), .i_rst_n(i_rst_n), .i_en(1'b1)
+  );
+
+  // =====================================================================
+  // Timeout output (registered pulse)
+  // =====================================================================
+  dff timeout_ff (
+    .o_Q(o_timeout), .o_Qn(),
+    .i_D(w_timeout),
     .i_clk(i_clk), .i_rst_n(i_rst_n), .i_en(1'b1)
   );
 
