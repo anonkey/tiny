@@ -1,29 +1,11 @@
 """Shared CircuitVerse helpers: node allocator, scope IDs, layout, scope builder,
 and common component patterns (zero-extension, polarity inversion, constants)."""
 
+import logging
 
-def _extract_comp_params(comp_type, comp):
-    """Extract dimension-relevant params from a component's constructorParamaters."""
-    ctor = comp.get("customData", {}).get("constructorParamaters", [])
-    params = {}
-    if comp_type in ("Input", "Output", "ConstantVal"):
-        if len(ctor) >= 2:
-            bw = ctor[1]
-            params["bitWidth"] = int(bw) if isinstance(bw, (int, str)) and str(bw).isdigit() else 1
-    elif comp_type in ("Multiplexer", "Demultiplexer"):
-        if len(ctor) >= 3 and not isinstance(ctor[2], list):
-            params["controlSignalSize"] = int(ctor[2])
-    elif comp_type == "Decoder":
-        if len(ctor) >= 2:
-            params["bitWidth"] = int(ctor[1]) if not isinstance(ctor[1], list) else 1
-    elif comp_type == "Splitter":
-        if len(ctor) >= 3 and isinstance(ctor[2], list):
-            params["bitWidthSplit"] = ctor[2]
-    elif comp_type in ("AndGate", "OrGate", "NandGate", "NorGate",
-                        "XorGate", "XnorGate"):
-        if len(ctor) >= 2:
-            params["inputLength"] = int(ctor[1])
-    return params
+from cv_utils import _extract_comp_params  # noqa: F401 — used by verify_routing + re-exported
+
+_log = logging.getLogger(__name__)
 
 
 class _CVNodeAlloc:
@@ -68,7 +50,6 @@ class _CVNodeAlloc:
 
         Prints warnings to stderr.  Returns number of issues found.
         """
-        import sys
         issues = 0
         GRID = 10
 
@@ -123,8 +104,8 @@ class _CVNodeAlloc:
                             net_segments.add(('H', ay, min(ax, bx), max(ax, bx)))
                         else:
                             issues += 1
-                            print(f"ROUTE WARN DIAG: node {nid}({ax},{ay}) <-> node {cid}({bx},{by})",
-                                  file=sys.stderr)
+                            _log.warning("DIAG: node %d(%d,%d) <-> node %d(%d,%d)",
+                                         nid, ax, ay, cid, bx, by)
             # Junction cells: nodes with 3+ connections (T or star junctions)
             junction_cells = set()
             for nid in net_nids:
@@ -146,13 +127,13 @@ class _CVNodeAlloc:
                     crossed = shared - junctions
                     if shorted:
                         issues += len(shorted)
-                        print(f"ROUTE WARN SHORT: nets (node {sample_i}...) and (node {sample_j}...) "
-                              f"share {len(shorted)} junction cells, e.g. {sorted(shorted)[:3]}",
-                              file=sys.stderr)
+                        _log.warning("SHORT: nets (node %d...) and (node %d...) "
+                                     "share %d junction cells, e.g. %s",
+                                     sample_i, sample_j, len(shorted), sorted(shorted)[:3])
                     if crossed:
-                        print(f"ROUTE INFO CROSS: nets (node {sample_i}...) and (node {sample_j}...) "
-                              f"cross at {len(crossed)} cells, e.g. {sorted(crossed)[:3]}",
-                              file=sys.stderr)
+                        _log.info("CROSS: nets (node %d...) and (node %d...) "
+                                  "cross at %d cells, e.g. %s",
+                                  sample_i, sample_j, len(crossed), sorted(crossed)[:3])
 
         # ── Check 2: segment overlaps (collinear segments from different nets)
         for i in range(len(nets)):
@@ -170,10 +151,11 @@ class _CVNodeAlloc:
                             issues += 1
                             sample_i = min(nets[i][0])
                             sample_j = min(nets[j][0])
-                            print(f"ROUTE WARN OVERLAP: nets (node {sample_i}...) and (node {sample_j}...) "
-                                  f"{seg_i[0]} at {'y' if seg_i[0]=='H' else 'x'}={seg_i[1]} "
-                                  f"range [{shared_start},{shared_end}]",
-                                  file=sys.stderr)
+                            _log.warning("OVERLAP: nets (node %d...) and (node %d...) "
+                                         "%s at %s=%d range [%d,%d]",
+                                         sample_i, sample_j, seg_i[0],
+                                         'y' if seg_i[0] == 'H' else 'x',
+                                         seg_i[1], shared_start, shared_end)
 
         # ── Check 3: wire endpoint lands on another net's segment
         for i, (nids_i, _, segs_i, _) in enumerate(nets):
@@ -189,17 +171,17 @@ class _CVNodeAlloc:
                         if seg[0] == 'H' and ay == seg[1] and seg[2] < ax < seg[3]:
                             issues += 1
                             sample_j = min(nets[j][0])
-                            print(f"ROUTE WARN ENDPOINT_ON_WIRE: node {nid}({ax},{ay}) "
-                                  f"lands on net (node {sample_j}...) "
-                                  f"H segment y={seg[1]} x=[{seg[2]},{seg[3]}]",
-                                  file=sys.stderr)
+                            _log.warning("ENDPOINT_ON_WIRE: node %d(%d,%d) "
+                                         "lands on net (node %d...) "
+                                         "H segment y=%d x=[%d,%d]",
+                                         nid, ax, ay, sample_j, seg[1], seg[2], seg[3])
                         elif seg[0] == 'V' and ax == seg[1] and seg[2] < ay < seg[3]:
                             issues += 1
                             sample_j = min(nets[j][0])
-                            print(f"ROUTE WARN ENDPOINT_ON_WIRE: node {nid}({ax},{ay}) "
-                                  f"lands on net (node {sample_j}...) "
-                                  f"V segment x={seg[1]} y=[{seg[2]},{seg[3]}]",
-                                  file=sys.stderr)
+                            _log.warning("ENDPOINT_ON_WIRE: node %d(%d,%d) "
+                                         "lands on net (node %d...) "
+                                         "V segment x=%d y=[%d,%d]",
+                                         nid, ax, ay, sample_j, seg[1], seg[2], seg[3])
 
         # ── Check 4: wire segments crossing component bodies (clearance violation)
         if components:
@@ -244,11 +226,11 @@ class _CVNodeAlloc:
                                 if any(py == sy and sx0 <= px <= sx1 for px, py in own_pin_pos):
                                     continue
                                 issues += 1
-                                print(f"ROUTE WARN CLEARANCE: H wire y={sy} x=[{sx0},{sx1}] "
-                                      f"crosses {ct}@({cx},{cy}) body "
-                                      f"[{cx-dim['left']},{cx+dim['right']}]x"
-                                      f"[{cy-dim['up']},{cy+dim['down']}]",
-                                      file=sys.stderr)
+                                _log.warning("CLEARANCE: H wire y=%d x=[%d,%d] "
+                                             "crosses %s@(%d,%d) body [%d,%d]x[%d,%d]",
+                                             sy, sx0, sx1, ct, cx, cy,
+                                             cx - dim['left'], cx + dim['right'],
+                                             cy - dim['up'], cy + dim['down'])
                         elif seg[0] == 'V':
                             sx = seg[1]
                             sy0, sy1 = seg[2], seg[3]
@@ -257,593 +239,22 @@ class _CVNodeAlloc:
                                 if any(px == sx and sy0 <= py <= sy1 for px, py in own_pin_pos):
                                     continue
                                 issues += 1
-                                print(f"ROUTE WARN CLEARANCE: V wire x={sx} y=[{sy0},{sy1}] "
-                                      f"crosses {ct}@({cx},{cy}) body "
-                                      f"[{cx-dim['left']},{cx+dim['right']}]x"
-                                      f"[{cy-dim['up']},{cy+dim['down']}]",
-                                      file=sys.stderr)
+                                _log.warning("CLEARANCE: V wire x=%d y=[%d,%d] "
+                                             "crosses %s@(%d,%d) body [%d,%d]x[%d,%d]",
+                                             sx, sy0, sy1, ct, cx, cy,
+                                             cx - dim['left'], cx + dim['right'],
+                                             cy - dim['up'], cy + dim['down'])
 
         if issues == 0:
-            print("ROUTE OK: no issues found", file=sys.stderr)
+            _log.info("ROUTE OK: no issues found")
         else:
-            print(f"ROUTE: {issues} issue(s) found", file=sys.stderr)
+            _log.warning("ROUTE: %d issue(s) found", issues)
         return issues
 
     def route_orthogonal(self, components=None):
-        """Insert intermediate type-2 nodes so all wires are orthogonal.
-
-        Uses Left-Edge channel routing on a 2D occupancy grid.
-        Component bounding boxes are marked as blocked so wires never
-        pass through component bodies.
-        """
-        GRID = 10  # 1 grid cell = 10 deci-grid units
-        PAD = 0    # no extra clearance — pins are at component edge
-
-        num_original = len(self.nodes)
-
-        def _snap(v):
-            return round(v / GRID) * GRID
-
-        def _make_bend(x, y, bw):
-            x, y = _snap(x), _snap(y)
-            nid = len(self.nodes)
-            self.nodes.append({
-                "x": x, "y": y,
-                "type": 2,
-                "bitWidth": bw,
-                "label": "",
-                "connections": [],
-            })
-            self.abs_pos.append((x, y))
-            return nid
-
-        def _disconnect(a, b):
-            if b in self.nodes[a]["connections"]:
-                self.nodes[a]["connections"].remove(b)
-            if a in self.nodes[b]["connections"]:
-                self.nodes[b]["connections"].remove(a)
-
-        def _wire(a, b):
-            if b not in self.nodes[a]["connections"]:
-                self.nodes[a]["connections"].append(b)
-            if a not in self.nodes[b]["connections"]:
-                self.nodes[b]["connections"].append(a)
-
-        # ── Phase 1: collect connection pairs ──
-        pairs = set()
-        for i in range(num_original):
-            for j in self.nodes[i]["connections"]:
-                if j < num_original:
-                    pairs.add((min(i, j), max(i, j)))
-        if not pairs:
-            return
-
-        # ── Phase 2: build nets via union-find ──
-        parent = list(range(num_original))
-
-        def _find(x):
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-
-        def _union(a, b):
-            ra, rb = _find(a), _find(b)
-            if ra != rb:
-                parent[ra] = rb
-
-        for a, b in pairs:
-            _union(a, b)
-
-        net_nodes = {}
-        for a, b in pairs:
-            root = _find(a)
-            net_nodes.setdefault(root, set()).update([a, b])
-
-        # ── Phase 3: characterize nets ──
-        nets = []
-        straight_nets = []  # (root, min_x, min_y, max_x, max_y) for wire_cells marking
-        for root, node_ids in net_nodes.items():
-            positions = [self.abs_pos[n] for n in node_ids]
-            xs = [p[0] for p in positions]
-            ys = [p[1] for p in positions]
-            min_x, max_x = min(xs), max(xs)
-            min_y, max_y = min(ys), max(ys)
-            bw = self.nodes[next(iter(node_ids))]["bitWidth"]
-
-            if min_x == max_x and min_y == max_y:
-                continue
-            if min_x == max_x or min_y == max_y:
-                # Straight wire — no routing needed, but remember for wire_cells
-                straight_nets.append((root, min_x, min_y, max_x, max_y))
-                continue
-
-            area = (max_x - min_x) * (max_y - min_y)
-            nets.append({
-                "root": root,
-                "node_ids": node_ids,
-                "min_x": min_x, "max_x": max_x,
-                "min_y": min_y, "max_y": max_y,
-                "bw": bw,
-                "area": area,
-            })
-
-        if not nets:
-            return
-
-        # ── Phase 3b: precompute net interconnections ──
-        # Two nets are interconnected if they share at least one abs position.
-        net_positions = {}  # root -> set of (abs_x, abs_y)
-        for root, node_ids in net_nodes.items():
-            net_positions[root] = {self.abs_pos[n] for n in node_ids}
-
-        pos_to_roots = {}  # (x, y) -> set of roots
-        for root, positions in net_positions.items():
-            for pos in positions:
-                pos_to_roots.setdefault(pos, set()).add(root)
-
-        connected_nets = {}  # root -> set of roots it's interconnected with
-        for pos, roots in pos_to_roots.items():
-            if len(roots) > 1:
-                for r in roots:
-                    connected_nets.setdefault(r, set()).update(roots - {r})
-
-        # ── Phase 4: build occupancy grid ──
-        orig_xs = [self.abs_pos[i][0] for i in range(num_original)]
-        orig_ys = [self.abs_pos[i][1] for i in range(num_original)]
-        # Grid: 1 cell = GRID deci-grid units. All abs_pos are in deci-grid.
-        # Divide by GRID to get grid coords, multiply back when emitting bends.
-        MARGIN = 30  # grid cells of margin around the layout
-        min_gx = min(orig_xs) // GRID - MARGIN
-        min_gy = min(orig_ys) // GRID - MARGIN
-        max_gx = max(orig_xs) // GRID + MARGIN
-        max_gy = max(orig_ys) // GRID + MARGIN
-        gcols = max_gx - min_gx + 1
-        grows = max_gy - min_gy + 1
-
-        # Three cell states:
-        # - hard_blocked: component body cells — NEVER unlockable
-        # - soft_blocked: pin cells + their departure corridor — unlockable
-        #   only when routing a net connected to that specific pin
-        # - wire_cells: routed wire segments — crossable with heavy penalty
-        hard_blocked = set()
-        soft_blocked = {}  # (col, row) -> set of nids that can unlock it
-        wire_cells = set()
-        wire_dirs = {}  # (col, row) -> set of axes ('H' or 'V')
-        wire_cell_owners = {}  # (col, row, axis) -> set of net root IDs
-
-        # Mark straight-line nets in wire_cells so later nets avoid them
-        for sn_root, sn_x0, sn_y0, sn_x1, sn_y1 in straight_nets:
-            gc0, gr0 = sn_x0 // GRID - min_gx, sn_y0 // GRID - min_gy
-            gc1, gr1 = sn_x1 // GRID - min_gx, sn_y1 // GRID - min_gy
-            if gc0 == gc1:  # vertical
-                for r in range(min(gr0, gr1), max(gr0, gr1) + 1):
-                    wire_cells.add((gc0, r))
-                    wire_dirs.setdefault((gc0, r), set()).add('V')
-                    wire_cell_owners.setdefault((gc0, r, 'V'), set()).add(sn_root)
-            else:  # horizontal
-                for c in range(min(gc0, gc1), max(gc0, gc1) + 1):
-                    wire_cells.add((c, gr0))
-                    wire_dirs.setdefault((c, gr0), set()).add('H')
-                    wire_cell_owners.setdefault((c, gr0, 'H'), set()).add(sn_root)
-
-        CLEARANCE = 1
-
-        # Build pin→component center map and populate blocking
-        pin_depart = {}  # nid -> (dc, dr) departure direction
-        pin_body = {}    # nid -> (bx0, bx1, by0, by1) in grid coords
-
-        if components:
-            from circuitverse.components.registry import dimensions as _ref_dimensions
-            for comp in components:
-                cx, cy = comp.get("x", 0), comp.get("y", 0)
-                ct = comp.get("objectType", "")
-                cd = comp.get("customData", {}).get("nodes", {})
-                comp_nids = []
-                for val in cd.values():
-                    if isinstance(val, int) and val < num_original:
-                        comp_nids.append(val)
-                    elif isinstance(val, list):
-                        for nid in val:
-                            if isinstance(nid, int) and nid < num_original:
-                                comp_nids.append(nid)
-                if not comp_nids:
-                    continue
-
-                # Body size from reference dimensions
-                if ct:
-                    params = _extract_comp_params(ct, comp)
-                    try:
-                        dim = _ref_dimensions(ct, **params)
-                    except KeyError:
-                        dim = {"left": 20, "right": 20, "up": 20, "down": 20}
-                else:
-                    dim = {"left": 20, "right": 20, "up": 20, "down": 20}
-
-                # Body bounding box in grid coords + CLEARANCE ring
-                body_x0 = (cx - dim["left"]) // GRID - CLEARANCE
-                body_x1 = (cx + dim["right"]) // GRID + CLEARANCE
-                body_y0 = (cy - dim["up"]) // GRID - CLEARANCE
-                body_y1 = (cy + dim["down"]) // GRID + CLEARANCE
-                for gx in range(body_x0, body_x1 + 1):
-                    for gy in range(body_y0, body_y1 + 1):
-                        c = gx - min_gx
-                        r = gy - min_gy
-                        if 0 <= c < gcols and 0 <= r < grows:
-                            hard_blocked.add((c, r))
-
-                # Component center in grid coords (for departure direction)
-                comp_gc = cx // GRID - min_gx
-                comp_gr = cy // GRID - min_gy
-
-                # Per-pin: compute departure direction + soft_blocked corridor
-                import sys as _dbg
-                for nid in comp_nids:
-                    pc = self.abs_pos[nid][0] // GRID - min_gx
-                    pr = self.abs_pos[nid][1] // GRID - min_gy
-                    # Departure direction: pin beyond body edge → outward
-                    # abs_pos already accounts for direction (visual coords)
-                    rx = self.abs_pos[nid][0] - cx
-                    ry = self.abs_pos[nid][1] - cy
-                    if rx >= dim["right"]:
-                        pin_depart[nid] = (1, 0)
-                    elif rx <= -dim["left"]:
-                        pin_depart[nid] = (-1, 0)
-                    elif ry >= dim["down"]:
-                        pin_depart[nid] = (0, 1)
-                    elif ry <= -dim["up"]:
-                        pin_depart[nid] = (0, -1)
-                    else:
-                        if abs(rx) >= abs(ry):
-                            pin_depart[nid] = (1 if rx >= 0 else -1, 0)
-                        else:
-                            pin_depart[nid] = (0, 1 if ry >= 0 else -1)
-                    dep_dc, dep_dr = pin_depart[nid]
-                    _dbg.stderr.write(
-                        f"DBG PIN nid={nid} abs={self.abs_pos[nid]} comp={ct}@({cx},{cy}) "
-                        f"rx={rx} ry={ry} dim=l{dim['left']}r{dim['right']}u{dim['up']}d{dim['down']} "
-                        f"depart={pin_depart[nid]}\n")
-
-                    # Store body bounds for this pin (used by A* departure walk)
-                    bx0 = body_x0 - min_gx
-                    bx1 = body_x1 - min_gx
-                    by0 = body_y0 - min_gy
-                    by1 = body_y1 - min_gy
-                    pin_body[nid] = (bx0, bx1, by0, by1)
-
-                    # Pin cell itself → soft_blocked for this pin only
-                    if 0 <= pc < gcols and 0 <= pr < grows:
-                        soft_blocked.setdefault((pc, pr), set()).add(nid)
-                    cc, cr = pc + dep_dc, pr + dep_dr
-                    while (0 <= cc < gcols and 0 <= cr < grows
-                           and bx0 <= cc <= bx1 and by0 <= cr <= by1):
-                        soft_blocked.setdefault((cc, cr), set()).add(nid)
-                        cc += dep_dc
-                        cr += dep_dr
-                    # One more cell outside for clearance
-                    if 0 <= cc < gcols and 0 <= cr < grows:
-                        soft_blocked.setdefault((cc, cr), set()).add(nid)
-
-        # Build the effective blocked set: hard_blocked + all soft_blocked cells
-        blocked = set(hard_blocked)
-        for cell in soft_blocked:
-            blocked.add(cell)
-
-        import sys as _dbg
-        _dbg.stderr.write(f"DBG grid={gcols}x{grows} min_gx={min_gx} min_gy={min_gy} hard={len(hard_blocked)} soft={len(soft_blocked)} total_blocked={len(blocked)}\n")
-        _dbg.stderr.flush()
-
-        def _col(x):
-            """Convert deci-grid x to grid column."""
-            return x // GRID - min_gx
-
-        def _row(y):
-            """Convert deci-grid y to grid row."""
-            return y // GRID - min_gy
-
-        def _to_world(c, r):
-            """Convert grid (col, row) to deci-grid (x, y)."""
-            return (c + min_gx) * GRID, (r + min_gy) * GRID
-
-        # ── Phase 5: A* maze router (crossing = last resort) ──
-        import heapq
-
-        DC = [1, 0, -1, 0]
-        DR = [0, 1, 0, -1]
-
-        CROSS_PENALTY = 100  # heavy cost for crossing an existing wire
-
-        def _astar_route(sc, sr, tc, tr):
-            """A* shortest path.
-
-            Wire cells may be crossed straight-through (perpendicular) but
-            turning (bending) on a wire cell is forbidden — a bend creates a
-            connection point in CircuitVerse, which would short two nets.
-            """
-            if sc == tc and sr == tr:
-                return [(sc, sr)]
-
-            # State: (col, row, direction)  direction = 0..3 or -1 (start)
-            INF = float("inf")
-            best = {}
-            prev = {}
-            pq = []
-            g0 = 0
-            h0 = abs(sc - tc) + abs(sr - tr)
-            heapq.heappush(pq, (g0 + h0, g0, sc, sr, -1))
-            best[(sc, sr, -1)] = g0
-
-            while pq:
-                f, g, c, r, d = heapq.heappop(pq)
-                if g > best.get((c, r, d), INF):
-                    continue
-                if c == tc and r == tr:
-                    # Reconstruct
-                    path = [(c, r)]
-                    state = (c, r, d)
-                    while state in prev:
-                        state = prev[state]
-                        path.append((state[0], state[1]))
-                    path.reverse()
-                    # Extract waypoints (bend points only)
-                    if len(path) <= 2:
-                        return path
-                    waypoints = [path[0]]
-                    for i in range(1, len(path) - 1):
-                        pc, pr = path[i - 1]
-                        cc, cr = path[i]
-                        nc, nr = path[i + 1]
-                        if (nc - cc) != (cc - pc) or (nr - cr) != (cr - pr):
-                            waypoints.append(path[i])
-                    waypoints.append(path[-1])
-                    return waypoints
-
-                for i in range(4):
-                    nc, nr = c + DC[i], r + DR[i]
-                    if not (0 <= nc < gcols and 0 <= nr < grows):
-                        continue
-                    # Component body = impassable (unless it's the target pin)
-                    if (nc, nr) in blocked and not (nc == tc and nr == tr):
-                        continue
-                    # Forbid turning on a wire cell (bend = connection point
-                    # in CircuitVerse → creates unintended short)
-                    # Allow if all wire owners at this cell are interconnected
-                    is_turn = d != -1 and i != d
-                    if is_turn and (c, r) in wire_cells:
-                        all_owners = set()
-                        for ax in wire_dirs.get((c, r), set()):
-                            all_owners |= wire_cell_owners.get((c, r, ax), set())
-                        current_root = net["root"]
-                        my_connected = connected_nets.get(current_root, set())
-                        if not all_owners.issubset(my_connected | {current_root}):
-                            continue
-                    # Forbid collinear movement along existing wire (overlap)
-                    # unless current net is interconnected with the wire owner
-                    step = 1
-                    move_axis = 'H' if i in (0, 2) else 'V'
-                    if (nc, nr) in wire_cells:
-                        owners = wire_cell_owners.get((nc, nr, move_axis), set())
-                        if owners:
-                            current_root = net["root"]
-                            my_connected = connected_nets.get(current_root, set())
-                            if not owners.issubset(my_connected | {current_root}):
-                                continue  # unrelated net — no overlap allowed
-                        step += CROSS_PENALTY
-                    ng = g + step
-                    if ng < best.get((nc, nr, i), INF):
-                        best[(nc, nr, i)] = ng
-                        prev[(nc, nr, i)] = (c, r, d)
-                        h = abs(nc - tc) + abs(nr - tr)
-                        heapq.heappush(pq, (ng + h, ng, nc, nr, i))
-
-            return None  # truly no path
-
-        # Sort nets: smallest bounding box first (they block less)
-        nets.sort(key=lambda n: n["area"])
-
-        # ── Phase 6: route each net with A* ──
-        for net_idx, net in enumerate(nets):
-            import sys as _sys
-            _sys.stderr.write(f"NET {net_idx}/{len(nets)} nodes={len(net['node_ids'])} bw={net['bw']}\n")
-            _sys.stderr.flush()
-            bw = net["bw"]
-            node_ids = net["node_ids"]
-
-            # Remove existing direct connections within this net
-            existing_pairs = set()
-            for nid in node_ids:
-                for conn in list(self.nodes[nid]["connections"]):
-                    if conn in node_ids:
-                        existing_pairs.add((min(nid, conn), max(nid, conn)))
-            for a, b in existing_pairs:
-                _disconnect(a, b)
-
-            # Decompose multi-pin net into 2-pin subnets (nearest-sink)
-            nid_list = list(node_ids)
-            routed_set = {nid_list[0]}  # start from first node
-            remaining = set(nid_list[1:])
-            # Collect all routed cells for this net (for blocking after)
-            net_cells = set()
-
-            def _pin_departure(nid):
-                """Get the departure grid offset (dc, dr) for a pin.
-
-                The wire leaves the pin 1 unit away from the component body.
-                """
-                if nid in pin_depart:
-                    return pin_depart[nid]
-                # Fallback for non-component nodes: output→right, input→left
-                nt = self.nodes[nid]["type"]
-                if nt == 1:
-                    return (1, 0)
-                elif nt == 0:
-                    return (-1, 0)
-                return (1, 0)
-
-            while remaining:
-                # Find nearest unrouted node to any routed node
-                best_pair = None
-                best_dist = float("inf")
-                for src in routed_set:
-                    sx, sy = self.abs_pos[src]
-                    for dst in remaining:
-                        dx, dy = self.abs_pos[dst]
-                        dist = abs(sx - dx) + abs(sy - dy)
-                        if dist < best_dist:
-                            best_dist = dist
-                            best_pair = (src, dst)
-
-                src, dst = best_pair
-                sx, sy = self.abs_pos[src]
-                dx, dy = self.abs_pos[dst]
-
-                sc, sr = _col(sx), _row(sy)
-                tc, tr = _col(dx), _row(dy)
-
-                # Same grid cell — just wire directly
-                if sc == tc and sr == tr:
-                    _wire(src, dst)
-                    routed_set.add(dst)
-                    remaining.discard(dst)
-                    continue
-
-                # Compute A* endpoints: walk from pin through own body only.
-                src_dc, src_dr = _pin_departure(src)
-                astar_sc, astar_sr = sc + src_dc, sr + src_dr
-                if src in pin_body:
-                    bx0, bx1, by0, by1 = pin_body[src]
-                    while (bx0 <= astar_sc <= bx1 and by0 <= astar_sr <= by1):
-                        astar_sc += src_dc
-                        astar_sr += src_dr
-                else:
-                    while (astar_sc, astar_sr) in hard_blocked:
-                        astar_sc += src_dc
-                        astar_sr += src_dr
-
-                # Nudge src departure off existing wires
-                src_prenudge = None
-                if (astar_sc, astar_sr) in wire_cells:
-                    for pdc, pdr in [(src_dr, -src_dc), (-src_dr, src_dc)]:
-                        nc, nr = astar_sc + pdc, astar_sr + pdr
-                        if (nc, nr) not in wire_cells and (nc, nr) not in blocked:
-                            src_prenudge = (astar_sc, astar_sr)
-                            astar_sc, astar_sr = nc, nr
-                            break
-
-                dst_dc, dst_dr = _pin_departure(dst)
-                astar_tc, astar_tr = tc + dst_dc, tr + dst_dr
-                if dst in pin_body:
-                    bx0, bx1, by0, by1 = pin_body[dst]
-                    while (bx0 <= astar_tc <= bx1 and by0 <= astar_tr <= by1):
-                        astar_tc += dst_dc
-                        astar_tr += dst_dr
-                else:
-                    while (astar_tc, astar_tr) in hard_blocked:
-                        astar_tc += dst_dc
-                        astar_tr += dst_dr
-
-                # Nudge dst departure off existing wires
-                dst_prenudge = None
-                if (astar_tc, astar_tr) in wire_cells:
-                    for pdc, pdr in [(dst_dr, -dst_dc), (-dst_dr, dst_dc)]:
-                        nc, nr = astar_tc + pdc, astar_tr + pdr
-                        if (nc, nr) not in wire_cells and (nc, nr) not in blocked:
-                            dst_prenudge = (astar_tc, astar_tr)
-                            astar_tc, astar_tr = nc, nr
-                            break
-
-                # Unlock soft_blocked cells belonging to src and dst pins
-                # (pin cells + their departure corridors)
-                temp_unblocked = set()
-                current_nids = {src, dst}
-                for cell, nid_set in soft_blocked.items():
-                    if current_nids & nid_set and cell in blocked:
-                        blocked.discard(cell)
-                        temp_unblocked.add(cell)
-
-                # Unblock cells of already-routed segments of THIS net
-                restored = set()
-                for cell in net_cells:
-                    if cell in blocked:
-                        blocked.discard(cell)
-                        restored.add(cell)
-
-                # A* from departure to arrival
-                _sys.stderr.write(
-                    f"DBG ROUTE src={src} abs=({sx},{sy}) grid=({sc},{sr}) depart=({astar_sc},{astar_sr}) "
-                    f"dst={dst} abs=({dx},{dy}) grid=({tc},{tr}) arrive=({astar_tc},{astar_tr})\n")
-                path = _astar_route(astar_sc, astar_sr, astar_tc, astar_tr)
-                if path:
-                    _sys.stderr.write(f"DBG PATH: {' -> '.join(f'({c},{r})' for c,r in path)}\n")
-                else:
-                    _sys.stderr.write(f"DBG PATH: None (no path found)\n")
-
-                # Restore all temporarily unblocked cells
-                for cell in temp_unblocked:
-                    blocked.add(cell)
-                for cell in restored:
-                    blocked.add(cell)
-
-                if path is None:
-                    import sys as _sys
-                    _sys.stderr.write(
-                        f"ROUTE FAIL: {src}({sx},{sy})->{dst}({dx},{dy}) "
-                        f"depart({astar_sc},{astar_sr})->({astar_tc},{astar_tr}) "
-                        f"grid={gcols}x{grows} blk={len(blocked)}\n"
-                    )
-                    _sys.stderr.flush()
-                    _wire(src, dst)
-                    routed_set.add(dst)
-                    remaining.discard(dst)
-                    continue
-
-                # Wire: src_pin → [departure → A* path → arrival] → dst_pin
-                # The path includes departure and arrival cells.
-                # If src was nudged, insert a bend at the pre-nudge position
-                # so the wire stays orthogonal: pin → pre-nudge → nudged.
-                prev_nid = src
-                if src_prenudge is not None:
-                    wx, wy = _to_world(src_prenudge[0], src_prenudge[1])
-                    bend = _make_bend(wx, wy, bw)
-                    _wire(prev_nid, bend)
-                    prev_nid = bend
-                for i in range(len(path)):
-                    wx, wy = _to_world(path[i][0], path[i][1])
-                    bend = _make_bend(wx, wy, bw)
-                    _wire(prev_nid, bend)
-                    prev_nid = bend
-                # If dst was nudged, insert a bend at the pre-nudge position
-                # so the wire stays orthogonal: nudged → pre-nudge → pin.
-                if dst_prenudge is not None:
-                    wx, wy = _to_world(dst_prenudge[0], dst_prenudge[1])
-                    bend = _make_bend(wx, wy, bw)
-                    _wire(prev_nid, bend)
-                    prev_nid = bend
-                _wire(prev_nid, dst)
-
-                # Mark routed wire cells (including pre-nudge segments)
-                src_pre = [src_prenudge] if src_prenudge else []
-                dst_pre = [dst_prenudge] if dst_prenudge else []
-                full_path = [(sc, sr)] + src_pre + list(path) + dst_pre + [(tc, tr)]
-                for i in range(len(full_path) - 1):
-                    c0, r0 = full_path[i]
-                    c1, r1 = full_path[i + 1]
-                    net_root = net["root"]
-                    if c0 == c1:
-                        for r in range(min(r0, r1), max(r0, r1) + 1):
-                            net_cells.add((c0, r))
-                            wire_cells.add((c0, r))
-                            wire_dirs.setdefault((c0, r), set()).add('V')
-                            wire_cell_owners.setdefault((c0, r, 'V'), set()).add(net_root)
-                    elif r0 == r1:
-                        for c in range(min(c0, c1), max(c0, c1) + 1):
-                            net_cells.add((c, r0))
-                            wire_cells.add((c, r0))
-                            wire_dirs.setdefault((c, r0), set()).add('H')
-                            wire_cell_owners.setdefault((c, r0, 'H'), set()).add(net_root)
-
-                routed_set.add(dst)
-                remaining.discard(dst)
+        """Insert intermediate type-2 nodes so all wires are orthogonal."""
+        from cv_router import route_orthogonal as _route
+        _route(self.nodes, self.abs_pos, components)
 
 
 def _cv_scope_id():
