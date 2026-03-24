@@ -5,6 +5,7 @@ Cell handlers live in components/ — this module provides topo sort and dispatc
 """
 
 import sys
+from collections import namedtuple
 
 from circuitverse.components._common import (
   _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START, pin_clearance,
@@ -22,6 +23,78 @@ from circuitverse.components import (
   place_slice, place_concat,
   place_mem_v2,
 )
+
+
+# ── Unified cell registry ─────────────────────────────────────────────────
+# Single source of truth for handler, extent, and pin info per Yosys cell type.
+# handler:     place_* function (None for gate-level types dispatched separately)
+# cv_type:     CircuitVerse component type (for dimension lookup)
+# extra_left:  sub-component offset added to left extent
+# extra_right: sub-component offset added to right extent
+# left_pins:   outward-facing pins on left (None → compute dynamically)
+# right_pins:  outward-facing pins on right (None → compute dynamically)
+
+CellInfo = namedtuple("CellInfo", [
+  "handler", "cv_type", "extra_left", "extra_right", "left_pins", "right_pins",
+])
+
+_CELL_REGISTRY = {
+  # ── Logic gates (high-level) ──
+  "$and":         CellInfo(place_logic,      "AndGate",       0,   0,   2, 1),
+  "$or":          CellInfo(place_logic,      "OrGate",        0,   0,   2, 1),
+  "$xor":         CellInfo(place_logic,      "XorGate",       0,   0,   2, 1),
+  "$xnor":        CellInfo(place_logic,      "XnorGate",      0,   0,   2, 1),
+  "$not":         CellInfo(place_logic,      "NotGate",       0,   0,   1, 1),
+  "$mux":         CellInfo(place_mux,        "Multiplexer",   0,   0,   2, 1),
+  # ── Arithmetic ──
+  "$add":         CellInfo(place_add,        "Adder",         0,   80,  3, 2),   # splitter at x+60
+  "$sub":         CellInfo(place_sub,        "ALU",           80,  0,   0, 1),   # ConstantVal at x-60
+  "$mul":         CellInfo(place_mul,        "verilogMultiplier", 0, 0, 2, 1),
+  "$div":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2),   # quotient+remainder
+  "$mod":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2),
+  "$neg":         CellInfo(place_neg,        "TwoComplement", 0,   0,   1, 1),
+  # ── Shifts ──
+  "$shl":         CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1),
+  "$sshl":        CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1),
+  "$shr":         CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1),
+  "$sshr":        CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1),
+  # ── Comparisons ──
+  "$eq":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1),   # split_reduce chain
+  "$ne":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1),
+  "$lt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),   # ConstantVal + splitter + NotGate
+  "$gt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
+  "$le":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
+  "$ge":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
+  # ── Reductions ──
+  "$logic_not":   CellInfo(place_logic_not,  "NorGate",       80,  40,  1, 1),   # split_reduce at x-60/x+20
+  "$logic_and":   CellInfo(place_logic_and_or,"AndGate",      100, 60,  1, 1),   # sub-comps at x-80
+  "$logic_or":    CellInfo(place_logic_and_or,"OrGate",       100, 60,  1, 1),
+  "$reduce_and":  CellInfo(place_reduce,     "AndGate",       60,  60,  1, 1),   # split_reduce: spl x-40, gate x+40
+  "$reduce_or":   CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1),
+  "$reduce_xor":  CellInfo(place_reduce,     "XorGate",       60,  60,  1, 1),
+  "$reduce_xnor": CellInfo(place_reduce,     "XnorGate",      60,  60,  1, 1),
+  "$reduce_bool": CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1),
+  # ── DFFs ──
+  "$dff":         CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),   # ConstantVal/NotGate at x-60
+  "$dffe":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  "$adff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  "$adffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  "$sdff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  "$sdffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  # ── Bus ops ──
+  "$slice":       CellInfo(place_slice,      "Splitter",      0,   0,   1, None),  # right_pins computed dynamically
+  "$concat":      CellInfo(place_concat,     "Splitter",      0,   0,   2, 1),
+  "$mem_v2":      CellInfo(place_mem_v2,     "verilogRAM",    0,   0,   4, 1),    # approximate
+  # ── Gate-level types (no handler — dispatched via place_gate_cells) ──
+  "$_AND_":       CellInfo(None, "AndGate",      0, 0, 2, 1),
+  "$_OR_":        CellInfo(None, "OrGate",       0, 0, 2, 1),
+  "$_NOT_":       CellInfo(None, "NotGate",      0, 0, 1, 1),
+  "$_NAND_":      CellInfo(None, "NandGate",     0, 0, 2, 1),
+  "$_NOR_":       CellInfo(None, "NorGate",      0, 0, 2, 1),
+  "$_XOR_":       CellInfo(None, "XorGate",      0, 0, 2, 1),
+  "$_XNOR_":      CellInfo(None, "XnorGate",     0, 0, 2, 1),
+  "$_MUX_":       CellInfo(None, "Multiplexer",  0, 0, 2, 1),  # select is bottom
+}
 
 
 # ── Topological sort ───────────────────────────────────────────────────────
@@ -88,128 +161,28 @@ def topo_sort_cells(ymod):
   return sorted_cells, col_cells
 
 
-# ── High-level cell dispatch ─────────────────────────────────────────────
-
-_HL_DISPATCH = {
-  "$and":         place_logic,
-  "$or":          place_logic,
-  "$xor":         place_logic,
-  "$xnor":        place_logic,
-  "$not":         place_logic,
-  "$mux":         place_mux,
-  "$add":         place_add,
-  "$sub":         place_sub,
-  "$mul":         place_mul,
-  "$div":         place_divmod,
-  "$mod":         place_divmod,
-  "$neg":         place_neg,
-  "$shl":         place_shift,
-  "$sshl":        place_shift,
-  "$shr":         place_shift,
-  "$sshr":        place_shift,
-  "$eq":          place_eq_ne,
-  "$ne":          place_eq_ne,
-  "$lt":          place_lt_gt_le_ge,
-  "$gt":          place_lt_gt_le_ge,
-  "$le":          place_lt_gt_le_ge,
-  "$ge":          place_lt_gt_le_ge,
-  "$logic_not":   place_logic_not,
-  "$logic_and":   place_logic_and_or,
-  "$logic_or":    place_logic_and_or,
-  "$reduce_and":  place_reduce,
-  "$reduce_or":   place_reduce,
-  "$reduce_xor":  place_reduce,
-  "$reduce_xnor": place_reduce,
-  "$reduce_bool": place_reduce,
-  "$dff":         place_dff,
-  "$dffe":        place_dff,
-  "$adff":        place_dff,
-  "$adffe":       place_dff,
-  "$sdff":        place_dff,
-  "$sdffe":       place_dff,
-  "$slice":       place_slice,
-  "$concat":      place_concat,
-  "$mem_v2":      place_mem_v2,
-}
-
-
 # ── Horizontal extent per Yosys cell type ────────────────────────────────
-# (left_extent, right_extent) from column center x, including sub-components.
-# Values include component body dimensions + sub-component offsets + their body.
 
 def _cell_h_extent(ctype, cell):
   """Return (left, right) reach from column center for a Yosys cell."""
-  from circuitverse.components.registry import dimensions, component_width
-  # Map Yosys type → main CV component type + sub-component offsets
-  _EXTENT = {
-    # (cv_type, extra_left, extra_right, cv_params_fn)
-    "$and":         ("AndGate",  0,   0),
-    "$or":          ("OrGate",   0,   0),
-    "$xor":         ("XorGate",  0,   0),
-    "$xnor":        ("XnorGate", 0,   0),
-    "$not":         ("NotGate",  0,   0),
-    "$mux":         ("Multiplexer", 0, 0),
-    "$add":         ("Adder",    0,   80),   # splitter at x+60, dim right ~20
-    "$sub":         ("ALU",      80,  0),    # ConstantVal at x-60, dim left ~20
-    "$mul":         ("verilogMultiplier", 0, 0),
-    "$div":         ("verilogDivider", 0, 0),
-    "$mod":         ("verilogDivider", 0, 0),
-    "$neg":         ("TwoComplement", 0, 0),
-    "$shl":         ("verilogShiftLeft", 0, 0),
-    "$sshl":        ("verilogShiftLeft", 0, 0),
-    "$shr":         ("verilogShiftRight", 0, 0),
-    "$sshr":        ("verilogShiftRight", 0, 0),
-    "$eq":          ("XnorGate", 0,   140),  # split_reduce: spl at x+60, gate at x+120, dim ~20
-    "$ne":          ("XnorGate", 0,   140),
-    "$lt":          ("ALU",      80,  140),  # ConstantVal x-60 + splitter x+60 + NotGate x+120
-    "$gt":          ("ALU",      80,  140),
-    "$le":          ("ALU",      80,  140),
-    "$ge":          ("ALU",      80,  140),
-    "$logic_not":   ("NorGate",  80,  40),   # split_reduce at x-60/x+20
-    "$logic_and":   ("AndGate",  100, 60),   # sub-comps at x-80, main at x+40
-    "$logic_or":    ("OrGate",   100, 60),
-    "$reduce_and":  ("AndGate",  60,  60),   # split_reduce: spl x-40, gate x+40
-    "$reduce_or":   ("OrGate",   60,  60),
-    "$reduce_xor":  ("XorGate",  60,  60),
-    "$reduce_xnor": ("XnorGate", 60,  60),
-    "$reduce_bool": ("OrGate",   60,  60),
-    "$dff":         ("DflipFlop", 80, 0),    # ConstantVal/NotGate at x-60
-    "$dffe":        ("DflipFlop", 80, 0),
-    "$adff":        ("DflipFlop", 80, 0),
-    "$adffe":       ("DflipFlop", 80, 0),
-    "$sdff":        ("DflipFlop", 80, 0),
-    "$sdffe":       ("DflipFlop", 80, 0),
-    "$slice":       ("Splitter",  0,  0),
-    "$concat":      ("Splitter",  0,  0),
-    "$mem_v2":      ("verilogRAM", 0, 0),
-    # Gate-level types
-    "$_AND_":       ("AndGate",  0, 0),
-    "$_OR_":        ("OrGate",   0, 0),
-    "$_NOT_":       ("NotGate",  0, 0),
-    "$_NAND_":      ("NandGate", 0, 0),
-    "$_NOR_":       ("NorGate",  0, 0),
-    "$_XOR_":       ("XorGate",  0, 0),
-    "$_XNOR_":      ("XnorGate", 0, 0),
-    "$_MUX_":       ("Multiplexer", 0, 0),
-  }
-  # Gate-level DFF types (prefix match)
+  from circuitverse.components.registry import dimensions
+  # Gate-level DFF types (prefix match, not in registry)
   if ctype.startswith("$_DFF"):
-    return (20, 20)  # DflipFlop: left=20, right=20
-  info = _EXTENT.get(ctype)
+    return (20, 20)
+  info = _CELL_REGISTRY.get(ctype)
   if not info:
     return (40, 40)  # fallback
-  cv_type, extra_left, extra_right = info
+  cv_type = info.cv_type
   try:
-    # Get main component body dimensions
     params = {}
     if cv_type in ("AndGate", "OrGate", "NandGate", "NorGate", "XorGate", "XnorGate"):
       params["inputLength"] = 2
     dim = dimensions(cv_type, **params)
-    left = dim["left"] + extra_left
-    right = dim["right"] + extra_right
+    left = dim["left"] + info.extra_left
+    right = dim["right"] + info.extra_right
   except KeyError:
-    left = 20 + extra_left
-    right = 20 + extra_right
+    left = 20 + info.extra_left
+    right = 20 + info.extra_right
   return (left, right)
 
 
@@ -219,64 +192,16 @@ def _cell_outward_pins(ctype, cell):
   'Outward' means: leftmost sub-component's left side pin count,
   rightmost sub-component's right side pin count.
   """
-  _PINS = {
-    # (left_pins, right_pins)
-    "$and":         (2, 1),
-    "$or":          (2, 1),
-    "$xor":         (2, 1),
-    "$xnor":        (2, 1),
-    "$not":         (1, 1),
-    "$mux":         (2, 1),
-    "$add":         (3, 2),   # inpA+inpB+carryIn / sum+carryOut
-    "$sub":         (0, 1),   # ConstantVal leftmost (0 left), ALU right (1)
-    "$mul":         (2, 1),
-    "$div":         (2, 2),   # quotient+remainder
-    "$mod":         (2, 2),
-    "$neg":         (1, 1),
-    "$shl":         (2, 1),
-    "$sshl":        (2, 1),
-    "$shr":         (2, 1),
-    "$sshr":        (2, 1),
-    "$eq":          (2, 1),   # XnorGate left, reduce gate right
-    "$ne":          (2, 1),
-    "$lt":          (0, 1),   # ConstantVal leftmost (0), last comp right (1)
-    "$gt":          (0, 1),
-    "$le":          (0, 1),
-    "$ge":          (0, 1),
-    "$logic_not":   (1, 1),
-    "$logic_and":   (1, 1),
-    "$logic_or":    (1, 1),
-    "$reduce_and":  (1, 1),
-    "$reduce_or":   (1, 1),
-    "$reduce_xor":  (1, 1),
-    "$reduce_xnor": (1, 1),
-    "$reduce_bool": (1, 1),
-    "$dff":         (0, 2),   # ConstantVal leftmost (0), DFF right (qOutput+qInvOutput)
-    "$dffe":        (0, 2),
-    "$adff":        (0, 2),
-    "$adffe":       (0, 2),
-    "$sdff":        (0, 2),
-    "$sdffe":       (0, 2),
-    "$concat":      (2, 1),   # Splitter joining: 2 inputs left, 1 output right
-    "$mem_v2":      (4, 1),   # approximate: many left, read data right
-    # Gate-level types
-    "$_AND_":       (2, 1),
-    "$_OR_":        (2, 1),
-    "$_NOT_":       (1, 1),
-    "$_NAND_":      (2, 1),
-    "$_NOR_":       (2, 1),
-    "$_XOR_":       (2, 1),
-    "$_XNOR_":      (2, 1),
-    "$_MUX_":       (2, 1),   # 2 data + 1 select, but select is bottom
-  }
-  # Gate-level DFF types (prefix match)
+  # Gate-level DFF types (prefix match, not in registry)
   if ctype.startswith("$_DFF"):
-    return (2, 2)  # dInp+clockInp left, qOutput+qInvOutput right
-  pins = _PINS.get(ctype)
-  if pins:
-    return pins
-  # $slice: Splitter splitting — right pins = number of output groups
-  if ctype == "$slice":
+    return (2, 2)
+  info = _CELL_REGISTRY.get(ctype)
+  if not info:
+    return (1, 1)  # fallback
+  lp = info.left_pins
+  rp = info.right_pins
+  # Dynamic pin computation (right_pins=None for $slice)
+  if rp is None:
     a_bw = _param_int(cell, "A_WIDTH", 1) if cell else 1
     y_bw = _param_int(cell, "Y_WIDTH", 1) if cell else 1
     offset = _param_int(cell, "OFFSET", 0) if cell else 0
@@ -285,8 +210,8 @@ def _cell_outward_pins(ctype, cell):
       groups += 1
     if a_bw - offset - y_bw > 0:
       groups += 1
-    return (1, groups)
-  return (1, 1)  # fallback
+    rp = groups
+  return (lp, rp)
 
 
 def _col_extents(col_cells):
@@ -349,7 +274,8 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
     for cell_name, cell in col_cells[depth]:
       ctype = cell["type"]
       conns = cell["connections"]
-      handler = _HL_DISPATCH.get(ctype)
+      info = _CELL_REGISTRY.get(ctype)
+      handler = info.handler if info else None
 
       if handler:
         y_cell += handler(cell_name, cell, conns, na, bit_nodes,
