@@ -12,7 +12,7 @@ def generate_circuitverse(top_mod, sub_modules):
     type gets a scope definition. Instances become SubCircuit components
     wired together via allNodes connections.
     """
-    _cv_scope_id._counter = -1
+    _cv_scope_id.reset()
     na = _CVNodeAlloc()
     mod_map = {m.name: m for m in sub_modules}
 

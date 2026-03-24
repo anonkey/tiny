@@ -73,7 +73,7 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
     When gate_level=True, decomposes to 1-bit primitives.
     When gate_level=False, preserves high-level cells (adders, comparators, etc.).
     """
-    _cv_scope_id._counter = -1
+    _cv_scope_id.reset()
     netlist = _yosys_synth(verilog_paths, top_name, gate_level=gate_level)
 
     if top_name not in netlist.get("modules", {}):
@@ -415,7 +415,7 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name):
     Each Yosys-elaborated module becomes its own CircuitVerse scope.
     Sub-module instantiations appear as SubCircuit components.
     """
-    _cv_scope_id._counter = -1
+    _cv_scope_id.reset()
     netlist = _yosys_elaborate(verilog_paths, top_name)
 
     if top_name not in netlist.get("modules", {}):
