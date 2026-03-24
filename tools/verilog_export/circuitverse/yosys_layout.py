@@ -283,7 +283,7 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
       handler = info.handler if info else None
 
       if handler:
-        y_cell += handler(cell_name, cell, conns, na, bit_nodes,
+        y_cell += handler(cell, conns, na, bit_nodes,
                           components, x_cell, y_cell) + V_CELL_PAD
       else:
         _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)

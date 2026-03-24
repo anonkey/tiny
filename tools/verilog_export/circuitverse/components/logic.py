@@ -7,7 +7,7 @@ from cv_emit import emit_zero_extend, register_bits
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_logic(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_logic(cell, conns, na, bit_nodes, components, x, y):
   """Place a multi-bit logic gate. Returns y-advance."""
   ctype = cell["type"]
 

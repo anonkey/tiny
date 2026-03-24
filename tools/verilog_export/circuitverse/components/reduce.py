@@ -7,7 +7,7 @@ from cv_emit import emit_split_reduce, register_bits
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_reduce(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_reduce(cell, conns, na, bit_nodes, components, x, y):
   """Place a reduction op ($reduce_and/or/xor/xnor/bool). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   reduce_map = {
@@ -27,7 +27,7 @@ def place_reduce(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height(gate_type, inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_not(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_logic_not(cell, conns, na, bit_nodes, components, x, y):
   """Place $logic_not (NOR reduction). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   spl_inp = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=-10, ry=0)
@@ -38,7 +38,7 @@ def place_logic_not(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("NorGate", inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_and_or(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_logic_and_or(cell, conns, na, bit_nodes, components, x, y):
   """Place $logic_and or $logic_or. Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))

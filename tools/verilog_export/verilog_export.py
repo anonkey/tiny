@@ -150,7 +150,7 @@ def main():
                 json.dump(elab, f, indent=2)
             print(f"  -> dumped elaborated data to {os.path.relpath(elab_path, project_root)}")
         else:
-            print(f"  (yosys elaboration skipped: {result.stderr.splitlines()[-1]})", file=sys.stderr)
+            print(f"  (yosys elaboration skipped: {(result.stderr.splitlines() or ['unknown error'])[-1]})", file=sys.stderr)
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)

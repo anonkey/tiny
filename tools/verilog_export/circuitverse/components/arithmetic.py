@@ -7,7 +7,7 @@ from cv_emit import emit_constant, emit_not_gate, emit_zero_extend, register_bit
 from circuitverse.components.registry import pin_pos, component_height
 
 
-def place_add(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_add(cell, conns, na, bit_nodes, components, x, y):
   """Place an adder ($add). Returns y-advance."""
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -70,7 +70,7 @@ def place_add(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("Adder") + pin_clearance(3) + eh
 
 
-def place_sub(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_sub(cell, conns, na, bit_nodes, components, x, y):
   """Place a subtractor ($sub) via ALU mode 110. Returns y-advance."""
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -118,7 +118,7 @@ def place_sub(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("ALU") + pin_clearance(2) + eh
 
 
-def place_mul(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_mul(cell, conns, na, bit_nodes, components, x, y):
   """Place a multiplier ($mul). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
@@ -154,7 +154,7 @@ def place_mul(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("verilogMultiplier") + pin_clearance(2) + eh
 
 
-def place_divmod(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_divmod(cell, conns, na, bit_nodes, components, x, y):
   """Place a divider ($div/$mod). Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -196,7 +196,7 @@ def place_divmod(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("verilogDivider") + pin_clearance(2) + eh
 
 
-def place_neg(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_neg(cell, conns, na, bit_nodes, components, x, y):
   """Place a negation ($neg) via TwoComplement. Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))

@@ -8,6 +8,7 @@ maze routing + nearest-sink decomposition.
 import heapq
 import logging
 
+from circuitverse.components._common import GRID_UNIT
 from cv_utils import _extract_comp_params
 
 _log = logging.getLogger(__name__)
@@ -21,11 +22,11 @@ _DR = [0, 1, 0, -1]
 # Helper functions
 # ---------------------------------------------------------------------------
 
-def _snap(v, grid=10):
+def _snap(v, grid=GRID_UNIT):
     return round(v / grid) * grid
 
 
-def _make_bend(nodes, abs_pos, x, y, bw, grid=10):
+def _make_bend(nodes, abs_pos, x, y, bw, grid=GRID_UNIT):
     """Create a type-2 bend node.  Returns the new node ID."""
     x, y = _snap(x, grid), _snap(y, grid)
     nid = len(nodes)
@@ -159,7 +160,7 @@ class _OccupancyGrid:
     coordinate conversions.
     """
 
-    GRID = 10
+    GRID = GRID_UNIT
     MARGIN = 30
     CLEARANCE = 1
     CROSS_PENALTY = 100

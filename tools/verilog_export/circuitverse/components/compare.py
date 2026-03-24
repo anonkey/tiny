@@ -10,7 +10,7 @@ from cv_emit import (
 from circuitverse.components.registry import pin_pos, component_height
 
 
-def place_eq_ne(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_eq_ne(cell, conns, na, bit_nodes, components, x, y):
   """Place equality/inequality ($eq/$ne). Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -46,7 +46,7 @@ def place_eq_ne(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return component_height("XnorGate", inputLength=2) + pin_clearance(2) + eh
 
 
-def place_lt_gt_le_ge(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_lt_gt_le_ge(cell, conns, na, bit_nodes, components, x, y):
   """Place comparison ($lt/$gt/$le/$ge) via ALU mode 111. Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))

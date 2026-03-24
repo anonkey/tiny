@@ -7,7 +7,7 @@ from cv_emit import emit_constant, register_bits
 from circuitverse.components.registry import pin_pos, component_height
 
 
-def place_dff(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_dff(cell, conns, na, bit_nodes, components, x, y):
   """Place a high-level DFF variant. Returns y-advance."""
   bw = _param_int(cell, "WIDTH", len(conns.get("D", [])))
   clk_pol = _param_int(cell, "CLK_POLARITY", 1)

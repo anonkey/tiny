@@ -9,7 +9,6 @@ Supports three modes:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 
 from cv_node_alloc import _CVNodeAlloc
@@ -18,6 +17,25 @@ from circuitverse.components._common import CELL_GAP, COL_GAP
 from circuitverse.yosys_layout import topo_sort_cells, place_cells, compute_col_x
 from circuitverse.yosys_ports import place_ports
 from circuitverse.components._common import X_START
+
+
+def _run_yosys(script):
+    """Run a Yosys script, return parsed JSON output.
+
+    Raises RuntimeError if Yosys exits with a non-zero status.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        tmp_path = tmp.name
+    try:
+        cmd = ["yosys", "-p", script.format(out=tmp_path)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"Yosys failed:\n{result.stderr}")
+        with open(tmp_path) as f:
+            return json.load(f)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def _yosys_synth(verilog_paths, top_name, gate_level=False):
@@ -38,19 +56,7 @@ def _yosys_synth(verilog_paths, top_name, gate_level=False):
         f"clean -purge; "
         f"write_json {{out}}"
     )
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        tmp_path = tmp.name
-    try:
-        cmd = ["yosys", "-p", script.format(out=tmp_path)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Yosys error:\n{result.stderr}", file=sys.stderr)
-            sys.exit(1)
-        with open(tmp_path) as f:
-            return json.load(f)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    return _run_yosys(script)
 
 
 def _set_node_abs_positions(na, all_comps):
@@ -80,9 +86,8 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
 
     if top_name not in netlist.get("modules", {}):
         avail = list(netlist.get("modules", {}).keys())
-        print(f"Module '{top_name}' not in Yosys output. Available: {avail}",
-              file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(
+            f"Module '{top_name}' not in Yosys output. Available: {avail}")
 
     ymod = netlist["modules"][top_name]
     na = _CVNodeAlloc()
@@ -160,19 +165,7 @@ def _yosys_elaborate(verilog_paths, top_name):
         f"clean -purge; "
         f"write_json {{out}}"
     )
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        tmp_path = tmp.name
-    try:
-        cmd = ["yosys", "-p", script.format(out=tmp_path)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Yosys error:\n{result.stderr}", file=sys.stderr)
-            sys.exit(1)
-        with open(tmp_path) as f:
-            return json.load(f)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    return _run_yosys(script)
 
 
 def _clean_yosys_name(name):
@@ -422,9 +415,8 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name):
 
     if top_name not in netlist.get("modules", {}):
         avail = list(netlist.get("modules", {}).keys())
-        print(f"Module '{top_name}' not in Yosys output. Available: {avail}",
-              file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(
+            f"Module '{top_name}' not in Yosys output. Available: {avail}")
 
     modules = netlist["modules"]
 

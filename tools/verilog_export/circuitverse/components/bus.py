@@ -4,7 +4,7 @@ from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_
 from cv_emit import emit_splitter, register_bits
 
 
-def place_slice(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_slice(cell, conns, na, bit_nodes, components, x, y):
   """Place a bus slice ($slice). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
@@ -33,7 +33,7 @@ def place_slice(cell_name, cell, conns, na, bit_nodes, components, x, y):
   return 60 + pin_clearance(max(1, len(groups)))
 
 
-def place_concat(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_concat(cell, conns, na, bit_nodes, components, x, y):
   """Place a bus concat ($concat). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))

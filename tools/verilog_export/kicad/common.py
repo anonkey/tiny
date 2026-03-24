@@ -1,7 +1,5 @@
 """Shared KiCad schematic helpers: placement, symbol emission, net labels."""
 
-import re
-
 from kicad.utils import _uuid
 from kicad.symbol import (
     PIN_LEN, PIN_PITCH, BOX_PAD_X, FONT_SYM, FONT_REF,
@@ -10,7 +8,6 @@ from kicad.symbol import (
 
 # Placement grid
 GRID_X = 76.2   # horizontal spacing between modules
-GRID_Y = 0      # same row by default
 ORIGIN_X = 50.8
 ORIGIN_Y = 76.2
 

@@ -3,7 +3,7 @@
 from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
 
 
-def place_mem_v2(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_mem_v2(cell, conns, na, bit_nodes, components, x, y):
   """Map Yosys $mem_v2 to CircuitVerse verilogRAM. Returns y-advance."""
   params = cell.get("parameters", {})
   data_bw = _param_int(cell, "WIDTH", 8)

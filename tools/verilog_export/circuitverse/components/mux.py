@@ -4,7 +4,7 @@ from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_
 from circuitverse.components.registry import component_height
 
 
-def place_mux(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_mux(cell, conns, na, bit_nodes, components, x, y):
   """Place a multi-bit mux. Returns y-advance."""
   bw = _param_int(cell, "WIDTH", len(conns["Y"]))
   inp_a = _new_bus_pin(na, bit_nodes, conns["A"], 0, bw, rx=-10, ry=-10)

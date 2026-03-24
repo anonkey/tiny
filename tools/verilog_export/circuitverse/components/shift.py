@@ -5,7 +5,7 @@ from cv_emit import register_bits
 from circuitverse.components.registry import pin_pos, component_height
 
 
-def place_shift(cell_name, cell, conns, na, bit_nodes, components, x, y):
+def place_shift(cell, conns, na, bit_nodes, components, x, y):
   """Place a shift-left or shift-right. Returns y-advance."""
   ctype = cell["type"]
   cv_type = "verilogShiftLeft" if ctype in ("$shl", "$sshl") else "verilogShiftRight"

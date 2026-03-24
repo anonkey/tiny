@@ -6,11 +6,12 @@ standalone function that returns an issue count and logs warnings.
 
 import logging
 
+from circuitverse.components._common import GRID_UNIT
 from cv_utils import _extract_comp_params
 
 _log = logging.getLogger(__name__)
 
-GRID = 10
+GRID = GRID_UNIT
 
 
 def _collect_comp_pin_nids(components):
