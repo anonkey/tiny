@@ -323,7 +323,7 @@ def compute_col_x(col_cells):
     _, prev_right, _, prev_right_pins = extents[prev_d]
     curr_left, _, curr_left_pins, _ = extents[curr_d]
     # Pin-count-based gap: additive clearance from both sides
-    h_gap = pin_clearance(prev_right_pins) + pin_clearance(curr_left_pins)
+    h_gap = pin_clearance(prev_right_pins) + pin_clearance(curr_left_pins) + 20
     needed = prev_right + h_gap + curr_left
     # Also respect COL_GAP as minimum center-to-center distance
     gap = max(needed, COL_GAP)

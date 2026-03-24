@@ -234,8 +234,8 @@ class _CVNodeAlloc:
                             sy = seg[1]
                             sx0, sx1 = seg[2], seg[3]
                             if by0 <= sy <= by1 and sx0 < bx1 and sx1 > bx0:
-                                # Allow if an endpoint is a pin of this component
-                                if (sx0, sy) in own_pin_pos or (sx1, sy) in own_pin_pos:
+                                # Allow if any pin of this component lies on the segment
+                                if any(py == sy and sx0 <= px <= sx1 for px, py in own_pin_pos):
                                     continue
                                 issues += 1
                                 print(f"ROUTE WARN CLEARANCE: H wire y={sy} x=[{sx0},{sx1}] "
@@ -247,8 +247,8 @@ class _CVNodeAlloc:
                             sx = seg[1]
                             sy0, sy1 = seg[2], seg[3]
                             if bx0 <= sx <= bx1 and sy0 < by1 and sy1 > by0:
-                                # Allow if an endpoint is a pin of this component
-                                if (sx, sy0) in own_pin_pos or (sx, sy1) in own_pin_pos:
+                                # Allow if any pin of this component lies on the segment
+                                if any(px == sx and sy0 <= py <= sy1 for px, py in own_pin_pos):
                                     continue
                                 issues += 1
                                 print(f"ROUTE WARN CLEARANCE: V wire x={sx} y=[{sy0},{sy1}] "
@@ -336,7 +336,7 @@ class _CVNodeAlloc:
 
         # ── Phase 3: characterize nets ──
         nets = []
-        straight_nets = []  # (min_x, min_y, max_x, max_y) for wire_cells marking
+        straight_nets = []  # (root, min_x, min_y, max_x, max_y) for wire_cells marking
         for root, node_ids in net_nodes.items():
             positions = [self.abs_pos[n] for n in node_ids]
             xs = [p[0] for p in positions]
@@ -349,7 +349,7 @@ class _CVNodeAlloc:
                 continue
             if min_x == max_x or min_y == max_y:
                 # Straight wire — no routing needed, but remember for wire_cells
-                straight_nets.append((min_x, min_y, max_x, max_y))
+                straight_nets.append((root, min_x, min_y, max_x, max_y))
                 continue
 
             area = (max_x - min_x) * (max_y - min_y)
@@ -364,6 +364,23 @@ class _CVNodeAlloc:
 
         if not nets:
             return
+
+        # ── Phase 3b: precompute net interconnections ──
+        # Two nets are interconnected if they share at least one abs position.
+        net_positions = {}  # root -> set of (abs_x, abs_y)
+        for root, node_ids in net_nodes.items():
+            net_positions[root] = {self.abs_pos[n] for n in node_ids}
+
+        pos_to_roots = {}  # (x, y) -> set of roots
+        for root, positions in net_positions.items():
+            for pos in positions:
+                pos_to_roots.setdefault(pos, set()).add(root)
+
+        connected_nets = {}  # root -> set of roots it's interconnected with
+        for pos, roots in pos_to_roots.items():
+            if len(roots) > 1:
+                for r in roots:
+                    connected_nets.setdefault(r, set()).update(roots - {r})
 
         # ── Phase 4: build occupancy grid ──
         orig_xs = [self.abs_pos[i][0] for i in range(num_original)]
@@ -386,17 +403,23 @@ class _CVNodeAlloc:
         hard_blocked = set()
         soft_blocked = {}  # (col, row) -> set of nids that can unlock it
         wire_cells = set()
+        wire_dirs = {}  # (col, row) -> set of axes ('H' or 'V')
+        wire_cell_owners = {}  # (col, row, axis) -> set of net root IDs
 
         # Mark straight-line nets in wire_cells so later nets avoid them
-        for sn_x0, sn_y0, sn_x1, sn_y1 in straight_nets:
+        for sn_root, sn_x0, sn_y0, sn_x1, sn_y1 in straight_nets:
             gc0, gr0 = sn_x0 // GRID - min_gx, sn_y0 // GRID - min_gy
             gc1, gr1 = sn_x1 // GRID - min_gx, sn_y1 // GRID - min_gy
             if gc0 == gc1:  # vertical
                 for r in range(min(gr0, gr1), max(gr0, gr1) + 1):
                     wire_cells.add((gc0, r))
+                    wire_dirs.setdefault((gc0, r), set()).add('V')
+                    wire_cell_owners.setdefault((gc0, r, 'V'), set()).add(sn_root)
             else:  # horizontal
                 for c in range(min(gc0, gc1), max(gc0, gc1) + 1):
                     wire_cells.add((c, gr0))
+                    wire_dirs.setdefault((c, gr0), set()).add('H')
+                    wire_cell_owners.setdefault((c, gr0, 'H'), set()).add(sn_root)
 
         CLEARANCE = 1
 
@@ -528,32 +551,38 @@ class _CVNodeAlloc:
         CROSS_PENALTY = 100  # heavy cost for crossing an existing wire
 
         def _astar_route(sc, sr, tc, tr):
-            """A* shortest path. Wire cells are crossable but expensive."""
+            """A* shortest path.
+
+            Wire cells may be crossed straight-through (perpendicular) but
+            turning (bending) on a wire cell is forbidden — a bend creates a
+            connection point in CircuitVerse, which would short two nets.
+            """
             if sc == tc and sr == tr:
                 return [(sc, sr)]
 
-            # (f, g, c, r)
+            # State: (col, row, direction)  direction = 0..3 or -1 (start)
             INF = float("inf")
             best = {}
             prev = {}
             pq = []
             g0 = 0
             h0 = abs(sc - tc) + abs(sr - tr)
-            heapq.heappush(pq, (g0 + h0, g0, sc, sr))
-            best[(sc, sr)] = g0
+            heapq.heappush(pq, (g0 + h0, g0, sc, sr, -1))
+            best[(sc, sr, -1)] = g0
 
             while pq:
-                f, g, c, r = heapq.heappop(pq)
-                if g > best.get((c, r), INF):
+                f, g, c, r, d = heapq.heappop(pq)
+                if g > best.get((c, r, d), INF):
                     continue
                 if c == tc and r == tr:
                     # Reconstruct
                     path = [(c, r)]
-                    while (c, r) in prev:
-                        c, r = prev[(c, r)]
-                        path.append((c, r))
+                    state = (c, r, d)
+                    while state in prev:
+                        state = prev[state]
+                        path.append((state[0], state[1]))
                     path.reverse()
-                    # Extract waypoints
+                    # Extract waypoints (bend points only)
                     if len(path) <= 2:
                         return path
                     waypoints = [path[0]]
@@ -573,15 +602,36 @@ class _CVNodeAlloc:
                     # Component body = impassable (unless it's the target pin)
                     if (nc, nr) in blocked and not (nc == tc and nr == tr):
                         continue
+                    # Forbid turning on a wire cell (bend = connection point
+                    # in CircuitVerse → creates unintended short)
+                    # Allow if all wire owners at this cell are interconnected
+                    is_turn = d != -1 and i != d
+                    if is_turn and (c, r) in wire_cells:
+                        all_owners = set()
+                        for ax in wire_dirs.get((c, r), set()):
+                            all_owners |= wire_cell_owners.get((c, r, ax), set())
+                        current_root = net["root"]
+                        my_connected = connected_nets.get(current_root, set())
+                        if not all_owners.issubset(my_connected | {current_root}):
+                            continue
+                    # Forbid collinear movement along existing wire (overlap)
+                    # unless current net is interconnected with the wire owner
                     step = 1
+                    move_axis = 'H' if i in (0, 2) else 'V'
                     if (nc, nr) in wire_cells:
+                        owners = wire_cell_owners.get((nc, nr, move_axis), set())
+                        if owners:
+                            current_root = net["root"]
+                            my_connected = connected_nets.get(current_root, set())
+                            if not owners.issubset(my_connected | {current_root}):
+                                continue  # unrelated net — no overlap allowed
                         step += CROSS_PENALTY
                     ng = g + step
-                    if ng < best.get((nc, nr), INF):
-                        best[(nc, nr)] = ng
-                        prev[(nc, nr)] = (c, r)
+                    if ng < best.get((nc, nr, i), INF):
+                        best[(nc, nr, i)] = ng
+                        prev[(nc, nr, i)] = (c, r, d)
                         h = abs(nc - tc) + abs(nr - tr)
-                        heapq.heappush(pq, (ng + h, ng, nc, nr))
+                        heapq.heappush(pq, (ng + h, ng, nc, nr, i))
 
             return None  # truly no path
 
@@ -775,14 +825,19 @@ class _CVNodeAlloc:
                 for i in range(len(full_path) - 1):
                     c0, r0 = full_path[i]
                     c1, r1 = full_path[i + 1]
+                    net_root = net["root"]
                     if c0 == c1:
                         for r in range(min(r0, r1), max(r0, r1) + 1):
                             net_cells.add((c0, r))
                             wire_cells.add((c0, r))
+                            wire_dirs.setdefault((c0, r), set()).add('V')
+                            wire_cell_owners.setdefault((c0, r, 'V'), set()).add(net_root)
                     elif r0 == r1:
                         for c in range(min(c0, c1), max(c0, c1) + 1):
                             net_cells.add((c, r0))
                             wire_cells.add((c, r0))
+                            wire_dirs.setdefault((c, r0), set()).add('H')
+                            wire_cell_owners.setdefault((c, r0, 'H'), set()).add(net_root)
 
                 routed_set.add(dst)
                 remaining.discard(dst)

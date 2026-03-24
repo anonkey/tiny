@@ -46,7 +46,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
           },
         }
         components.setdefault(cv_type, []).append(comp)
-        y_cell += component_height(cv_type, inputLength=2) + pin_clearance(2)
+        y_cell += component_height(cv_type, inputLength=2) + pin_clearance(2) + 20
       elif ctype == "$_NOT_":
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=-10, ry=0)
         out_y = _new_pin(na, bit_nodes, cell["connections"]["Y"][0], 1, rx=20, ry=0)
@@ -63,7 +63,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
           },
         }
         components.setdefault("NotGate", []).append(comp)
-        y_cell += component_height("NotGate") + pin_clearance(1)
+        y_cell += component_height("NotGate") + pin_clearance(1) + 20
       elif ctype.startswith(_YOSYS_DFF_PREFIX):
         conns = cell["connections"]
         dx, dy = pin_pos("DflipFlop", "dInp")
@@ -101,7 +101,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
           },
         }
         components.setdefault("DflipFlop", []).append(comp)
-        y_cell += component_height("DflipFlop") + pin_clearance(2)
+        y_cell += component_height("DflipFlop") + pin_clearance(2) + 20
       elif ctype == "$_MUX_":
         _css = 1
         ia_x, ia_y = pin_pos("Multiplexer", "inp", index=0, controlSignalSize=_css)
@@ -129,7 +129,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
           },
         }
         components.setdefault("Multiplexer", []).append(comp)
-        y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)
+        y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2) + 20
       else:
         print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
               file=sys.stderr)
