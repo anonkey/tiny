@@ -89,7 +89,7 @@ export default class Keyboard extends CircuitElement {
     /**
      * @memberof Keyboard
      * Whenever clock is enabled (1) then one character
-     * from the buffer is converted to ascii and transmitted 
+     * from the buffer is converted to ascii and transmitted
      * through the output nodes.
      */
     resolve() {
@@ -151,14 +151,14 @@ export default class Keyboard extends CircuitElement {
                 reset: findNode(this.reset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.bufferSize],
+            constructorParameters: [this.bufferSize],
         };
         return data;
     }
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = (colors['stroke']);
         ctx.fillStyle = (colors['fill']);
         ctx.beginPath();

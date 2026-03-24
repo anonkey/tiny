@@ -69,7 +69,7 @@ export default class SevenSegDisplay extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.color],
+            constructorParameters: [this.color],
             nodes: {
                 g: findNode(this.g),
                 f: findNode(this.f),

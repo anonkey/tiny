@@ -59,7 +59,7 @@ export default class Rom extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.data],
+            constructorParameters: [this.data],
             nodes: {
                 memAddr: findNode(this.memAddr),
                 dataOut: findNode(this.dataOut),

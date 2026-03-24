@@ -97,7 +97,7 @@ export default class SRflipFlop extends CircuitElement {
                 preset: findNode(this.preset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.direction],
+            constructorParameters: [this.direction],
 
         };
         return data;
@@ -105,7 +105,7 @@ export default class SRflipFlop extends CircuitElement {
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = (colors['stroke']);
         ctx.fillStyle = (colors['fill']);
         ctx.beginPath();

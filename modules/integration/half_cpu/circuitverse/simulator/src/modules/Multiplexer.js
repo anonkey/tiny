@@ -127,7 +127,7 @@ export default class Multiplexer extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.bitWidth,
                 this.controlSignalSize,

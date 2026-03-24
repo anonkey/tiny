@@ -114,7 +114,7 @@ export default class Demultiplexer extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.bitWidth,
                 this.controlSignalSize,

@@ -194,7 +194,7 @@ export default class CircuitElement {
         return {
             values: {},
             nodes: {},
-            constructorParamaters: [],
+            constructorParameters: [],
         };
     }
 
@@ -518,7 +518,7 @@ export default class CircuitElement {
      * NOT OVERRIDABLE
      */
     draw() {
-        //        
+        //
         var ctx = simulationArea.context;
         this.checkHover();
 
@@ -597,7 +597,7 @@ export default class CircuitElement {
     /**
         Draws element in layout mode (inside the subcircuit)
         @param {number} xOffset - x position of the subcircuit
-        @param {number} yOffset - y position of the subcircuit 
+        @param {number} yOffset - y position of the subcircuit
 
         Called by subcirucit.js/customDraw() - for drawing as a part of another circuit
         and layoutMode.js/renderLayout() -  for drawing in layoutMode

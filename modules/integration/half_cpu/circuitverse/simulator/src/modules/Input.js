@@ -83,7 +83,7 @@ export default class Input extends CircuitElement {
             values: {
                 state: this.state,
             },
-            constructorParamaters: [this.direction, this.bitWidth, this.layoutProperties],
+            constructorParameters: [this.direction, this.bitWidth, this.layoutProperties],
         };
         return data;
     }

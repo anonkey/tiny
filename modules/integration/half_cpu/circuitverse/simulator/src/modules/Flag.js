@@ -84,7 +84,7 @@ export default class Flag extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
             nodes: {
                 inp1: findNode(this.inp1),
             },

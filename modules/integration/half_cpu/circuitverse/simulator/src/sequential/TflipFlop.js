@@ -61,7 +61,7 @@ export default class TflipFlop extends CircuitElement {
 
     /**
      * @memberof TflipFlop
-     * @param {number} bitWidth - the new bitwidth 
+     * @param {number} bitWidth - the new bitwidth
      */
     newBitWidth(bitWidth) {
         this.bitWidth = bitWidth;
@@ -126,7 +126,7 @@ export default class TflipFlop extends CircuitElement {
                 preset: findNode(this.preset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
 
         };
         return data;
@@ -134,7 +134,7 @@ export default class TflipFlop extends CircuitElement {
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = (colors['stroke']);
         ctx.fillStyle = (colors['fill']);
         ctx.beginPath();
@@ -163,7 +163,7 @@ export default class TflipFlop extends CircuitElement {
           output reg [WIDTH-1:0] q, q_inv;
           input clk, a_rst, pre, en;
           input [WIDTH-1:0] t;
-        
+
           always @ (posedge clk or posedge a_rst)
             if (a_rst) begin
               q <= 'b0;

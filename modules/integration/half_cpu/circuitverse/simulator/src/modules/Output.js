@@ -94,7 +94,7 @@ export default class Output extends CircuitElement {
             nodes: {
                 inp1: findNode(this.inp1),
             },
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.bitWidth,
                 this.layoutProperties,

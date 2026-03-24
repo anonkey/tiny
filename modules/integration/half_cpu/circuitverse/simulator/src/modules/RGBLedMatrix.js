@@ -183,7 +183,7 @@ export default class RGBLedMatrix extends CircuitElement {
         // Unlike a read LED matrix, we also persist the color of each pixel.
         // This allows circuit preview to show the colors at the time the simulation was saved.
         return {
-            constructorParamaters: [{
+            constructorParameters: [{
                 rows: this.rows,
                 columns: this.columns,
                 ledSize: this.ledSize,

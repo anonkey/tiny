@@ -83,7 +83,7 @@ export default class Text extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.label, this.fontSize],
+            constructorParameters: [this.label, this.fontSize],
         };
         return data;
     }
@@ -127,7 +127,7 @@ export default class Text extends CircuitElement {
      * Function for drawing text box
      */
     draw() {
-        //        
+        //
         if (this.label.length === 0 && simulationArea.lastSelected !== this) this.delete();
         var ctx = simulationArea.context;
         ctx.strokeStyle = colors['stroke'];

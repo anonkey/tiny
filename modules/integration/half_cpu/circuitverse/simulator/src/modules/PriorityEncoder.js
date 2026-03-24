@@ -85,7 +85,7 @@ export default class PriorityEncoder extends CircuitElement {
                 output1: this.output1.map(findNode),
                 enable: findNode(this.enable),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
         };
         return data;
     }

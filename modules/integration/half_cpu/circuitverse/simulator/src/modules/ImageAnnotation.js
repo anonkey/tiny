@@ -91,7 +91,7 @@ export default class ImageAnnotation extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.rows, this.cols, this.imageUrl],
+            constructorParameters: [this.rows, this.cols, this.imageUrl],
         };
         return data;
     }

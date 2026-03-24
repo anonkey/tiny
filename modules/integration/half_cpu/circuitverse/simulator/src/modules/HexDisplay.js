@@ -68,7 +68,7 @@ export default class HexDisplay extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.color],
+            constructorParameters: [this.color],
             nodes: {
                 inp: findNode(this.inp),
             },

@@ -36,7 +36,7 @@ export default class verilogMultiplier extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction, this.bitWidth, this.outputBitWidth],
+            constructorParameters: [this.direction, this.bitWidth, this.outputBitWidth],
             nodes: {
                 inpA: findNode(this.inpA),
                 inpB: findNode(this.inpB),

@@ -51,7 +51,7 @@ export default class Ground extends CircuitElement {
             values: {
                 state: this.state,
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
         };
         return data;
     }
@@ -76,7 +76,7 @@ export default class Ground extends CircuitElement {
             nodes: {
                 output1: findNode(this.output1),
             },
-            constructorParamaters: [this.bitWidth],
+            constructorParameters: [this.bitWidth],
         };
         return data;
     }
@@ -87,7 +87,7 @@ export default class Ground extends CircuitElement {
      */
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.beginPath();
         ctx.strokeStyle = [colors['stroke'], 'brown'][((this.hover && !simulationArea.shiftDown) || simulationArea.lastSelected === this || simulationArea.multipleObjectSelections.contains(this)) + 0];
         ctx.lineWidth = correctWidth(3);

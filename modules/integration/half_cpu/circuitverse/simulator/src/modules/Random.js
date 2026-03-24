@@ -91,7 +91,7 @@ export default class Random extends CircuitElement {
                 maxValue: findNode(this.maxValue),
                 output: findNode(this.output),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
 
         };
         return data;
@@ -99,7 +99,7 @@ export default class Random extends CircuitElement {
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.fillStyle = colors['fill'];
         ctx.strokeStyle = colors['stroke'];
         ctx.beginPath();
@@ -148,7 +148,7 @@ export default class Random extends CircuitElement {
         output reg [WIDTH-1:0] val;
         input clk;
         input [WIDTH-1:0] max;
-      
+
         always @ (posedge clk)
           if (^max === 1'bX)
             val = $urandom_range(0, {WIDTH{1'b1}});

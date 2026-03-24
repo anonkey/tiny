@@ -85,7 +85,7 @@ export default class RAM extends CircuitElement {
     customSave() {
         return {
             // NOTE: data is not persisted since RAMs are volatile.
-            constructorParamaters: [this.direction, this.bitWidth, this.addressWidth],
+            constructorParameters: [this.direction, this.bitWidth, this.addressWidth],
             nodes: {
                 address: findNode(this.address),
                 dataIn: findNode(this.dataIn),
@@ -147,7 +147,7 @@ export default class RAM extends CircuitElement {
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         var xx = this.x;
         var yy = this.y;
 
@@ -251,9 +251,9 @@ export default class RAM extends CircuitElement {
         input dmp;
         input rst;
         reg [WIDTH-1:0] mem [2**ADDR-1:0];
-    
+
         assign dout = mem[addr];
-    
+
         always @ (*) begin
         if (!we)
             mem[addr] = din;

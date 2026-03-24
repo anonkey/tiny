@@ -65,7 +65,7 @@ export default class SixteenSegDisplay extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.color],
+            constructorParameters: [this.color],
             nodes: {
                 input1: findNode(this.input1),
                 dot: findNode(this.dot),
@@ -184,7 +184,7 @@ export default class SixteenSegDisplay extends CircuitElement {
         var value = this.input1.value;
 
         this.subcircuitDrawSegment(-10, -38, 0, -38, ["lightgrey", this.actualColor][(value >> 15) & 1], xx, yy); //a1
-        this.subcircuitDrawSegment(10, -38, 0, -38, ["lightgrey", this.actualColor][(value >> 14) & 1], xx, yy); //a2    
+        this.subcircuitDrawSegment(10, -38, 0, -38, ["lightgrey", this.actualColor][(value >> 14) & 1], xx, yy); //a2
         this.subcircuitDrawSegment(11.5, -19, 11.5, -36, ["lightgrey", this.actualColor][(value >> 13) & 1], xx, yy); //b
         this.subcircuitDrawSegment(11.5, 2, 11.5, -15, ["lightgrey", this.actualColor][(value >> 12) & 1], xx, yy); //c
         this.subcircuitDrawSegment(-10, 4, 0, 4, ["lightgrey", this.actualColor][(value >> 11) & 1], xx, yy); //d1

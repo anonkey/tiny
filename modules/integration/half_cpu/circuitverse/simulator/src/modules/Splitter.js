@@ -70,7 +70,7 @@ export default class Splitter extends CircuitElement {
     customSave() {
         const data = {
 
-            constructorParamaters: [this.direction, this.bitWidth, this.bitWidthSplit],
+            constructorParameters: [this.direction, this.bitWidth, this.bitWidthSplit],
             nodes: {
                 outputs: this.outputs.map(findNode),
                 inp1: findNode(this.inp1),
@@ -205,7 +205,7 @@ export default class Splitter extends CircuitElement {
      */
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = [colors['splitter'], 'brown'][((this.hover && !simulationArea.shiftDown) || simulationArea.lastSelected === this || simulationArea.multipleObjectSelections.contains(this)) + 0];
         ctx.lineWidth = correctWidth(3);
         const xx = this.x;

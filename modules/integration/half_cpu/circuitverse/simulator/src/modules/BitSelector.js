@@ -77,7 +77,7 @@ export default class BitSelector extends CircuitElement {
                 output1: findNode(this.output1),
                 bitSelectorInp: findNode(this.bitSelectorInp),
             },
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.bitWidth,
                 this.selectorBitWidth,

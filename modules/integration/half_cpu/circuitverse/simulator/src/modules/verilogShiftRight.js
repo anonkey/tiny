@@ -36,7 +36,7 @@ export default class verilogShiftRight extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction, this.bitWidth, this.outputBitWidth],
+            constructorParameters: [this.direction, this.bitWidth, this.outputBitWidth],
             nodes: {
                 inp1: findNode(this.inp1),
                 shiftInp: findNode(this.shiftInp),

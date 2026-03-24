@@ -116,7 +116,7 @@ export default class DflipFlop extends CircuitElement {
                 preset: findNode(this.preset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
 
         };
         return data;
@@ -124,7 +124,7 @@ export default class DflipFlop extends CircuitElement {
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = (colors['stroke']);
         ctx.fillStyle = colors['fill'];
         ctx.beginPath();

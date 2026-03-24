@@ -83,7 +83,7 @@ export default class Rectangle extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.rows, this.cols],
+            constructorParameters: [this.rows, this.cols],
         };
         return data;
     }

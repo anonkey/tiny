@@ -92,7 +92,7 @@ export default class TB_Output extends CircuitElement {
 
     customSave() {
         var data = {
-            constructorParamaters: [this.direction, this.identifier],
+            constructorParameters: [this.direction, this.identifier],
             nodes: {
                 inputs: this.inputs.map(findNode),
             },

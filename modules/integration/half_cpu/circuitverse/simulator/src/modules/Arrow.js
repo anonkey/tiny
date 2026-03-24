@@ -44,7 +44,7 @@ export default class Arrow extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction],
+            constructorParameters: [this.direction],
         };
         return data;
     }

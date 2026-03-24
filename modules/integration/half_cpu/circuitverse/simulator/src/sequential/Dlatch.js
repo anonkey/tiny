@@ -94,7 +94,7 @@ export default class Dlatch extends CircuitElement {
                 // preset: findNode(this.preset),
                 // en: findNode(this.en),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
 
         };
         return data;

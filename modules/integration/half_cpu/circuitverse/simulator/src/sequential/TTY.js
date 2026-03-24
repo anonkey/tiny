@@ -136,14 +136,14 @@ export default class TTY extends CircuitElement {
                 reset: findNode(this.reset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.rows, this.cols],
+            constructorParameters: [this.rows, this.cols],
         };
         return data;
     }
 
     customDraw() {
         var ctx = simulationArea.context;
-        //        
+        //
         ctx.strokeStyle = (colors['stroke']);
         ctx.fillStyle = (colors['fill']);
         ctx.beginPath();

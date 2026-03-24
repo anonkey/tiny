@@ -81,7 +81,7 @@ export default class ConstantVal extends CircuitElement {
             nodes: {
                 output1: findNode(this.output1),
             },
-            constructorParamaters: [this.direction, this.bitWidth, this.state],
+            constructorParameters: [this.direction, this.bitWidth, this.state],
         };
         return data;
     }

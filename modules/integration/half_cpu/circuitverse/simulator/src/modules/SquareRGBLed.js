@@ -79,7 +79,7 @@ export default class SquareRGBLed extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction, this.pinLength],
+            constructorParameters: [this.direction, this.pinLength],
             nodes: {
                 inp1: findNode(this.inp1),
                 inp2: findNode(this.inp2),

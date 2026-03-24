@@ -82,7 +82,7 @@ export default class XorGate extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.inputSize,
                 this.bitWidth,

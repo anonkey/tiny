@@ -61,7 +61,7 @@ export default class Counter extends CircuitElement {
                 output: findNode(this.output),
                 zero: findNode(this.zero),
             },
-            constructorParamaters: [this.bitWidth]
+            constructorParameters: [this.bitWidth]
         };
     }
 
@@ -162,16 +162,16 @@ export default class Counter extends CircuitElement {
       output reg zero;
       input [WIDTH-1:0] max;
       input clk, rst;
-    
+
       initial
         val = 0;
-    
+
       always @ (val)
         if (val == 0)
           zero = 1;
         else
           zero = 0;
-    
+
       always @ (posedge clk or posedge rst) begin
         if (rst)
           val <= 0;

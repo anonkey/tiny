@@ -58,7 +58,7 @@ export default class Power extends CircuitElement {
             nodes: {
                 output1: findNode(this.output1),
             },
-            constructorParamaters: [this.bitWidth],
+            constructorParameters: [this.bitWidth],
         };
         return data;
     }

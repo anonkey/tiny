@@ -46,7 +46,7 @@ export default class Button extends CircuitElement {
             values: {
                 state: this.state,
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
         };
         return data;
     }
@@ -140,7 +140,7 @@ export default class Button extends CircuitElement {
     /*
     module Button${i}(out);
       output reg out;
-    
+
       initial begin
         //do something with the button here
       end

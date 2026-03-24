@@ -49,7 +49,7 @@ export default class Buffer extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
             nodes: {
                 output1: findNode(this.output1),
                 inp1: findNode(this.inp1),

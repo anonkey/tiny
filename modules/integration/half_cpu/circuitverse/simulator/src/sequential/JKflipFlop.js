@@ -124,7 +124,7 @@ export default class JKflipFlop extends CircuitElement {
                 preset: findNode(this.preset),
                 en: findNode(this.en),
             },
-            constructorParamaters: [this.direction],
+            constructorParameters: [this.direction],
 
         };
         return data;

@@ -66,7 +66,7 @@ function rectifyObjectType(obj) {
  */
 function loadModule(data, scope) {
     // Create circuit element
-    var obj = new modules[rectifyObjectType(data.objectType)](data.x, data.y, scope, ...data.customData.constructorParamaters || []);
+    var obj = new modules[rectifyObjectType(data.objectType)](data.x, data.y, scope, ...data.customData.constructorParameters || []);
     // Sets directions
     obj.label = data.label;
     obj.labelDirection = data.labelDirection || oppositeDirection[fixDirection[obj.direction]];

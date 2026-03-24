@@ -41,7 +41,7 @@ export default class Clock extends CircuitElement {
             nodes: {
                 output1: findNode(this.output1),
             },
-            constructorParamaters: [this.direction],
+            constructorParameters: [this.direction],
         };
         return data;
     }

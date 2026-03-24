@@ -43,7 +43,7 @@ export default class Stepper extends CircuitElement {
      */
     customSave() {
         var data = {
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
             nodes: {
                 output1: findNode(this.output1),
             },

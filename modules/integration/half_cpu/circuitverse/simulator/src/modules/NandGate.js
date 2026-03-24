@@ -87,7 +87,7 @@ export default class NandGate extends CircuitElement {
     // fn to create save Json Data of object
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.inputSize,
                 this.bitWidth,

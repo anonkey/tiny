@@ -298,7 +298,7 @@ export default class verilogRAM extends CircuitElement {
         this.dataOut.map(findNode);
         const data = {
             // NOTE: data is not persisted since verilogRAMs are volatile.
-            constructorParamaters: [this.direction, this.bitWidth, this.addressWidth, this.memData, this.words, this.numRead, this.numWrite, this.rdports, this.wrports],
+            constructorParameters: [this.direction, this.bitWidth, this.addressWidth, this.memData, this.words, this.numRead, this.numWrite, this.rdports, this.wrports],
 
             nodes: {
                 readAddress: this.readAddress.map(findNode),
@@ -408,7 +408,7 @@ export default class verilogRAM extends CircuitElement {
 
     customDraw() {
         // var ctx = simulationArea.context;
-        // //        
+        // //
         // var xx = this.x;
         // var yy = this.y;
 

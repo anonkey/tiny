@@ -83,7 +83,7 @@ export default class NorGate extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.inputSize,
                 this.bitWidth,

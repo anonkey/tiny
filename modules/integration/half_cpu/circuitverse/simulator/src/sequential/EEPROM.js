@@ -7,7 +7,7 @@ import RAM from './RAM';
  * @param {number} y - y coord of element
  * @param {Scope=} scope - the ciruit in which we want the Element
  * @param {string=} dir - direcion in which element has to drawn
- 
+
  *
  * This is basically a RAM component that persists its contents.
  *
@@ -51,7 +51,7 @@ export default class EEPROM extends RAM {
             data
         } = this;
 
-        saveInfo.constructorParamaters.push(data);
+        saveInfo.constructorParameters.push(data);
         return saveInfo;
     }
 
@@ -70,9 +70,9 @@ export default class EEPROM extends RAM {
         input rst;
         reg [WIDTH-1:0] mem[2**ADDR-1:0];
         integer j;
-    
+
         assign dout = mem[addr];
-    
+
         always @ (*) begin
         if (!rst)
             for (j=0; j < 2**ADDR-1; j=j+1) begin

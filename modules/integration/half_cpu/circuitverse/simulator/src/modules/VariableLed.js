@@ -84,7 +84,7 @@ export default class VariableLed extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [this.color],
+            constructorParameters: [this.color],
             nodes: {
                 inp1: findNode(this.inp1),
             },

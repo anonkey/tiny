@@ -161,7 +161,7 @@ export default class Tunnel extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.bitWidth,
                 this.identifier,

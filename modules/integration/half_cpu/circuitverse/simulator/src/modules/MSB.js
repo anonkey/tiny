@@ -57,7 +57,7 @@ export default class MSB extends CircuitElement {
                 output1: findNode(this.output1),
                 enable: findNode(this.enable),
             },
-            constructorParamaters: [this.direction, this.bitWidth],
+            constructorParameters: [this.direction, this.bitWidth],
         };
         return data;
     }

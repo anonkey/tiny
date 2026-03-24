@@ -82,7 +82,7 @@ export default class OrGate extends CircuitElement {
      */
     customSave() {
         const data = {
-            constructorParamaters: [
+            constructorParameters: [
                 this.direction,
                 this.inputSize,
                 this.bitWidth,
