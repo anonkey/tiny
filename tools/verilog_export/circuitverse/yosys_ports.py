@@ -154,19 +154,19 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None):
             y_in += max(bw * 20 + 20, CELL_GAP)
 
         else:
-            out_px, out_py = pin_pos("Output", "inp1", direction="LEFT", bitWidth=bw)
+            out_px, out_py = pin_pos("Output", "inp1", bitWidth=bw)
             if bw == 1:
                 inp_node = _new_pin(na, bit_nodes, bits[0], 0, 1, rx=out_px, ry=out_py)
             else:
                 # Join individual bits into bus for output
                 inp_node = na.alloc(out_px, out_py, 0, bw)
                 bws = [1] * bw
-                ji_x, ji_y = pin_pos("Splitter", "inp1", direction="LEFT", bitWidth=bw, bitWidthSplit=bws)
+                ji_x, ji_y = pin_pos("Splitter", "inp1", bitWidth=bw, bitWidthSplit=bws)
                 jn_out = na.alloc(ji_x, ji_y, 1, bw)
                 na.connect(jn_out, inp_node)
                 jn_inputs = []
                 for i, b in enumerate(bits):
-                    so_x, so_y = pin_pos("Splitter", "outputs", index=i, direction="LEFT", bitWidth=bw, bitWidthSplit=bws)
+                    so_x, so_y = pin_pos("Splitter", "outputs", index=i, bitWidth=bw, bitWidthSplit=bws)
                     jn_in = _new_pin(na, bit_nodes, b, 0, 1, rx=so_x, ry=so_y)
                     jn_inputs.append(jn_in)
                 cv_splitters.append({
