@@ -257,25 +257,46 @@ async def test_store(dut):
     assert addr == 3, f"PC should be 3, got {addr}"
 
 
-OP_BEQ = 0xC
+OP_BEZ = 0xC
 
 
 @cocotb.test()
-async def test_beq(dut):
-    """BEQ always branches (ALU slot 12 = 0 -> zero_flag = 1)."""
+async def test_bez_taken(dut):
+    """BEZ branches when rs1 == 0."""
     cocotb.start_soon(Clock(dut.clk, SYS_CLK_PERIOD, units="ns").start())
     await reset(dut)
 
-    # LDI r0, 42 (non-zero value -- doesn't matter, BEQ always branches)
-    await do_fetch_cycle(dut, enc_imm8(OP_LDI, 0, 42), expected_pc=0)
+    # LDI r0, 0 (zero — BEZ should branch)
+    await do_fetch_cycle(dut, enc_imm8(OP_LDI, 0, 0), expected_pc=0)
 
-    # BEQ to address 0x10
-    await do_fetch_cycle(dut, enc_imm8(OP_BEQ, 0, 0x10), expected_pc=1)
+    # BEZ r0, 0x10
+    await do_fetch_cycle(dut, enc_imm8(OP_BEZ, 0, 0x10), expected_pc=1)
 
-    # Next fetch should be at PC=0x10
+    # Next fetch should be at PC=0x10 (branch taken)
     await wait_cs_low(dut)
     cmd = await spi_clock_byte(dut)
     assert cmd == CMD_IFETCH
     await inter_byte_gap(dut)
     addr = await spi_clock_byte(dut)
-    assert addr == 0x10, f"PC should jump to 0x10 after BEQ, got {addr:#04x}"
+    assert addr == 0x10, f"PC should jump to 0x10 after BEZ (r0==0), got {addr:#04x}"
+
+
+@cocotb.test()
+async def test_bez_not_taken(dut):
+    """BEZ does not branch when rs1 != 0."""
+    cocotb.start_soon(Clock(dut.clk, SYS_CLK_PERIOD, units="ns").start())
+    await reset(dut)
+
+    # LDI r0, 42 (non-zero — BEZ should NOT branch)
+    await do_fetch_cycle(dut, enc_imm8(OP_LDI, 0, 42), expected_pc=0)
+
+    # BEZ r0, 0x10
+    await do_fetch_cycle(dut, enc_imm8(OP_BEZ, 0, 0x10), expected_pc=1)
+
+    # Next fetch should be at PC=2 (fall through, not taken)
+    await wait_cs_low(dut)
+    cmd = await spi_clock_byte(dut)
+    assert cmd == CMD_IFETCH
+    await inter_byte_gap(dut)
+    addr = await spi_clock_byte(dut)
+    assert addr == 2, f"PC should be 2 (fall through, r0!=0), got {addr:#04x}"

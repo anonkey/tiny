@@ -19,7 +19,7 @@ module decoder(
    output       o_use_imm8;   // 1 = write imm8 to rd (LDI)
    output       o_is_load;    // LOAD  (1101)
    output       o_is_store;   // STORE (1110)
-   output       o_is_beq;     // BEQ   (1100)
+   output       o_is_beq;     // BEZ   (1100)
 
    input [15:0] i_instr;
 
@@ -28,7 +28,7 @@ module decoder(
    // Field extraction
    assign w_opcode = i_instr[15:12];
    assign o_rd     = i_instr[11:9];
-   assign o_rs1    = i_instr[8:6];
+   assign o_rs1    = o_is_beq ? i_instr[11:9] : i_instr[8:6]; // BEZ: rs1 from rd slot
    assign o_rs2    = i_instr[5:3];
    assign o_imm6   = i_instr[5:0];
    assign o_imm8   = i_instr[8:1];
@@ -39,11 +39,12 @@ module decoder(
    assign o_is_beq   = w_opcode[3] & w_opcode[2] & ~w_opcode[1] & ~w_opcode[0]; // 1100
 
    // ALU opcode: passthrough for R-type (0000-0101).
-   // ADDI (1001), LOAD (1101), STORE (1110) → force ADD (0000).
+   // ADDI (1001), BEZ (1100), LOAD (1101), STORE (1110) → force ADD (0000).
    // All others pass through (unused slots produce 0 in ALU mux).
    wire w_force_add;
    assign w_force_add = w_opcode[3] & (
                         (~w_opcode[2] & ~w_opcode[1] & w_opcode[0]) |  // 1001 ADDI
+                        (w_opcode[2] & ~w_opcode[1] & ~w_opcode[0]) |  // 1100 BEZ
                         (w_opcode[2] & ~w_opcode[1] & w_opcode[0]) |   // 1101 LOAD
                         (w_opcode[2] & w_opcode[1] & ~w_opcode[0])     // 1110 STORE
                       );
@@ -63,7 +64,7 @@ module decoder(
                      (w_opcode[2] & w_opcode[1] & ~w_opcode[0])     // 1110
                    );
 
-   // pc_load: jump for JMP (1011), BEQ handled externally with zero flag
+   // pc_load: jump for JMP (1011), BEZ handled externally with zero flag
    assign o_pc_load = w_opcode[3] & ~w_opcode[2] & w_opcode[1] & w_opcode[0]; // 1011
 
    // use_imm8: LDI (1010) loads 8-bit immediate directly into rd

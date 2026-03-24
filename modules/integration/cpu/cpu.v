@@ -70,6 +70,11 @@ module cpu(
    );
 
    // --- EXECUTE: ALU ---
+   // BEZ: force operand B to zero so ALU computes rs1 + 0 = rs1.
+   // Zero flag then reflects rs1 == 0.
+   wire [7:0] w_alu_b_final;
+   assign w_alu_b_final = w_is_beq ? 8'b0 : w_alu_b;
+
    wire [7:0] w_alu_result;
    wire       w_alu_carry;
    assign o_alu = w_alu_result;
@@ -78,11 +83,11 @@ module cpu(
       .o_result(w_alu_result),
       .o_carry(w_alu_carry),
       .i_a(w_rd1_data),
-      .i_b(w_alu_b),
+      .i_b(w_alu_b_final),
       .i_opcode(w_alu_op)
    );
 
-   // --- Zero flag for BEQ ---
+   // --- Zero flag for BEZ ---
    wire w_zero_flag;
 
    zero_flag #(.N(8)) zf (
@@ -101,7 +106,7 @@ module cpu(
       .o_out(w_write_data)
    );
 
-   // --- PC: jump on JMP or BEQ (when zero) ---
+   // --- PC: jump on JMP or BEZ (when rs1 == 0) ---
    wire w_do_jump;
    assign w_do_jump = w_pc_load | (w_is_beq & w_zero_flag);
 

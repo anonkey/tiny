@@ -77,7 +77,7 @@ async def test_reg_we_addi_ldi_load(dut):
 
 @cocotb.test()
 async def test_reg_we_off(dut):
-    """Unused (1000), JMP (1011), BEQ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
+    """Unused (1000), JMP (1011), BEZ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
     for opcode in [0b1000, 0b1011, 0b1100, 0b1110, 0b1111]:
         dut.instr.value = opcode << 12
         await Timer(1, units="ns")
@@ -133,6 +133,22 @@ async def test_use_imm8(dut):
 
 
 @cocotb.test()
+async def test_bez_fields(dut):
+    """BEZ (1100) should: extract rs1 from rd slot [11:9], force alu_op to ADD, assert is_beq."""
+    # BEZ r5, 0x42 → opcode=1100, rs1(rd slot)=101, imm8=0x42
+    instr = build_l_type(0b1100, 0b101, 0x42)
+    dut.instr.value = instr
+    await Timer(1, units="ns")
+
+    assert int(dut.is_beq.value) == 1, "is_beq should be asserted"
+    assert int(dut.rs1.value) == 0b101, f"rs1 should be 5 (from rd slot), got {int(dut.rs1.value)}"
+    assert int(dut.imm8.value) == 0x42, f"imm8 should be 0x42, got {int(dut.imm8.value):#x}"
+    assert int(dut.alu_op.value) == 0b0000, f"alu_op should be ADD (0000), got {int(dut.alu_op.value):#06b}"
+    assert int(dut.reg_we.value) == 0, "reg_we should be 0 for BEZ"
+    assert int(dut.pc_load.value) == 0, "pc_load should be 0 for BEZ (handled by zero flag)"
+
+
+@cocotb.test()
 async def test_all_fields_all_opcodes(dut):
     """Sweep all 16 opcodes with distinct field values, verify extraction."""
     for opcode in range(16):
@@ -143,8 +159,8 @@ async def test_all_fields_all_opcodes(dut):
         dut.instr.value = instr
         await Timer(1, units="ns")
 
-        # ADDI(1001), LOAD(1101), STORE(1110) map alu_op to ADD(0000)
-        if opcode in (0b1001, 0b1101, 0b1110):
+        # ADDI(1001), BEZ(1100), LOAD(1101), STORE(1110) map alu_op to ADD(0000)
+        if opcode in (0b1001, 0b1100, 0b1101, 0b1110):
             expected_alu = 0b0000
         else:
             expected_alu = opcode
@@ -153,5 +169,9 @@ async def test_all_fields_all_opcodes(dut):
             f"expected {expected_alu:#06b}, got {int(dut.alu_op.value):#06b}"
         )
         assert int(dut.rd.value) == rd_val, f"rd mismatch at opcode {opcode}"
-        assert int(dut.rs1.value) == rs1_val, f"rs1 mismatch at opcode {opcode}"
+        # BEZ reads rs1 from rd slot [11:9]
+        if opcode == 0b1100:
+            assert int(dut.rs1.value) == rd_val, f"BEZ rs1 mismatch (should be rd slot)"
+        else:
+            assert int(dut.rs1.value) == rs1_val, f"rs1 mismatch at opcode {opcode}"
         assert int(dut.rs2.value) == rs2_val, f"rs2 mismatch at opcode {opcode}"

@@ -14,6 +14,10 @@ def i_type(opcode, rd, rs1, imm6):
 def l_type(opcode, rd, imm8):
     return (opcode << 12) | (rd << 9) | ((imm8 & 0xFF) << 1)
 
+def bez_type(rs1, imm8):
+    """BEZ rs1, imm8 — rs1 goes in rd slot [11:9]."""
+    return (0b1100 << 12) | (rs1 << 9) | ((imm8 & 0xFF) << 1)
+
 # Opcodes
 ADD  = 0b0000
 SUB  = 0b0001
@@ -24,7 +28,7 @@ NOT  = 0b0101
 ADDI = 0b1001
 LDI  = 0b1010
 JMP  = 0b1011
-BEQ  = 0b1100
+BEZ  = 0b1100
 NOP  = 0b1111
 
 # Single program loaded into ROM at elaboration time.
@@ -77,13 +81,15 @@ PROGRAM = [
     l_type(NOP, 0, 0),
     l_type(NOP, 0, 0),
     l_type(NOP, 0, 0),
-    # addr 20: LDI r0, 77
+    # addr 20: LDI r0, 77 (non-zero)
     l_type(LDI, 0, 77),
-    # addr 21: BEQ to 30 (always taken, ALU slot 12 = 0)
-    l_type(BEQ, 0, 30),
-    # addr 22-29: skipped
-    l_type(NOP, 0, 0),
-    l_type(NOP, 0, 0),
+    # addr 21: BEZ r0, 30 — NOT taken (r0=77 != 0), falls through to 22
+    bez_type(0, 30),
+    # addr 22: LDI r0, 0 (zero)
+    l_type(LDI, 0, 0),
+    # addr 23: BEZ r0, 30 — taken (r0=0)
+    bez_type(0, 30),
+    # addr 24-29: skipped
     l_type(NOP, 0, 0),
     l_type(NOP, 0, 0),
     l_type(NOP, 0, 0),
@@ -98,11 +104,12 @@ PROGRAM = [
 
 
 def write_hex():
-    path = os.path.join(os.path.dirname(__file__), "program.hex")
     padded = PROGRAM + [l_type(NOP, 0, 0)] * (256 - len(PROGRAM))
-    with open(path, "w") as f:
-        for word in padded:
-            f.write(f"{word:04X}\n")
+    # Write to both test dir (for reference) and cwd (where iverilog sim runs)
+    for path in [os.path.join(os.path.dirname(__file__), "program.hex"), "program.hex"]:
+        with open(path, "w") as f:
+            for word in padded:
+                f.write(f"{word:04X}\n")
 
 
 write_hex()
@@ -217,20 +224,32 @@ async def test_jmp(dut):
 
 
 @cocotb.test()
-async def test_beq(dut):
-    """BEQ at addr 21 should branch to 30."""
+async def test_bez_not_taken(dut):
+    """BEZ r0, 30 at addr 21 should NOT branch (r0=77 != 0)."""
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
     await run_until_pc(dut, 21)
-    await tick(dut)  # execute BEQ
+    await tick(dut)  # execute BEZ r0, 30 — r0=77, not taken
+    assert int(dut.pc_out.value) == 22, (
+        f"PC should be 22 (fall through), got {int(dut.pc_out.value)}"
+    )
+
+
+@cocotb.test()
+async def test_bez_taken(dut):
+    """BEZ r0, 30 at addr 23 should branch (r0=0)."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+    await run_until_pc(dut, 23)
+    await tick(dut)  # execute BEZ r0, 30 — r0=0, taken
     assert int(dut.pc_out.value) == 30, (
-        f"PC should be 30 after BEQ, got {int(dut.pc_out.value)}"
+        f"PC should be 30 after BEZ, got {int(dut.pc_out.value)}"
     )
 
 
 @cocotb.test()
 async def test_full_program(dut):
-    """Run entire program, verify JMP and BEQ flow."""
+    """Run entire program, verify JMP and BEZ flow."""
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
 
@@ -239,7 +258,11 @@ async def test_full_program(dut):
     assert int(dut.pc_out.value) == 20, "JMP should land at 20"
     await tick(dut)
     assert int(dut.pc_out.value) == 21
-    await tick(dut)
-    assert int(dut.pc_out.value) == 30, "BEQ should land at 30"
+    await tick(dut)  # BEZ r0, 30 — r0=77, not taken
+    assert int(dut.pc_out.value) == 22, "BEZ should fall through (r0 != 0)"
+    await tick(dut)  # LDI r0, 0
+    assert int(dut.pc_out.value) == 23
+    await tick(dut)  # BEZ r0, 30 — r0=0, taken
+    assert int(dut.pc_out.value) == 30, "BEZ should land at 30 (r0 == 0)"
     await tick(dut)
     assert int(dut.pc_out.value) == 31

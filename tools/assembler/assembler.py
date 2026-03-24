@@ -15,8 +15,8 @@ Assembly syntax:
     LDI  r0, 42         ; r0 = 42 (imm8, 0..255)
     JMP  label           ; jump to label
     JMP  20              ; jump to address 20
-    BEQ  label           ; branch to label (always taken currently)
-    BEQ  10              ; branch to address 10
+    BEZ  r1, label       ; branch to label if r1 == 0
+    BEZ  r1, 10          ; branch to address 10 if r1 == 0
     NOP                  ; no operation
 
 Labels:
@@ -43,13 +43,13 @@ OPCODES = {
     "ADDI": 0b1001,
     "LDI":  0b1010,
     "JMP":  0b1011,
-    "BEQ":  0b1100,
+    "BEZ":  0b1100,
     "NOP":  0b1111,
 }
 
 R_TYPE = {"ADD", "SUB", "AND", "OR", "XOR"}
 I_TYPE = {"ADDI"}
-L_TYPE = {"LDI", "JMP", "BEQ"}
+L_TYPE = {"LDI", "JMP"}
 U_TYPE = {"NOT"}
 N_TYPE = {"NOP"}
 
@@ -157,15 +157,26 @@ def assemble(source):
                 imm = parse_int(parts[2])
                 word = encode_l_type(opcode, rd, imm)
 
-            elif mnemonic in ("JMP", "BEQ"):
+            elif mnemonic == "JMP":
                 if len(parts) != 2:
-                    raise ValueError(f"Expected: {mnemonic} target")
+                    raise ValueError(f"Expected: JMP target")
                 target = parts[1]
                 if target in labels:
                     imm = labels[target]
                 else:
                     imm = parse_int(target)
                 word = encode_l_type(opcode, 0, imm)
+
+            elif mnemonic == "BEZ":
+                if len(parts) != 3:
+                    raise ValueError(f"Expected: BEZ rs1, target")
+                rs1 = parse_reg(parts[1])
+                target = parts[2]
+                if target in labels:
+                    imm = labels[target]
+                else:
+                    imm = parse_int(target)
+                word = encode_l_type(opcode, rs1, imm)
 
             elif mnemonic == "NOP":
                 if len(parts) != 1:
