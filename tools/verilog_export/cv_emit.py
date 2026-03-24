@@ -1,5 +1,9 @@
 """Common component emitters for CircuitVerse export."""
 
+import logging
+
+_log = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
 # Common component patterns used by high-level cell handlers
@@ -212,6 +216,7 @@ def emit_component(na, component_type, x, y, direction="RIGHT", label="",
         try:
             px, py = pin_pos(component_type, pname, **params)
         except KeyError:
+            _log.debug("skipping unknown pin '%s' on '%s'", pname, component_type)
             continue
         ptype = pinfo.get("type", "input")
         ntype = 0 if ptype == "input" else 1

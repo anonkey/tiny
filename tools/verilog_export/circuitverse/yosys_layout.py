@@ -4,8 +4,10 @@ Supports both gate-level (1-bit $_AND_ etc.) and high-level ($add etc.) cells.
 Cell handlers live in components/ — this module provides topo sort and dispatch.
 """
 
-import sys
+import logging
 from collections import namedtuple
+
+_log = logging.getLogger(__name__)
 
 from circuitverse.components._common import (
   _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
@@ -171,6 +173,7 @@ def _cell_h_extent(ctype, cell):
     return (20, 20)
   info = _CELL_REGISTRY.get(ctype)
   if not info:
+    _log.debug("_cell_h_extent: unknown cell type '%s', using fallback (40, 40)", ctype)
     return (40, 40)  # fallback
   cv_type = info.cv_type
   try:
@@ -181,6 +184,7 @@ def _cell_h_extent(ctype, cell):
     left = dim["left"] + info.extra_left
     right = dim["right"] + info.extra_right
   except KeyError:
+    _log.debug("_cell_h_extent: dimensions lookup failed for '%s', using base (20, 20)", cv_type)
     left = 20 + info.extra_left
     right = 20 + info.extra_right
   return (left, right)
@@ -197,6 +201,7 @@ def _cell_outward_pins(ctype, cell):
     return (2, 2)
   info = _CELL_REGISTRY.get(ctype)
   if not info:
+    _log.debug("_cell_outward_pins: unknown cell type '%s', using fallback (1, 1)", ctype)
     return (1, 1)  # fallback
   lp = info.left_pins
   rp = info.right_pins
@@ -281,8 +286,7 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
         y_cell += handler(cell_name, cell, conns, na, bit_nodes,
                           components, x_cell, y_cell) + V_CELL_PAD
       else:
-        print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
-              file=sys.stderr)
+        _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)
 
   return components
 

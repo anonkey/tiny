@@ -1,6 +1,9 @@
 """Verilog parser: extract modules, ports, parameters and instances."""
 
+import logging
 import re
+
+_log = logging.getLogger(__name__)
 
 
 class Port:
@@ -172,7 +175,8 @@ def _eval_width(expr, params):
         try:
             env[p.name] = int(p.default)
         except (ValueError, TypeError):
-            pass
+            _log.debug("_eval_width: cannot convert param '%s' default '%s' to int",
+                       p.name, p.default)
     # Handle $clog2
     def clog2_sub(m):
         inner = m.group(1)
@@ -180,12 +184,14 @@ def _eval_width(expr, params):
             val = eval(inner, {"__builtins__": {}}, env)
             return str(max(1, (val - 1).bit_length()))
         except Exception:
+            _log.debug("_eval_width: $clog2 evaluation failed for '%s'", inner)
             return m.group(0)
     expr_eval = re.sub(r'\$clog2\(([^)]+)\)', clog2_sub, expr)
     try:
         val = eval(expr_eval, {"__builtins__": {}}, env)
         return int(val), f"[{expr}]"
     except Exception:
+        _log.debug("_eval_width: expression evaluation failed for '%s'", expr_eval)
         return 1, f"[{expr}]"
 
 
@@ -242,7 +248,8 @@ def parse_verilog(filepath):
                                           {p.name: int(p.default) for p in params if p.default.strip().isdigit()}))
                             width = msb - lsb + 1
                         except Exception:
-                            pass
+                            _log.debug("parse_verilog: width eval failed for port '%s' range '%s'",
+                                       name, rng)
                         ports.append(Port(name, direction, width, msb=0, lsb=0, raw_range=rng))
                     else:
                         ports.append(Port(name, direction, 1, raw_range=rng))
@@ -275,7 +282,8 @@ def parse_verilog(filepath):
                                 lsb = int(eval(parts[1].strip(), {"__builtins__": {}}, env))
                                 width = msb - lsb + 1
                             except Exception:
-                                pass
+                                _log.debug("parse_verilog: width eval failed for old-style port '%s' range '%s'",
+                                           name, rng)
                         ports.append(Port(name, direction, width, raw_range=rng))
                     else:
                         ports.append(Port(name, direction, 1))

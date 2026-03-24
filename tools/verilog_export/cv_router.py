@@ -308,6 +308,7 @@ class _OccupancyGrid:
                 try:
                     dim = _ref_dimensions(ct, **params)
                 except KeyError:
+                    _log.debug("_populate_blocking: dimensions lookup failed for '%s', using default 20x20", ct)
                     dim = {"left": 20, "right": 20, "up": 20, "down": 20}
             else:
                 dim = {"left": 20, "right": 20, "up": 20, "down": 20}

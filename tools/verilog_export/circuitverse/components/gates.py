@@ -1,6 +1,8 @@
 """Gate-level (1-bit) cell placement: $_AND_, $_OR_, $_NOT_, $_MUX_, $_DFF*."""
 
-import sys
+import logging
+
+_log = logging.getLogger(__name__)
 
 from circuitverse.components._common import (
   _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START,
@@ -97,8 +99,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
         components.setdefault("Multiplexer", []).append(comp)
         y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)
       else:
-        print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
-              file=sys.stderr)
+        _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)
         continue
       y_cell += V_CELL_PAD
 
