@@ -1,8 +1,8 @@
 [Back to Main](../README.md)
 
-# SPI Slave - 8-bit Byte-Oriented Half-Duplex
+# SPI PHY - 8-bit Byte-Oriented Half-Duplex
 
-> **SPI slave with 8-bit TX (MISO) and RX (MOSI) shift registers, clock domain synchronizers, and byte_done pulse every 8 SCLK edges**
+> **SPI PHY with 8-bit TX (MISO) and RX (MOSI) shift registers, clock domain synchronizers, and byte_done pulse every 8 SCLK edges**
 
 ## Interface
 

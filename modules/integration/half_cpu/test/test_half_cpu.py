@@ -82,9 +82,9 @@ async def spi_clock_byte(dut, tx_byte=0x00):
 
 async def inter_byte_gap(dut):
     """Wait for byte_done to propagate through synchronizer pipeline
-    and mem_ctrl to load the next TX byte into spi_slave.
+    and mem_ctrl to load the next TX byte into spi_phy.
     Pipeline: SCLK sync (2clk) + bit_cnt (1) + byte_done reg (1)
-    + mem_ctrl transition (1) + tx_load (1) + spi_slave load (1) = ~7 clocks"""
+    + mem_ctrl transition (1) + tx_load (1) + spi_phy load (1) = ~7 clocks"""
     await tick(dut, 15)
 
 

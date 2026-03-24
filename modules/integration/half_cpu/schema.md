@@ -159,7 +159,7 @@
   │  ┌──────────────────────────────────── SPI ENGINE ─────────────────────────────────┐  │   │       │
   │  │                                                                                 │  │   │       │
   │  │  ┌─────────────────────────────────────────────────────────────────────┐         │  │   │       │
-  │  │  │                      spi_slave                                     │         │  │   │       │
+  │  │  │                      spi_phy                                     │         │  │   │       │
   │  │  │                                                                     │         │  │   │       │
   │  │  │  ┌──────────────┐    ┌──────────────┐    ┌───────────────────┐     │         │  │   │       │
   │  │  │  │  cdc_sync    │    │ spi_shift_tx │    │ spi_byte_counter  │     │         │  │   │       │
@@ -183,10 +183,10 @@
   │  │  └─────────────────────────────────────────────────────────────────────┘         │  │   │       │
   │  │                                                                                 │  │   │       │
   │  │  Physical SPI bus wires:                                                        │  │   │       │
-  │  │    o_mosi ◀── spi_slave.o_miso  (we are master: our TX = bus MOSI)              │  │   │       │
-  │  │    i_miso ──▶ spi_slave.i_mosi  (bus MISO = our RX)                             │  │   │       │
+  │  │    o_mosi ◀── spi_phy.o_miso  (we are master: our TX = bus MOSI)              │  │   │       │
+  │  │    i_miso ──▶ spi_phy.i_mosi  (bus MISO = our RX)                             │  │   │       │
   │  │    o_cs_n ◀── w_cs_n                                                            │  │   │       │
-  │  │    i_sclk ──▶ spi_slave.i_sclk                                                 │  │   │       │
+  │  │    i_sclk ──▶ spi_phy.i_sclk                                                 │  │   │       │
   │  │                                                                                 │  │   │       │
   │  └─────────────────────────────────────────────────────────────────────────────────┘  │   │       │
   │                                                                                       │   │       │
@@ -198,7 +198,7 @@
         ▼           ▼                             │             │
   ┌─────────────────────┐                         │             │
   │    External nvSRAM  │                         ▼             ▼
-  │    (SPI slave)      │                    [debug ports]
+  │    (SPI PHY)      │                    [debug ports]
   │                     │
   │  i_miso ────────────┤
   │  i_sclk ────────────┤
@@ -248,7 +248,7 @@ half_cpu
 │   └── read_data_accum .............. 16-bit RX word assembler
 │       └── register #8 (x2) ........ hi/lo byte latches
 │
-└── spi_slave ........................ byte-oriented SPI engine
+└── spi_phy ........................ byte-oriented SPI engine
     ├── cdc_sync #3 .................. SCLK synchronizer (3-stage) + edge detect
     ├── cdc_sync #2 .................. MOSI synchronizer (2-stage)
     ├── spi_shift_tx ................. 8-bit TX shift register (MSB-first)
@@ -297,7 +297,7 @@ half_cpu
        │
        │
   ┌────┴──────┐     mem bus      ┌──────────┐    spi bus    ┌───────────┐
-  │ mem_ctrl  │◀────────────────▶│ cpu_fsm  │               │ spi_slave │
+  │ mem_ctrl  │◀────────────────▶│ cpu_fsm  │               │ spi_phy │
   │           │ req/done/op/addr │          │               │           │
   │           │                  │          │               │           │
   │   tx ─────┼──────────────────┼──────────┼──────────────▶│ shift_tx  │──▶ o_mosi

@@ -45,7 +45,7 @@ By default, output goes to `<module_dir>/export/`.
 With `kicad-hier`, modules are grouped into sub-sheets by their category path:
 - `lib/cells/` — primitives (dff, mux)
 - `lib/core/` — datapath (alu, decoder, regfile, pc, ...)
-- `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_slave)
+- `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_phy)
 
 ## Limitations
 

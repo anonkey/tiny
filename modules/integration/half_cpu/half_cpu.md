@@ -20,7 +20,7 @@
 
 ## Architecture
 
-Integrates `cpu_fsm`, `mem_ctrl`, and `spi_slave` internally. Only 4 physical SPI wires are exposed:
+Integrates `cpu_fsm`, `mem_ctrl`, and `spi_phy` internally. Only 4 physical SPI wires are exposed:
 
 ```
                               i_clk ──┐  i_rst_n ──┐
@@ -41,7 +41,7 @@ Integrates `cpu_fsm`, `mem_ctrl`, and `spi_slave` internally. Only 4 physical SP
   │       │       │              │ instr[15:0]                                 │
   │       ▼       │              ▼                                             │
   │  ┌──────────┐ │       ┌─────────────┐                                      │
-  │  │spi_slave │ │       │   Decoder   │                                      │
+  │  │spi_phy │ │       │   Decoder   │                                      │
   │  │  8-bit   │ │       └─────────────┘                                      │
   │  │ shift    │ │          │       │                                         │
   │  │ regs     │ │          ▼       ▼                                         │
@@ -78,7 +78,7 @@ Integrates `cpu_fsm`, `mem_ctrl`, and `spi_slave` internally. Only 4 physical SP
 | Cycle | Single-cycle | Multi-cycle (FSM) |
 | PC advance | Every clock | Only on FSM `WRITEBACK` |
 | LOAD/STORE | Not wired | Full nvSRAM SPI protocol |
-| SPI | None | Integrated spi_slave, 4-wire bus |
+| SPI | None | Integrated spi_phy, 4-wire bus |
 
 ## Writeback Mux
 
@@ -98,7 +98,7 @@ The instruction register and writeback mux both read from `mem_ctrl.o_read_data`
 
 ## Dependencies
 
-`cpu_fsm.v`, `mem_ctrl.v`, `spi_slave.v`, `pc.v`, `decoder.v`, `regfile.v`, `alu.v`, `alu_operand_mux.v`, `zero_flag.v`, `writeback_mux.v`, `mux.v`, `register.v`, `dff.v`, `kogge-stone.v`, `cdc_sync.v`, `spi_shift_tx.v`, `spi_shift_rx.v`, `spi_byte_counter.v`, `read_data_accum.v`, `pipeline_reg.v`
+`cpu_fsm.v`, `mem_ctrl.v`, `spi_phy.v`, `pc.v`, `decoder.v`, `regfile.v`, `alu.v`, `alu_operand_mux.v`, `zero_flag.v`, `writeback_mux.v`, `mux.v`, `register.v`, `dff.v`, `kogge-stone.v`, `cdc_sync.v`, `spi_shift_tx.v`, `spi_shift_rx.v`, `spi_byte_counter.v`, `read_data_accum.v`, `pipeline_reg.v`
 
 ---
 [Back to Main](../README.md)

@@ -1,10 +1,10 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-module tb_spi_slave ();
+module tb_spi_phy ();
 
   initial begin
-    $dumpvars(0, tb_spi_slave);
+    $dumpvars(0, tb_spi_phy);
     #1;
   end
 
@@ -16,7 +16,7 @@ module tb_spi_slave ();
   wire       byte_done;
   wire       miso;
 
-  spi_slave dut (
+  spi_phy dut (
     .o_rx_data(rx_data),
     .o_byte_done(byte_done),
     .i_tx_data(tx_data),

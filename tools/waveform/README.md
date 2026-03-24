@@ -11,7 +11,7 @@ All commands accept a **module name** (e.g. `spi`, `half_cpu`, `pc`) instead of 
 ```bash
 python tools/waveform/waveform.py signals spi
 python tools/waveform/waveform.py signals half_cpu --filter "pc|state|spi"
-python tools/waveform/waveform.py signals spi_slave -f "sclk|mosi|cs" -n 20
+python tools/waveform/waveform.py signals spi_phy -f "sclk|mosi|cs" -n 20
 ```
 
 ### Dump transitions

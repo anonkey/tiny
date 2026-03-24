@@ -1,6 +1,6 @@
 `default_nettype none
 
-// SPI slave — 8-bit byte-oriented half-duplex protocol (structural)
+// SPI PHY — 8-bit byte-oriented half-duplex protocol (structural)
 //
 // Shifts 8 bits per byte. Pulses o_byte_done after every 8 SCLK rising
 // edges while CS is active. CS_n is driven synchronously by mem_ctrl
@@ -9,7 +9,7 @@
 // TX: load i_tx_data via i_tx_load, shifts out MSB-first on SCLK falling edge.
 // RX: shifts in MOSI on SCLK rising edge, latches o_rx_data on byte_done.
 
-module spi_slave (
+module spi_phy (
   // RX: data received from master
   output wire [7:0]  o_rx_data,
   output wire        o_byte_done,

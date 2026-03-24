@@ -8,6 +8,8 @@ src/config_merged.json
 artifacts/
 **/results.xml
 **/*.vcd
+**/analysis
 *~
 *#
 export
+.claude/settings.json

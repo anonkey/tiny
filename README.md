@@ -40,7 +40,7 @@ flowchart LR
 
     subgraph HALF ["half_cpu"]
         FSM["CPU FSM"] --> MC["Mem Ctrl"]
-        MC --> SPI["SPI Slave"]
+        MC --> SPI["SPI PHY"]
         FSM --> DEC2["Decoder"]
         DEC2 --> RF2["Regfile\n8x8"]
         RF2 --> ALU2["ALU"]
@@ -81,7 +81,7 @@ Each module is a self-contained package with source, docs, tests, and a `manager
 |--------|-------------|------|
 | cpu_fsm | Fetch/decode/execute/writeback FSM | [cpu_fsm.md](modules/subsystem/cpu_fsm/cpu_fsm.md) |
 | mem_ctrl | Abstract memory requests → SPI transactions (nvSRAM) | [mem_ctrl.md](modules/subsystem/mem_ctrl/mem_ctrl.md) |
-| spi_slave | SPI slave with TX/RX shift registers and CDC | [spi_slave.md](modules/subsystem/spi_slave/spi_slave.md) |
+| spi_phy | SPI slave with TX/RX shift registers and CDC | [spi_phy.md](modules/subsystem/spi_phy/spi_phy.md) |
 
 ### Lib — Core
 
@@ -136,7 +136,7 @@ modules/                        # 24 Verilog modules (monorepo packages)
   lib/core/                     #   datapath: alu, decoder, regfile, pc, ...
   lib/spi/                      #   SPI: cdc_sync, shift registers, byte counter
   lib/mem/                      #   memory: read_data_accum
-  subsystem/                    #   controllers: cpu_fsm, mem_ctrl, spi_slave
+  subsystem/                    #   controllers: cpu_fsm, mem_ctrl, spi_phy
   integration/                  #   top-level: cpu, half_cpu, top
   <module>/
     <module>.v                  #   source

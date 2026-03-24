@@ -23,7 +23,7 @@ Categories mirror the hardware hierarchy:
 - `lib/core/` — datapath (alu, decoder, regfile, register, pc, rom, etc.)
 - `lib/spi/` — SPI components (cdc_sync, shift registers, byte counter)
 - `lib/mem/` — memory (read_data_accum)
-- `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_slave)
+- `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_phy)
 - `integration/` — top-level (cpu, half_cpu, top)
 
 Placement rules:

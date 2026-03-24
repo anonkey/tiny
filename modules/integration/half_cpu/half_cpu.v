@@ -2,7 +2,7 @@
 
 // Half-CPU: PC + decoder + regfile + ALU, no internal memory.
 // Instructions and data are fetched/stored over SPI via cpu_fsm + mem_ctrl.
-// Integrates spi_slave internally — only physical SPI wires are exposed.
+// Integrates spi_phy internally — only physical SPI wires are exposed.
 
 module half_cpu (
   output [7:0]  o_pc,
@@ -32,7 +32,7 @@ module half_cpu (
   wire [7:0]  w_mem_wdata;
   wire        w_mem_done;
 
-  // --- Internal SPI signals (mem_ctrl <-> spi_slave) ---
+  // --- Internal SPI signals (mem_ctrl <-> spi_phy) ---
   wire [7:0]  w_spi_tx_data;
   wire        w_spi_tx_load;
   wire [7:0]  w_spi_rx_data;
@@ -197,8 +197,8 @@ module half_cpu (
     .i_rst_n(i_rst_n)
   );
 
-  // --- SPI Slave (shift register engine) ---
-  spi_slave spi (
+  // --- SPI PHY (shift register engine) ---
+  spi_phy spi (
     .o_rx_data(w_spi_rx_data),
     .o_byte_done(w_spi_byte_done),
     .i_tx_data(w_spi_tx_data),
