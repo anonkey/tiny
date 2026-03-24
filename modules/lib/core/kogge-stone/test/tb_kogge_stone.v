@@ -11,13 +11,15 @@ module tb_kogge_stone ();
   reg [7:0] input_A;
   reg [7:0] input_B;
   reg sub;
+  reg cin;
   wire [8:0] output_S;
 
   kogge_stone #(.N(8)) dut (
     .o_S(output_S),
     .i_A(input_A),
     .i_B(input_B),
-    .i_sub(sub)
+    .i_sub(sub),
+    .i_cin(cin)
   );
 
 endmodule

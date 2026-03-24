@@ -29,10 +29,11 @@ Parameterized N-bit adder/subtractor.
 
 | Port | Dir | Width | Description |
 |------|-----|-------|-------------|
-| `output_S` | out | N+1 | Sum with carry out |
-| `input_A` | in | N | Operand A |
-| `input_B` | in | N | Operand B |
-| `sub` | in | 1 | 0=add, 1=subtract |
+| `o_S` | out | N+1 | Sum with carry out |
+| `i_A` | in | N | Operand A |
+| `i_B` | in | N | Operand B |
+| `i_sub` | in | 1 | 0=add, 1=subtract |
+| `i_cin` | in | 1 | External carry-in (for chained arithmetic) |
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -45,7 +46,7 @@ Parameterized N-bit adder/subtractor.
 3. **Carry**: Green cells compute final carries from prefix tree + carry-in
 4. **Sum**: `S[i] = P0[i] ^ C[i]`
 
-Subtraction: `B` is XORed with `sub` (one's complement) and `sub` is used as carry-in (two's complement).
+Subtraction: `B` is XORed with `i_sub` (one's complement) and `i_sub` is used as carry-in (two's complement). An external `i_cin` can be ORed in for chained arithmetic.
 
 ## Dependencies
 

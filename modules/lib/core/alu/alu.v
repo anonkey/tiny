@@ -22,7 +22,8 @@ module alu(
       .o_S(w_adder_out),
       .i_A(i_a),
       .i_B(i_b),
-      .i_sub(i_opcode[0])
+      .i_sub(i_opcode[0]),
+      .i_cin(1'b0)
    );
 
    // Compute each operation result

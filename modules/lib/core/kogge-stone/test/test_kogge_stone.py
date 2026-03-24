@@ -9,6 +9,7 @@ async def test_kogge_stone_add_exhaustive_8bit(dut):
             dut.input_A.value = a
             dut.input_B.value = b
             dut.sub.value = 0
+            dut.cin.value = 0
 
             await Timer(1, units="ns")
 
@@ -28,6 +29,7 @@ async def test_kogge_stone_sub_exhaustive_8bit(dut):
             dut.input_A.value = a
             dut.input_B.value = b
             dut.sub.value = 1
+            dut.cin.value = 0
 
             await Timer(1, units="ns")
 
