@@ -163,6 +163,7 @@ class _OccupancyGrid:
     MARGIN = 30
     CLEARANCE = 1
     CROSS_PENALTY = 100
+    BEND_PENALTY = 1
 
     def __init__(self, abs_pos, num_original, components):
         orig_xs = [abs_pos[i][0] for i in range(num_original)]
@@ -405,6 +406,7 @@ def astar_route(grid, net_root, connected_nets, sc, sr, tc, tr):
     wire_dirs = grid.wire_dirs
     wire_cell_owners = grid.wire_cell_owners
     cross_penalty = grid.CROSS_PENALTY
+    bend_penalty = grid.BEND_PENALTY
 
     while pq:
         f, g, c, r, d = heapq.heappop(pq)
@@ -460,6 +462,8 @@ def astar_route(grid, net_root, connected_nets, sc, sr, tc, tr):
                     if not owners.issubset(my_connected | {net_root}):
                         continue  # unrelated net — no overlap allowed
                 step += cross_penalty
+            if is_turn:
+                step += bend_penalty
             ng = g + step
             if ng < best.get((nc, nr, i), INF):
                 best[(nc, nr, i)] = ng
