@@ -68,20 +68,22 @@ async def test_write_read_single(dut):
 
 @cocotb.test()
 async def test_write_all_read_all(dut):
-    """Write unique values to all 8 registers, then read them all back."""
+    """Write unique values to all 8 registers, then read them all back.
+    r0 is hardwired to zero and ignores writes."""
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
 
     values = [0x10, 0x21, 0x32, 0x43, 0x54, 0x65, 0x76, 0x87]
+    expected = [0x00, 0x21, 0x32, 0x43, 0x54, 0x65, 0x76, 0x87]  # r0 stays 0
     for addr, val in enumerate(values):
         await write_reg(dut, addr, val)
 
-    for addr, expected in enumerate(values):
+    for addr, exp in enumerate(expected):
         dut.raddr1.value = addr
         await tick(dut)
         observed = int(dut.rd1.value)
-        assert observed == expected, (
-            f"r{addr} should be {expected:#x}, got {observed:#x}"
+        assert observed == exp, (
+            f"r{addr} should be {exp:#x}, got {observed:#x}"
         )
 
 
@@ -91,10 +93,10 @@ async def test_two_read_ports(dut):
     cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
     await reset(dut)
 
-    await write_reg(dut, 0, 0xAA)
+    await write_reg(dut, 1, 0xAA)
     await write_reg(dut, 7, 0x55)
 
-    dut.raddr1.value = 0
+    dut.raddr1.value = 1
     dut.raddr2.value = 7
     await tick(dut)
     assert int(dut.rd1.value) == 0xAA, f"rd1 should be 0xAA, got {int(dut.rd1.value):#x}"
@@ -102,7 +104,7 @@ async def test_two_read_ports(dut):
 
     # Swap
     dut.raddr1.value = 7
-    dut.raddr2.value = 0
+    dut.raddr2.value = 1
     await tick(dut)
     assert int(dut.rd1.value) == 0x55, f"rd1 should be 0x55, got {int(dut.rd1.value):#x}"
     assert int(dut.rd2.value) == 0xAA, f"rd2 should be 0xAA, got {int(dut.rd2.value):#x}"
@@ -188,10 +190,42 @@ async def test_consecutive_writes_same_reg(dut):
     await reset(dut)
 
     for val in [0x01, 0x02, 0x03, 0xFF]:
-        await write_reg(dut, 0, val)
+        await write_reg(dut, 1, val)
 
-    dut.raddr1.value = 0
+    dut.raddr1.value = 1
     await tick(dut)
     assert int(dut.rd1.value) == 0xFF, (
-        f"r0 should be 0xFF, got {int(dut.rd1.value):#x}"
+        f"r1 should be 0xFF, got {int(dut.rd1.value):#x}"
     )
+
+
+@cocotb.test()
+async def test_r0_hardwired_zero(dut):
+    """r0 must always read zero, even after a write attempt."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    await write_reg(dut, 0, 0xFF)
+
+    dut.raddr1.value = 0
+    dut.raddr2.value = 0
+    await tick(dut)
+    assert int(dut.rd1.value) == 0, f"r0 rd1 should be 0, got {int(dut.rd1.value):#x}"
+    assert int(dut.rd2.value) == 0, f"r0 rd2 should be 0, got {int(dut.rd2.value):#x}"
+
+
+@cocotb.test()
+async def test_r0_does_not_block_other_writes(dut):
+    """r0 write protection must not affect writes to other registers."""
+    cocotb.start_soon(Clock(dut.clk, 10, units="ns").start())
+    await reset(dut)
+
+    # Attempt write to r0 and r1 in sequence
+    await write_reg(dut, 0, 0xAB)
+    await write_reg(dut, 1, 0xCD)
+
+    dut.raddr1.value = 0
+    dut.raddr2.value = 1
+    await tick(dut)
+    assert int(dut.rd1.value) == 0x00, f"r0 should be 0, got {int(dut.rd1.value):#x}"
+    assert int(dut.rd2.value) == 0xCD, f"r1 should be 0xCD, got {int(dut.rd2.value):#x}"

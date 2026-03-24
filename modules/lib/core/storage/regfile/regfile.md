@@ -2,7 +2,7 @@
 
 # Regfile - Register File
 
-> **8x8-bit register file with 2 read ports and 1 write port**
+> **8x8-bit register file with 2 read ports and 1 write port; r0 hardwired to zero**
 
 ## Interface
 
@@ -26,13 +26,14 @@
 ## Implementation
 
 ```
-         ┌── demux ── we[0] ── reg[0] ──┐
-we ──────┤   ...                         ├── mux ── rd1
-waddr ───┘── demux ── we[7] ── reg[7] ──┤
-                                         └── mux ── rd2
+         ┌── demux ── we[0] ──(masked 0)── reg[0] ──┐
+we ──────┤   ...                                      ├── mux ── rd1
+waddr ───┘── demux ── we[7] ────────────── reg[7] ──┤
+                                                      └── mux ── rd2
 ```
 
 - **Write decode**: Demux routes `we` to the selected register based on `waddr`
+- **r0 protection**: Write-enable for r0 is permanently tied low; r0 always reads zero
 - **Registers**: 8 instances of `register #(.N(8))`, each built from 8 DFFs
 - **Read ports**: Two independent muxes (8:1, 8-bit) select register outputs
 - Reads are combinational (async), writes are clocked (rising edge)

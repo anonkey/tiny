@@ -25,6 +25,11 @@ module regfile(o_rd1, o_rd2, i_wd, i_raddr1, i_raddr2, i_waddr, i_we, i_clk, i_r
       .o_out(w_we_dec)
    );
 
+   // r0 is hardwired to zero: mask out its write-enable
+   wire [NREG-1:0] w_we_masked;
+   assign w_we_masked[0] = 1'b0;
+   assign w_we_masked[NREG-1:1] = w_we_dec[NREG-1:1];
+
    // Instantiate NREG registers
    wire [NREG*WIDTH-1:0] w_rd_bus;
    genvar i;
@@ -34,7 +39,7 @@ module regfile(o_rd1, o_rd2, i_wd, i_raddr1, i_raddr2, i_waddr, i_we, i_clk, i_r
          .i_D(i_wd),
          .i_clk(i_clk),
          .i_rst_n(i_rst_n),
-         .i_en(w_we_dec[i])
+         .i_en(w_we_masked[i])
       );
    end
 
