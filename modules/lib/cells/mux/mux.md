@@ -40,6 +40,8 @@ N-to-1 multiplexer.
 
 Recursive binary tree — splits in half at each level until `WAY=2`, then a simple ternary select. Purely combinational.
 
+**Constraint:** `WAY` must be a power of 2. A compile-time guard triggers an elaboration error (`NON_POWER_OF_2_WAY`) if violated.
+
 ## Usage in CPU
 
 - ALU result mux (16:1, 8-bit)

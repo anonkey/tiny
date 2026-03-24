@@ -12,6 +12,11 @@ module mux #(
    localparam SIZE_CTRL = $clog2(WAY);
    localparam SIZE_IN = WAY * WIRE;
 
+   generate
+     if ((WAY & (WAY - 1)) != 0 || WAY == 0)
+       NON_POWER_OF_2_WAY non_power_of_2_way();
+   endgenerate
+
    if (SIZE_CTRL == 1)
      /* verilator lint_off GENUNNAMED */
      assign o_out = i_ctrl ? i_in[2 * WIRE - 1 : WIRE] : i_in[WIRE - 1 : 0];
@@ -42,6 +47,11 @@ module demux #(
 
    localparam SIZE_CTRL = $clog2(WAY);
    localparam SIZE_OUT  = WAY * WIRE;
+
+   generate
+     if ((WAY & (WAY - 1)) != 0 || WAY == 0)
+       NON_POWER_OF_2_WAY non_power_of_2_way();
+   endgenerate
 
    supply0 padding;
 
