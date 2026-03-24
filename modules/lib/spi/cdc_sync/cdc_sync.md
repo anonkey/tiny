@@ -19,7 +19,7 @@ N-stage flip-flop chain for synchronizing an asynchronous signal into a clock do
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `STAGES` | 2 | Number of synchronizer stages (2 minimum for MTBF) |
+| `STAGES` | 2 | Number of synchronizer stages (minimum 2, enforced at compile time) |
 
 ### `edge_detect`
 

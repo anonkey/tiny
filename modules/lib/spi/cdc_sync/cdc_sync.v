@@ -12,6 +12,11 @@ module cdc_sync #(
   input  wire i_rst_n
 );
 
+  generate
+    if (STAGES < 2)
+      STAGES_MUST_BE_AT_LEAST_2 stages_guard();
+  endgenerate
+
   wire [STAGES-1:0] w_chain;
 
   // First stage
