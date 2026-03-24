@@ -46,10 +46,16 @@ class _CVNodeAlloc:
         self.abs_pos.append((0, 0))  # set later via set_parent_pos
         return nid
 
-    def set_parent_pos(self, nid, parent_x, parent_y):
-        """Record the absolute position of a node (parent pos + relative)."""
+    def set_parent_pos(self, nid, parent_x, parent_y, direction="RIGHT"):
+        """Record the absolute position of a node (parent pos + relative).
+
+        Pin coordinates are stored in RIGHT orientation.  For LEFT-direction
+        components the x axis must be mirrored so that ``abs_pos`` reflects
+        the *visual* position used by the router.
+        """
         n = self.nodes[nid]
-        self.abs_pos[nid] = (parent_x + n["x"], parent_y + n["y"])
+        nx = -n["x"] if direction == "LEFT" else n["x"]
+        self.abs_pos[nid] = (parent_x + nx, parent_y + n["y"])
 
     def connect(self, a, b):
         if b not in self.nodes[a]["connections"]:
@@ -472,16 +478,13 @@ class _CVNodeAlloc:
 
                 # Per-pin: compute departure direction + soft_blocked corridor
                 import sys as _dbg
-                comp_dir = comp.get("direction", "RIGHT")
                 for nid in comp_nids:
                     pc = self.abs_pos[nid][0] // GRID - min_gx
                     pr = self.abs_pos[nid][1] // GRID - min_gy
                     # Departure direction: pin beyond body edge → outward
-                    # Pin coords are always stored as RIGHT; flip for routing
-                    rx = self.nodes[nid]["x"]
-                    ry = self.nodes[nid]["y"]
-                    if comp_dir == "LEFT":
-                        rx = -rx
+                    # abs_pos already accounts for direction (visual coords)
+                    rx = self.abs_pos[nid][0] - cx
+                    ry = self.abs_pos[nid][1] - cy
                     if rx >= dim["right"]:
                         pin_depart[nid] = (1, 0)
                     elif rx <= -dim["left"]:

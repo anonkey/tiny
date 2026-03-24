@@ -55,15 +55,16 @@ def _set_node_abs_positions(na, all_comps):
     """Scan placed components and set absolute positions for their nodes."""
     for comp in all_comps:
         cx, cy = comp["x"], comp["y"]
+        direction = comp.get("direction", "RIGHT")
         cd = comp.get("customData", {})
         nodes = cd.get("nodes", {})
         for val in nodes.values():
             if isinstance(val, int):
-                na.set_parent_pos(val, cx, cy)
+                na.set_parent_pos(val, cx, cy, direction)
             elif isinstance(val, list):
                 for nid in val:
                     if isinstance(nid, int):
-                        na.set_parent_pos(nid, cx, cy)
+                        na.set_parent_pos(nid, cx, cy, direction)
 
 
 def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
