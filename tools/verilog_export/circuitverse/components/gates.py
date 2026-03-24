@@ -4,7 +4,7 @@ import sys
 
 from circuitverse.components._common import (
   _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START,
-  pin_clearance, _new_pin,
+  V_CELL_PAD, pin_clearance, _new_pin,
 )
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
@@ -50,14 +50,14 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
           {"inp": [n for n in [inp_a, inp_b] if n is not None], "output1": out_y},
           ["RIGHT", n_inp, 1])
         components.setdefault(cv_type, []).append(comp)
-        y_cell += component_height(cv_type, inputLength=2) + pin_clearance(2) + 20
+        y_cell += component_height(cv_type, inputLength=2) + pin_clearance(2)
       elif ctype == "$_NOT_":
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=-10, ry=0)
         out_y = _new_pin(na, bit_nodes, cell["connections"]["Y"][0], 1, rx=20, ry=0)
         comp = _make_component(x_cell, y_cell, "NotGate",
           {"inp1": inp_a, "output1": out_y}, ["RIGHT", 1])
         components.setdefault("NotGate", []).append(comp)
-        y_cell += component_height("NotGate") + pin_clearance(1) + 20
+        y_cell += component_height("NotGate") + pin_clearance(1)
       elif ctype.startswith(_YOSYS_DFF_PREFIX):
         conns = cell["connections"]
         dx, dy = pin_pos("DflipFlop", "dInp")
@@ -79,7 +79,7 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
            "qInvOutput": q_inv, "reset": rst, "preset": preset, "en": en},
           ["RIGHT", 1])
         components.setdefault("DflipFlop", []).append(comp)
-        y_cell += component_height("DflipFlop") + pin_clearance(2) + 20
+        y_cell += component_height("DflipFlop") + pin_clearance(2)
       elif ctype == "$_MUX_":
         _css = 1
         ia_x, ia_y = pin_pos("Multiplexer", "inp", index=0, controlSignalSize=_css)
@@ -95,9 +95,11 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
            "output1": out_y, "controlSignalInput": sel},
           ["RIGHT", 1, 1], propagation_delay=10)
         components.setdefault("Multiplexer", []).append(comp)
-        y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2) + 20
+        y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)
       else:
         print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
               file=sys.stderr)
+        continue
+      y_cell += V_CELL_PAD
 
   return components

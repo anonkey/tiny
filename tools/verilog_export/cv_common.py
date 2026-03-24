@@ -55,12 +55,14 @@ class _CVNodeAlloc:
 class _CVScopeCounter:
     """Sequential scope-ID allocator for CircuitVerse."""
 
+    _SCOPE_ID_BASE = 10_000_000_000  # high base avoids collisions with CV internals
+
     def __init__(self):
         self._counter = -1
 
     def __call__(self):
         self._counter += 1
-        return str(10000000000 + self._counter)
+        return str(self._SCOPE_ID_BASE + self._counter)
 
     def reset(self):
         self._counter = -1

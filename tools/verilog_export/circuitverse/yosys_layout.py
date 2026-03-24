@@ -8,8 +8,8 @@ import sys
 from collections import namedtuple
 
 from circuitverse.components._common import (
-  _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START, pin_clearance,
-  _new_pin, _new_bus_pin, _param_int, _param_bits,
+  _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
+  pin_clearance, _new_pin, _new_bus_pin, _param_int, _param_bits,
   _adapt_width, _maybe_invert,
 )
 from circuitverse.components import (
@@ -248,12 +248,12 @@ def compute_col_x(col_cells):
     _, prev_right, _, prev_right_pins = extents[prev_d]
     curr_left, _, curr_left_pins, _ = extents[curr_d]
     # Pin-count-based gap: additive clearance from both sides
-    h_gap = pin_clearance(prev_right_pins) + pin_clearance(curr_left_pins) + 20
+    h_gap = pin_clearance(prev_right_pins) + pin_clearance(curr_left_pins) + H_COL_PAD
     needed = prev_right + h_gap + curr_left
     # Also respect COL_GAP as minimum center-to-center distance
     gap = max(needed, COL_GAP)
     # Snap to grid (multiple of 10)
-    gap = ((gap + 9) // 10) * 10
+    gap = ((gap + GRID_UNIT - 1) // GRID_UNIT) * GRID_UNIT
     col_x[curr_d] = col_x[prev_d] + gap
   return col_x
 
@@ -279,7 +279,7 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
 
       if handler:
         y_cell += handler(cell_name, cell, conns, na, bit_nodes,
-                          components, x_cell, y_cell)
+                          components, x_cell, y_cell) + V_CELL_PAD
       else:
         print(f"  warning: unmapped cell type '{ctype}' ({cell_name})",
               file=sys.stderr)

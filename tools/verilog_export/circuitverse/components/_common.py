@@ -25,6 +25,9 @@ _YOSYS_DFF_PREFIX = "$_DFF"
 # ── Layout constants ─────────────────────────────────────────────────────
 # All values are multiples of 10 (CircuitVerse grid = 10x10).
 
+GRID_UNIT = 10       # CircuitVerse snap grid (all coords are multiples of this)
+V_CELL_PAD = 20      # extra vertical gap between components in a column
+H_COL_PAD = 20       # extra horizontal padding between adjacent columns
 CELL_GAP = 300   # vertical gap between components in the same column
 COL_GAP = 300    # horizontal gap between columns (room for routing)
 X_START = 400    # x of first gate column (leaves room for input + splitter)
