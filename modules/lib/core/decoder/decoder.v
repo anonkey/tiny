@@ -50,9 +50,11 @@ module decoder(
                       );
    assign o_alu_op = w_force_add ? 4'b0000 : w_opcode;
 
-   // reg_we: write to register file for all ops except JMP (1011),
-   // BEQ (1100), STORE (1110), NOP (1111)
-   assign o_reg_we = ~w_opcode[3] |                                          // 0000-0111
+   // reg_we: write to register file for defined R-type ALU ops (0000-0101),
+   // ADDI (1001), LDI (1010), LOAD (1101).
+   // Disabled for unused (0110-0111), reserved (1000), JMP (1011),
+   // BEZ (1100), STORE (1110), NOP (1111).
+   assign o_reg_we = (~w_opcode[3] & ~(w_opcode[2] & w_opcode[1])) |        // 0000-0101
                    (w_opcode[3] & ~w_opcode[2] & ~w_opcode[1] & w_opcode[0]) |   // 1001 ADDI
                    (w_opcode[3] & ~w_opcode[2] & w_opcode[1] & ~w_opcode[0]) |   // 1010 LDI
                    (w_opcode[3] & w_opcode[2] & ~w_opcode[1] & w_opcode[0]);     // 1101 LOAD

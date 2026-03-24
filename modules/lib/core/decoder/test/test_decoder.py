@@ -77,8 +77,8 @@ async def test_reg_we_addi_ldi_load(dut):
 
 @cocotb.test()
 async def test_reg_we_off(dut):
-    """Unused (1000), JMP (1011), BEZ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
-    for opcode in [0b1000, 0b1011, 0b1100, 0b1110, 0b1111]:
+    """Unused (0110-0111), reserved (1000), JMP (1011), BEZ (1100), STORE (1110), NOP (1111) should deassert reg_we."""
+    for opcode in [0b0110, 0b0111, 0b1000, 0b1011, 0b1100, 0b1110, 0b1111]:
         dut.instr.value = opcode << 12
         await Timer(1, units="ns")
         assert int(dut.reg_we.value) == 0, (
