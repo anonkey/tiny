@@ -12,7 +12,6 @@ from circuitverse.components.bus import place_slice, place_concat
 from circuitverse.components.mem import place_mem_v2
 
 from circuitverse.components._common import (
-  CELL_GAP, COL_GAP, X_START,
   _new_pin, _new_bus_pin, _param_int, _param_bits,
   _YOSYS_DFF_PREFIX,
 )

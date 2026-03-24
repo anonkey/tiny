@@ -10,7 +10,7 @@ from collections import namedtuple
 _log = logging.getLogger(__name__)
 
 from circuitverse.components._common import (
-  _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
+  _YOSYS_DFF_PREFIX, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
   pin_clearance, _new_pin, _new_bus_pin, _param_int, _param_bits,
   _adapt_width, _maybe_invert,
 )

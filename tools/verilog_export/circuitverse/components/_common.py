@@ -21,6 +21,13 @@ _YOSYS_GATE_TO_CV = {
 
 _YOSYS_DFF_PREFIX = "$_DFF"
 
+# ── CircuitVerse JSON key ────────────────────────────────────────────────
+# CircuitVerse uses the misspelled key "constructorParamaters" (not
+# "constructorParameters") in its JSON format.  All emitters MUST use this
+# constant so the output is loadable by CircuitVerse.  Do NOT "fix" the
+# spelling — it matches the upstream API.
+CTOR_PARAMS_KEY = "constructorParamaters"
+
 # ── Layout constants ─────────────────────────────────────────────────────
 # All values are multiples of 10 (CircuitVerse grid = 10x10).
 
@@ -30,7 +37,6 @@ H_COL_PAD = 20       # extra horizontal padding between adjacent columns
 CELL_GAP = 300   # vertical gap between components in the same column
 COL_GAP = 300    # horizontal gap between columns (room for routing)
 X_START = 400    # x of first gate column (leaves room for input + splitter)
-CELL_MARGIN = 100 # legacy — prefer pin_clearance() for dynamic vertical spacing
 
 
 def pin_clearance(n):

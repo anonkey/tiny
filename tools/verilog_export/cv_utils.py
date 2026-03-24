@@ -1,4 +1,8 @@
-"""Shared utilities for CircuitVerse export modules."""
+"""Shared utilities for CircuitVerse export modules.
+
+Note: CircuitVerse uses the misspelled key ``constructorParamaters`` in its
+JSON format.  See ``CTOR_PARAMS_KEY`` in ``circuitverse/components/_common.py``.
+"""
 
 
 def _extract_comp_params(comp_type, comp):

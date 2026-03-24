@@ -5,7 +5,7 @@ import logging
 _log = logging.getLogger(__name__)
 
 from circuitverse.components._common import (
-  _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, CELL_GAP, COL_GAP, X_START,
+  _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, COL_GAP, X_START,
   V_CELL_PAD, pin_clearance, _new_pin,
 )
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
