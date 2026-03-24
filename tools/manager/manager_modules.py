@@ -61,7 +61,8 @@ def run_tests(console, name, registry, project_root, makefile_sim, fst=False):
         cmd.append("FST=-fst")
 
     env = make_env(project_root)
-    env["PYTHONPATH"] = test_dir + os.pathsep + env.get("PYTHONPATH", "")
+    helpers_dir = os.path.join(project_root, "tools")
+    env["PYTHONPATH"] = test_dir + os.pathsep + helpers_dir + os.pathsep + env.get("PYTHONPATH", "")
 
     console.print(f"\n[bold]Running tests for {name}...[/bold]")
     console.print(f"[dim]─── {' '.join(cmd[:4])} ... ───[/dim]")
