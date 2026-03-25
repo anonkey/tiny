@@ -13,7 +13,7 @@ import tempfile
 
 from cv_node_alloc import _CVNodeAlloc
 from cv_scope import _cv_scope_id, _cv_layout
-from circuitverse.components._common import CELL_GAP, COL_GAP
+from circuitverse.components._common import CELL_GAP, COL_GAP, GATE_COL_GAP
 from circuitverse.yosys_layout import topo_sort_cells, place_cells, compute_col_x
 from circuitverse.yosys_ports import place_ports
 from circuitverse.components._common import X_START
@@ -75,7 +75,7 @@ def _set_node_abs_positions(na, all_comps):
                         na.set_parent_pos(nid, cx, cy, direction)
 
 
-def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
+def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check=False):
     """Generate CircuitVerse JSON via Yosys synthesis.
 
     When gate_level=True, decomposes to 1-bit primitives.
@@ -94,7 +94,8 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
     bit_nodes = {}
 
     _, col_cells = topo_sort_cells(ymod)
-    col_x = compute_col_x(col_cells)
+    min_gap = GATE_COL_GAP if gate_level else COL_GAP
+    col_x = compute_col_x(col_cells, min_col_gap=min_gap)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
         ymod, na, bit_nodes, col_cells, col_x)
     components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
@@ -112,14 +113,14 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False):
         all_comps.extend(comp_list)
     _set_node_abs_positions(na, all_comps)
     na.route_orthogonal(all_comps)
-    na.verify_routing(all_comps)
+    if check:
+        na.verify_routing(all_comps)
 
     wired_ids = sorted(set(
         i for i, n in enumerate(na.nodes) if n["connections"]
     ))
 
-    max_depth = max(col_cells.keys()) if col_cells else 0
-    total_w = (max_depth + 2) * COL_GAP + 200
+    total_w = max(col_x.values()) + 400 if col_x else 600
 
     return {
         "layout": {

@@ -695,7 +695,7 @@ def route_orthogonal(nodes, abs_pos, components=None):
         return (1, 0)
 
     # Phase 6: route each net (smallest area first)
-    nets.sort(key=lambda n: n["area"])
+    nets.sort(key=lambda n: n["area"], reverse=True)
     for net_idx, net in enumerate(nets):
         _log.info("NET %d/%d nodes=%d bw=%d",
                   net_idx, len(nets), len(net['node_ids']), net['bw'])

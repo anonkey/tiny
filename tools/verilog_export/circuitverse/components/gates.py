@@ -6,7 +6,7 @@ _log = logging.getLogger(__name__)
 
 from circuitverse.components._common import (
   _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, COL_GAP, X_START,
-  V_CELL_PAD, pin_clearance, _new_pin,
+  GATE_V_CELL_PAD, pin_clearance, _new_pin,
 )
 from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
 
@@ -101,6 +101,6 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
       else:
         _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)
         continue
-      y_cell += V_CELL_PAD
+      y_cell += GATE_V_CELL_PAD
 
   return components

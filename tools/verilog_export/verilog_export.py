@@ -55,6 +55,10 @@ def main():
         "-v", "--verbose", action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "-c", "--check", action="store_true",
+        help="Run routing verification after export",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -172,7 +176,7 @@ def main():
     # --- CircuitVerse via Yosys (flattened) ---
     if fmt == "circuitverse-yosys":
         all_paths = list(dict.fromkeys(resolve_deps(args.module, registry) + [info["verilog"]]))
-        cv = generate_circuitverse_yosys(all_paths, top_mod.name, gate_level=args.gate)
+        cv = generate_circuitverse_yosys(all_paths, top_mod.name, gate_level=args.gate, check=args.check)
         suffix = "gate" if args.gate else "hlsynth"
         cv_path = os.path.join(out_dir, f"{args.module}.{suffix}.cv.json")
         with open(cv_path, "w") as f:

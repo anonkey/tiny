@@ -238,7 +238,7 @@ def _col_extents(col_cells):
   return extents
 
 
-def compute_col_x(col_cells):
+def compute_col_x(col_cells, min_col_gap=COL_GAP):
   """Compute x position for each column depth using pin-count-based clearance."""
   extents = _col_extents(col_cells)
   depths = sorted(col_cells.keys())
@@ -255,8 +255,8 @@ def compute_col_x(col_cells):
     # Pin-count-based gap: additive clearance from both sides
     h_gap = pin_clearance(prev_right_pins) + pin_clearance(curr_left_pins) + H_COL_PAD
     needed = prev_right + h_gap + curr_left
-    # Also respect COL_GAP as minimum center-to-center distance
-    gap = max(needed, COL_GAP)
+    # Also respect min_col_gap as minimum center-to-center distance
+    gap = max(needed, min_col_gap)
     # Snap to grid (multiple of 10)
     gap = ((gap + GRID_UNIT - 1) // GRID_UNIT) * GRID_UNIT
     col_x[curr_d] = col_x[prev_d] + gap
