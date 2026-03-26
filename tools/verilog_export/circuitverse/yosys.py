@@ -116,9 +116,10 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
     if check:
         na.verify_routing(all_comps)
 
-    wired_ids = sorted(set(
-        i for i, n in enumerate(na.nodes) if n["connections"]
-    ))
+    wired_ids = sorted(
+        i for i, n in enumerate(na.nodes)
+        if n["type"] == 2 and n["connections"]
+    )
 
     total_w = max(col_x.values()) + 400 if col_x else 600
 
@@ -155,14 +156,21 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
 
 # ── Hierarchical (non-flattened) mode ─────────────────────────────────────
 
-def _yosys_elaborate(verilog_paths, top_name):
+def _yosys_elaborate(verilog_paths, top_name, gate_level=False):
     """Run Yosys elaboration without flatten — preserves module hierarchy."""
     read_cmds = "; ".join(f"read_verilog {p}" for p in verilog_paths)
+    if gate_level:
+        synth_steps = (
+            "techmap; opt; "
+            "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX; opt; "
+        )
+    else:
+        synth_steps = "memory -nomap; pmuxtree; opt; "
     script = (
         f"{read_cmds}; "
         f"hierarchy -top {top_name}; "
         f"proc; opt; "
-        f"memory -nomap; pmuxtree; opt; "
+        f"{synth_steps}"
         f"clean -purge; "
         f"write_json {{out}}"
     )
@@ -184,13 +192,14 @@ def _clean_yosys_name(name):
     return name
 
 
-def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
+def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
+                       gate_level=False):
     """Build a CircuitVerse scope for a single Yosys module.
 
     Cells whose type matches another module in the netlist become SubCircuit
     references. All other cells go through the normal HL dispatch.
 
-    Returns (scope_dict, scope_id, port_info).
+    Returns (scope_dict, scope_id, port_info, subcircuit_types).
     port_info = {port_name: {"direction": dir, "width": bw, "x": pin_x, "y": pin_y}}
     """
     scope_id = _cv_scope_id()
@@ -215,13 +224,17 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
     _, col_cells = topo_sort_cells(native_ymod)
 
     # Place ports and native cells
-    col_x = compute_col_x(col_cells)
+    LAYOUT_W = 100
+    min_gap = GATE_COL_GAP if gate_level else COL_GAP
+    col_x = compute_col_x(col_cells, min_col_gap=min_gap)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells, col_x)
-    components = place_cells(col_cells, na, bit_nodes, gate_level=False, col_x=col_x)
+        ymod, na, bit_nodes, col_cells, col_x, layout_w=LAYOUT_W)
+    components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
 
     # Place subcircuit instances
     cv_subcircuits = []
+    sc_comps = []  # synthetic component dicts for router body-blocking
+    subcircuit_types = []  # parallel to cv_subcircuits: Yosys module type
     max_native_depth = max(col_cells.keys()) if col_cells else 0
 
     # Topo-sort subcircuit cells
@@ -281,9 +294,8 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
         d = sc_depth.get(cn, 0)
         sc_columns.setdefault(d, []).append((cn, cc))
 
-    LAYOUT_W = 120
     SC_COL_GAP = 200
-    SC_ROW_GAP = 20
+    SC_ROW_GAP = 40
     sc_x_start = X_START + (max_native_depth + 1) * COL_GAP if col_cells else X_START
 
     for depth in sorted(sc_columns.keys()):
@@ -298,27 +310,37 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
             input_nodes = []
             output_nodes = []
 
-            for pname, d in dirs.items():
+            # Allocate input ports first, then outputs, matching the
+            # sub-scope's Input/Output declaration order (port_info order).
+            for pname in port_info:
+                d = dirs.get(pname)
+                if d != "input":
+                    continue
                 bits = conns.get(pname, [])
                 bw = len(bits)
                 pi = port_info.get(pname, {"x": 0, "y": 20})
-                if d == "input":
-                    nid = na.alloc(pi["x"], pi["y"], 0, bw)
-                    input_nodes.append(nid)
-                    for b in bits:
-                        if not isinstance(b, str):
-                            bit_nodes.setdefault(b, []).append(nid)
-                else:
-                    nid = na.alloc(pi["x"], pi["y"], 1, bw)
-                    output_nodes.append(nid)
-                    for b in bits:
-                        if not isinstance(b, str):
-                            bit_nodes.setdefault(b, []).append(nid)
+                nid = na.alloc(pi["x"], pi["y"], 0, bw)
+                input_nodes.append(nid)
+                for b in bits:
+                    if not isinstance(b, str):
+                        bit_nodes.setdefault(b, []).append(nid)
+            for pname in port_info:
+                d = dirs.get(pname)
+                if d != "output":
+                    continue
+                bits = conns.get(pname, [])
+                bw = len(bits)
+                pi = port_info.get(pname, {"x": 0, "y": 20})
+                nid = na.alloc(pi["x"], pi["y"], 1, bw)
+                output_nodes.append(nid)
+                for b in bits:
+                    if not isinstance(b, str):
+                        bit_nodes.setdefault(b, []).append(nid)
 
             n_max = max(len(input_nodes), len(output_nodes), 1)
-            h = 20 * n_max + 20
+            h = 20 * n_max + 40
 
-            cv_subcircuits.append({
+            sc_dict = {
                 "x": col_x, "y": col_y,
                 "id": sid["scope_id"],
                 "label": cn,
@@ -326,8 +348,35 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
                 "inputNodes": input_nodes,
                 "outputNodes": output_nodes,
                 "version": "2.0",
+            }
+            cv_subcircuits.append(sc_dict)
+
+            # Synthetic component dict so the router can block the body,
+            # compute pin departure directions and clearance corridors —
+            # same rules as any native component.
+            # SubCircuit origin (x, y) is top-left corner, so dimensions
+            # extend rightward and downward from that origin.
+            all_nids = input_nodes + output_nodes
+            sc_comps.append({
+                "x": col_x, "y": col_y,
+                "objectType": "",
+                "customData": {
+                    "nodes": {"pins": all_nids},
+                    "_sc_dimensions": {
+                        "left": 0, "right": LAYOUT_W,
+                        "up": 0, "down": h,
+                    },
+                },
             })
+
+            subcircuit_types.append(cc["type"])
             col_y += h + SC_ROW_GAP
+
+    # Collect SC input port node IDs (to relocate after routing).
+    # SC output nodes stay in place; only inputs move to the end.
+    sc_port_nids = set()
+    for sc in cv_subcircuits:
+        sc_port_nids.update(sc["inputNodes"])
 
     # Wire all nodes sharing the same Yosys net
     for _, node_ids in bit_nodes.items():
@@ -344,11 +393,59 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
         sx, sy = sc["x"], sc["y"]
         for nid in sc["inputNodes"] + sc["outputNodes"]:
             na.set_parent_pos(nid, sx, sy)
+    # Include subcircuit body-blocking pseudo-components so the router
+    # applies the same clearance / pin-corridor rules as native components.
+    all_comps.extend(sc_comps)
     na.route_orthogonal(all_comps)
 
-    wired_ids = sorted(set(
-        i for i, n in enumerate(na.nodes) if n["connections"]
-    ))
+    # Relocate SC port nodes to the end of allNodes so they come after
+    # routing nodes, matching CircuitVerse's expected ordering.
+    if sc_port_nids:
+        old_nodes = na.nodes
+        n = len(old_nodes)
+        # Build new ordering: non-SC nodes first, then SC port nodes
+        non_sc = [i for i in range(n) if i not in sc_port_nids]
+        sc_list = [i for i in range(n) if i in sc_port_nids]
+        new_order = non_sc + sc_list
+        # old_id -> new_id mapping
+        remap = {old: new for new, old in enumerate(new_order)}
+        # Reorder nodes and abs_pos
+        na.nodes = [old_nodes[i] for i in new_order]
+        na.abs_pos = [na.abs_pos[i] for i in new_order]
+        # Remap all connection references
+        for node in na.nodes:
+            node["connections"] = [remap[c] for c in node["connections"]]
+        # Remap component node references
+        for comp in cv_inputs + cv_outputs:
+            cd = comp["customData"]
+            for k, v in cd["nodes"].items():
+                if isinstance(v, int):
+                    cd["nodes"][k] = remap[v]
+                elif isinstance(v, list):
+                    cd["nodes"][k] = [remap[x] for x in v]
+        for comp in cv_splitters:
+            cd = comp["customData"]
+            for k, v in cd["nodes"].items():
+                if isinstance(v, int):
+                    cd["nodes"][k] = remap[v]
+                elif isinstance(v, list):
+                    cd["nodes"][k] = [remap[x] for x in v]
+        for comp_list in components.values():
+            for comp in comp_list:
+                cd = comp["customData"]
+                for k, v in cd["nodes"].items():
+                    if isinstance(v, int):
+                        cd["nodes"][k] = remap[v]
+                    elif isinstance(v, list):
+                        cd["nodes"][k] = [remap[x] for x in v]
+        for sc in cv_subcircuits:
+            sc["inputNodes"] = [remap[x] for x in sc["inputNodes"]]
+            sc["outputNodes"] = [remap[x] for x in sc["outputNodes"]]
+
+    wired_ids = sorted(
+        i for i, n in enumerate(na.nodes)
+        if n["type"] == 2 and n["connections"]
+    )
 
     max_sc_depth = max(sc_columns.keys()) if sc_columns else 0
     total_cols = (max_native_depth + 1) + (max_sc_depth + 1) if sc_columns else (max_native_depth + 1)
@@ -356,13 +453,13 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
 
     # Build port_info for parent scopes to use when placing this as a SubCircuit
     port_info = {}
-    pin_y = 20
+    pin_y = 40
     for pname, pdata in ymod.get("ports", {}).items():
         bw = len(pdata["bits"])
         if pdata["direction"] == "input":
             port_info[pname] = {"direction": "input", "width": bw, "x": 0, "y": pin_y}
             pin_y += 20
-    pin_y = 20
+    pin_y = 40
     for pname, pdata in ymod.get("ports", {}).items():
         bw = len(pdata["bits"])
         if pdata["direction"] == "output":
@@ -374,16 +471,7 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
                                 for _, c in subcircuit_cells)]
 
     scope = {
-        "layout": {
-            "width": total_w,
-            "height": max(y_in, y_out, max(
-                sum(1 for _ in cc) * CELL_GAP
-                for cc in col_cells.values()
-            ) if col_cells else 0) + 40,
-            "title_x": 50,
-            "title_y": 13,
-            "titleEnabled": True,
-        },
+        "layout": _cv_layout(len(cv_inputs), len(cv_outputs)),
         "verilogMetadata": {
             "isVerilogCircuit": False,
             "isMainCircuit": False,
@@ -402,17 +490,22 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids):
         "nodes": wired_ids,
     }
 
-    return scope, scope_id, port_info
+    return scope, scope_id, port_info, subcircuit_types
 
 
-def generate_circuitverse_yosys_hier(verilog_paths, top_name):
+def generate_circuitverse_yosys_hier(verilog_paths, top_name, cache_dir=None,
+                                     gate_level=False):
     """Generate CircuitVerse JSON via Yosys — hierarchical (non-flattened).
 
     Each Yosys-elaborated module becomes its own CircuitVerse scope.
     Sub-module instantiations appear as SubCircuit components.
+
+    When *cache_dir* is provided, routed scopes are cached to disk so that
+    repeated exports skip placement + routing for unchanged modules.
+    When *gate_level* is True, each module is decomposed to 1-bit primitives.
     """
     _cv_scope_id.reset()
-    netlist = _yosys_elaborate(verilog_paths, top_name)
+    netlist = _yosys_elaborate(verilog_paths, top_name, gate_level=gate_level)
 
     if top_name not in netlist.get("modules", {}):
         avail = list(netlist.get("modules", {}).keys())
@@ -445,6 +538,12 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name):
 
     _visit(top_name)
 
+    # Optional scope cache (keyed by MD5 of all source files)
+    cache = None
+    if cache_dir:
+        from cv_scope_cache import ScopeCache
+        cache = ScopeCache(cache_dir, verilog_paths)
+
     # Build scopes bottom-up
     # sub_scope_ids maps yosys_module_name -> {"scope_id": str, "port_info": dict}
     sub_scope_ids = {}
@@ -452,11 +551,28 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name):
 
     for mod_name in ordered:
         ymod = modules[mod_name]
-        na = _CVNodeAlloc()
-        bit_nodes = {}
 
-        scope, scope_id, port_info = _build_yosys_scope(
-            mod_name, ymod, na, bit_nodes, sub_scope_ids)
+        # Try cache lookup
+        cached = cache.get(mod_name) if cache else None
+
+        if cached is not None:
+            scope = cached["scope"]
+            port_info = cached["port_info"]
+            # Assign fresh scope ID
+            scope_id = _cv_scope_id()
+            scope["id"] = int(scope_id)
+            # Remap SubCircuit child IDs to current run's scope IDs
+            for i, sc in enumerate(scope.get("SubCircuit", [])):
+                child_type = cached["subcircuit_types"][i]
+                sc["id"] = sub_scope_ids[child_type]["scope_id"]
+        else:
+            na = _CVNodeAlloc()
+            bit_nodes = {}
+            scope, scope_id, port_info, sc_types = _build_yosys_scope(
+                mod_name, ymod, na, bit_nodes, sub_scope_ids,
+                gate_level=gate_level)
+            if cache:
+                cache.put(mod_name, scope, port_info, sc_types)
 
         sub_scope_ids[mod_name] = {
             "scope_id": scope_id,

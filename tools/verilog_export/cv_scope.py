@@ -25,8 +25,8 @@ def _cv_layout(n_inputs, n_outputs):
     """Compute subcircuit layout block size."""
     n_max = max(n_inputs, n_outputs, 1)
     return {
-        "width": 120,
-        "height": 20 * n_max + 20,
+        "width": 100,
+        "height": 20 * n_max + 40,
         "title_x": 50,
         "title_y": 13,
         "titleEnabled": True,
@@ -49,7 +49,7 @@ def _build_cv_scope(mod, na):
     outputs = []
     pin_positions = {}  # port_name -> {x, y} on the SubCircuit box
 
-    pin_y = 20
+    pin_y = 40
     for p in mod.inputs:
         out_node = sna.alloc(10, 0, 1, p.width)
         bw = str(p.width) if p.width > 1 else 1
@@ -72,7 +72,7 @@ def _build_cv_scope(mod, na):
         })
         pin_y += 20
 
-    pin_y = 20
+    pin_y = 40
     for p in mod.outputs:
         inp_node = sna.alloc(-10, 0, 0, p.width)
         bw = str(p.width) if p.width > 1 else 1
@@ -108,6 +108,9 @@ def _build_cv_scope(mod, na):
         "Input": inputs,
         "Output": outputs,
         "restrictedCircuitElementsUsed": [],
-        "nodes": list(range(len(sna.nodes))),
+        "nodes": sorted(
+            i for i, n in enumerate(sna.nodes)
+            if n["type"] == 2 and n["connections"]
+        ),
     }
     return scope, scope_id, pin_positions

@@ -49,7 +49,7 @@ def main():
     parser.add_argument("-o", "--output", default="", help="Output directory (default: module's export/ subdir)")
     parser.add_argument(
         "-g", "--gate", action="store_true",
-        help="Force gate-level synthesis (only for circuitverse-yosys)",
+        help="Force gate-level synthesis (for circuitverse-yosys and circuitverse-yosys-hier)",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true",
@@ -58,6 +58,10 @@ def main():
     parser.add_argument(
         "-c", "--check", action="store_true",
         help="Run routing verification after export",
+    )
+    parser.add_argument(
+        "--cache", action="store_true",
+        help="Cache routed module scopes for faster repeated hier exports",
     )
     args = parser.parse_args()
 
@@ -187,8 +191,13 @@ def main():
     # --- CircuitVerse via Yosys (hierarchical) ---
     if fmt == "circuitverse-yosys-hier":
         all_paths = list(dict.fromkeys(resolve_deps(args.module, registry) + [info["verilog"]]))
-        cv = generate_circuitverse_yosys_hier(all_paths, top_mod.name)
-        cv_path = os.path.join(out_dir, f"{args.module}.hlsynth-hier.cv.json")
+        cache_subdir = ".scope_cache_gate" if args.gate else ".scope_cache"
+        cache_dir = os.path.join(_SCRIPT_DIR, cache_subdir) if args.cache else None
+        cv = generate_circuitverse_yosys_hier(all_paths, top_mod.name,
+                                             cache_dir=cache_dir,
+                                             gate_level=args.gate)
+        suffix = "gate-hier" if args.gate else "hlsynth-hier"
+        cv_path = os.path.join(out_dir, f"{args.module}.{suffix}.cv.json")
         with open(cv_path, "w") as f:
             json.dump(cv, f, indent=2)
         print(f"  -> {os.path.relpath(cv_path, project_root)}")

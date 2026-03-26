@@ -13,3 +13,5 @@ artifacts/
 *#
 export
 .claude/settings.json
+tools/verilog_export/.scope_cache/
+tools/verilog_export/.scope_cache_gate/

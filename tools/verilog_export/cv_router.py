@@ -26,6 +26,11 @@ def _snap(v, grid=GRID_UNIT):
     return round(v / grid) * grid
 
 
+def _same_axis(dc1, dr1, dc2, dr2):
+    """True if two direction vectors share the same axis (both H or both V)."""
+    return (dc1 != 0) == (dc2 != 0) and (dr1 != 0) == (dr2 != 0)
+
+
 def _make_bend(nodes, abs_pos, x, y, bw, grid=GRID_UNIT):
     """Create a type-2 bend node.  Returns the new node ID."""
     x, y = _snap(x, grid), _snap(y, grid)
@@ -304,8 +309,11 @@ class _OccupancyGrid:
             if not comp_nids:
                 continue
 
-            # Body size from reference dimensions
-            if ct:
+            # Body size from reference dimensions (or inline for subcircuits)
+            sc_dim = comp.get("customData", {}).get("_sc_dimensions")
+            if sc_dim:
+                dim = sc_dim
+            elif ct:
                 params = _extract_comp_params(ct, comp)
                 try:
                     dim = _ref_dimensions(ct, **params)
@@ -610,6 +618,21 @@ def _route_net(net, nodes, abs_pos, grid, connected_nets, pin_departure_fn):
             remaining.discard(dst)
             continue
 
+        # Trim collinear escape segments: skip the first/last A* waypoint
+        # when the escape direction and the adjacent path segment share
+        # the same axis (both H or both V).
+        render_path = list(path)
+        if src_prenudge is None and len(render_path) >= 2:
+            seg_dc = render_path[1][0] - render_path[0][0]
+            seg_dr = render_path[1][1] - render_path[0][1]
+            if _same_axis(src_dc, src_dr, seg_dc, seg_dr):
+                render_path = render_path[1:]
+        if dst_prenudge is None and len(render_path) >= 2:
+            seg_dc = render_path[-1][0] - render_path[-2][0]
+            seg_dr = render_path[-1][1] - render_path[-2][1]
+            if _same_axis(dst_dc, dst_dr, seg_dc, seg_dr):
+                render_path = render_path[:-1]
+
         # Wire: src_pin → [departure → A* path → arrival] → dst_pin
         prev_nid = src
         if src_prenudge is not None:
@@ -617,8 +640,8 @@ def _route_net(net, nodes, abs_pos, grid, connected_nets, pin_departure_fn):
             bend = _make_bend(nodes, abs_pos, wx, wy, bw)
             _wire(nodes, prev_nid, bend)
             prev_nid = bend
-        for i in range(len(path)):
-            wx, wy = grid.to_world(path[i][0], path[i][1])
+        for i in range(len(render_path)):
+            wx, wy = grid.to_world(render_path[i][0], render_path[i][1])
             bend = _make_bend(nodes, abs_pos, wx, wy, bw)
             _wire(nodes, prev_nid, bend)
             prev_nid = bend
