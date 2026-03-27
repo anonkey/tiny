@@ -130,20 +130,23 @@ def emit_splitter(na, bw, groups, direction, x, y,
     If inp_node/out_nodes are None, allocates with standard positions.
     """
     n = len(groups)
+    y_offset = int((n / 2 - 1) * 20)
     if direction == "RIGHT":
         if inp_node is None:
             inp_node = na.alloc(-10, (bw - 1) * 10, 0, bw)
         if out_nodes is None:
             out_nodes = []
             for i, g in enumerate(groups):
-                out_nodes.append(na.alloc(20, -10 * (n - 1) + i * 20, 1, g))
+                out_nodes.append(na.alloc(20, i * 20 - y_offset - 20, 1, g))
     else:
+        # LEFT: x is mirrored by set_parent_pos, so multi-pin side uses
+        # rx=20 (mirrors to left) and bus side uses rx=-10 (mirrors to right).
         if out_nodes is None:
             out_nodes = []
             for i, g in enumerate(groups):
-                out_nodes.append(na.alloc(-10, -10 * (n - 1) + i * 20, 0, g))
+                out_nodes.append(na.alloc(20, i * 20 - y_offset - 20, 0, g))
         if inp_node is None:
-            inp_node = na.alloc(20, (bw - 1) * 10, 1, bw)
+            inp_node = na.alloc(-10, 10 + y_offset, 1, bw)
 
     comp = _make_comp("Splitter", x, y,
         [direction, bw, groups],

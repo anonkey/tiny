@@ -251,8 +251,46 @@ def _check_clearance_violations(nets, abs_pos, components):
     return issues
 
 
+def _check_bitwidth_mismatches(nets, nodes):
+    """Detect connected nodes with different bitWidths.
+
+    Returns issue count.
+    """
+    issues = 0
+    for net_nids, _, _, _ in nets:
+        bws = {}
+        for nid in net_nids:
+            bw = nodes[nid].get("bitWidth", 1)
+            bws.setdefault(bw, []).append(nid)
+        if len(bws) > 1:
+            issues += 1
+            parts = ", ".join(f"bw={bw}: nodes {sorted(nids)[:3]}"
+                              for bw, nids in sorted(bws.items()))
+            _log.warning("BW_MISMATCH: net has mixed bitwidths — %s", parts)
+    return issues
+
+
+def _check_hanging_wires(nets, abs_pos, comp_pin_nids, nodes):
+    """Detect wire endpoints that don't terminate on a component pin.
+
+    A hanging wire is a node with exactly 1 connection (degree-1 endpoint)
+    that isn't a component pin — it's a routing node dangling in mid-air.
+
+    Returns issue count.
+    """
+    issues = 0
+    for net_nids, _, _, _ in nets:
+        for nid in net_nids:
+            if len(nodes[nid]["connections"]) == 1 and nid not in comp_pin_nids:
+                ax, ay = abs_pos[nid]
+                issues += 1
+                _log.warning("HANGING: node %d(%d,%d) has 1 connection "
+                             "but is not a component pin", nid, ax, ay)
+    return issues
+
+
 def verify_routing(nodes, abs_pos, components=None):
-    """Check for routing issues: diagonals, visual shorts, clearance, endpoints-on-wire.
+    """Check for routing issues: diagonals, visual shorts, clearance, endpoints-on-wire, hanging wires.
 
     Prints warnings to stderr.  Returns number of issues found.
     """
@@ -263,6 +301,8 @@ def verify_routing(nodes, abs_pos, components=None):
     issues += _check_segment_overlaps(nets)
     issues += _check_endpoints_on_wires(nets, abs_pos, comp_pin_nids)
     issues += _check_clearance_violations(nets, abs_pos, components)
+    issues += _check_bitwidth_mismatches(nets, nodes)
+    issues += _check_hanging_wires(nets, abs_pos, comp_pin_nids, nodes)
 
     if issues == 0:
         _log.info("ROUTE OK: no issues found")

@@ -16,6 +16,7 @@ from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
 from common.constants import CELL_GAP, COL_GAP, GATE_COL_GAP
 from placement.layout import topo_sort_cells, place_cells, compute_col_x
 from placement.ports import place_ports
+from synthesis.splitter_pass import insert_splitters
 
 
 def _run_yosys(script):
@@ -123,6 +124,7 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
             f"Module '{top_name}' not in Yosys output. Available: {avail}")
 
     ymod = netlist["modules"][top_name]
+    insert_splitters(ymod)
     na = _CVNodeAlloc()
     bit_nodes = {}
 
@@ -276,6 +278,9 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
     scope_id = _cv_scope_id()
     LAYOUT_W = 100
     min_gap = GATE_COL_GAP if gate_level else COL_GAP
+
+    # ── Phase 0: insert splitters for width mismatches ────────────────────
+    insert_splitters(ymod)
 
     # ── Phase A: place all cells (native + subcircuit) in one pass ────────
 

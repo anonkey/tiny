@@ -1,7 +1,7 @@
 """Layout helpers for CircuitVerse: topo sort, port/cell placement.
 
 Supports both gate-level (1-bit $_AND_ etc.) and high-level ($add etc.) cells.
-Cell handlers live in components/ — this module provides topo sort and dispatch.
+Cell handlers live in synthesis/gates/ — this module provides topo sort and dispatch.
 """
 
 import logging
@@ -10,93 +10,107 @@ from collections import namedtuple
 _log = logging.getLogger(__name__)
 
 from common.constants import (
-  _YOSYS_DFF_PREFIX, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
-  pin_clearance, _new_pin, _new_bus_pin, _param_int, _param_bits,
+  _YOSYS_DFF_PREFIX, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GATE_V_CELL_PAD,
+  GRID_UNIT, pin_clearance, _new_pin, _new_bus_pin, _param_int, _param_bits,
   _adapt_width, _maybe_invert,
 )
 from synthesis.gates import (
-  place_gate_cells,
   place_logic, place_mux,
   place_add, place_sub, place_mul, place_divmod, place_neg,
   place_shift,
   place_eq_ne, place_lt_gt_le_ge,
   place_reduce, place_logic_not, place_logic_and_or,
   place_dff,
-  place_slice, place_concat,
+  place_slice, place_concat, place_cv_splitter,
   place_mem_v2,
+  place_gate_logic, place_gate_mux, place_gate_dff,
 )
 
 
 # ── Unified cell registry ─────────────────────────────────────────────────
 # Single source of truth for handler, extent, and pin info per Yosys cell type.
-# handler:     place_* function (None for gate-level types dispatched separately)
+# handler:     place_* function
 # cv_type:     CircuitVerse component type (for dimension lookup)
 # extra_left:  sub-component offset added to left extent
 # extra_right: sub-component offset added to right extent
 # left_pins:   outward-facing pins on left (None → compute dynamically)
 # right_pins:  outward-facing pins on right (None → compute dynamically)
+# v_pad:       vertical padding after this cell
 
 CellInfo = namedtuple("CellInfo", [
   "handler", "cv_type", "extra_left", "extra_right", "left_pins", "right_pins",
+  "v_pad",
 ])
 
 _CELL_REGISTRY = {
   # ── Logic gates (high-level) ──
-  "$and":         CellInfo(place_logic,      "AndGate",       0,   0,   2, 1),
-  "$or":          CellInfo(place_logic,      "OrGate",        0,   0,   2, 1),
-  "$xor":         CellInfo(place_logic,      "XorGate",       0,   0,   2, 1),
-  "$xnor":        CellInfo(place_logic,      "XnorGate",      0,   0,   2, 1),
-  "$not":         CellInfo(place_logic,      "NotGate",       0,   0,   1, 1),
-  "$mux":         CellInfo(place_mux,        "Multiplexer",   0,   0,   2, 1),
+  "$and":         CellInfo(place_logic,      "AndGate",       0,   0,   2, 1, V_CELL_PAD),
+  "$or":          CellInfo(place_logic,      "OrGate",        0,   0,   2, 1, V_CELL_PAD),
+  "$xor":         CellInfo(place_logic,      "XorGate",       0,   0,   2, 1, V_CELL_PAD),
+  "$xnor":        CellInfo(place_logic,      "XnorGate",      0,   0,   2, 1, V_CELL_PAD),
+  "$not":         CellInfo(place_logic,      "NotGate",       0,   0,   1, 1, V_CELL_PAD),
+  "$mux":         CellInfo(place_mux,        "Multiplexer",   0,   0,   2, 1, V_CELL_PAD),
   # ── Arithmetic ──
-  "$add":         CellInfo(place_add,        "Adder",         0,   80,  3, 2),   # splitter at x+60
-  "$sub":         CellInfo(place_sub,        "ALU",           80,  0,   0, 1),   # ConstantVal at x-60
-  "$mul":         CellInfo(place_mul,        "verilogMultiplier", 0, 0, 2, 1),
-  "$div":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2),   # quotient+remainder
-  "$mod":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2),
-  "$neg":         CellInfo(place_neg,        "TwoComplement", 0,   0,   1, 1),
+  "$add":         CellInfo(place_add,        "Adder",         0,   80,  3, 2, V_CELL_PAD),
+  "$sub":         CellInfo(place_sub,        "ALU",           80,  0,   0, 1, V_CELL_PAD),
+  "$mul":         CellInfo(place_mul,        "verilogMultiplier", 0, 0, 2, 1, V_CELL_PAD),
+  "$div":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2, V_CELL_PAD),
+  "$mod":         CellInfo(place_divmod,     "verilogDivider", 0,  0,   2, 2, V_CELL_PAD),
+  "$neg":         CellInfo(place_neg,        "TwoComplement", 0,   0,   1, 1, V_CELL_PAD),
   # ── Shifts ──
-  "$shl":         CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1),
-  "$sshl":        CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1),
-  "$shr":         CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1),
-  "$sshr":        CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1),
+  "$shl":         CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1, V_CELL_PAD),
+  "$sshl":        CellInfo(place_shift,      "verilogShiftLeft",  0, 0, 2, 1, V_CELL_PAD),
+  "$shr":         CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1, V_CELL_PAD),
+  "$sshr":        CellInfo(place_shift,      "verilogShiftRight", 0, 0, 2, 1, V_CELL_PAD),
   # ── Comparisons ──
-  "$eq":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1),   # split_reduce chain
-  "$ne":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1),
-  "$lt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),   # ConstantVal + splitter + NotGate
-  "$gt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
-  "$le":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
-  "$ge":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1),
+  "$eq":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1, V_CELL_PAD),
+  "$ne":          CellInfo(place_eq_ne,      "XnorGate",      0,   140, 2, 1, V_CELL_PAD),
+  "$lt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1, V_CELL_PAD),
+  "$gt":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1, V_CELL_PAD),
+  "$le":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1, V_CELL_PAD),
+  "$ge":          CellInfo(place_lt_gt_le_ge,"ALU",           80,  140, 0, 1, V_CELL_PAD),
   # ── Reductions ──
-  "$logic_not":   CellInfo(place_logic_not,  "NorGate",       80,  40,  1, 1),   # split_reduce at x-60/x+20
-  "$logic_and":   CellInfo(place_logic_and_or,"AndGate",      100, 60,  1, 1),   # sub-comps at x-80
-  "$logic_or":    CellInfo(place_logic_and_or,"OrGate",       100, 60,  1, 1),
-  "$reduce_and":  CellInfo(place_reduce,     "AndGate",       60,  60,  1, 1),   # split_reduce: spl x-40, gate x+40
-  "$reduce_or":   CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1),
-  "$reduce_xor":  CellInfo(place_reduce,     "XorGate",       60,  60,  1, 1),
-  "$reduce_xnor": CellInfo(place_reduce,     "XnorGate",      60,  60,  1, 1),
-  "$reduce_bool": CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1),
+  "$logic_not":   CellInfo(place_logic_not,  "NorGate",       80,  40,  1, 1, V_CELL_PAD),
+  "$logic_and":   CellInfo(place_logic_and_or,"AndGate",      100, 60,  1, 1, V_CELL_PAD),
+  "$logic_or":    CellInfo(place_logic_and_or,"OrGate",       100, 60,  1, 1, V_CELL_PAD),
+  "$reduce_and":  CellInfo(place_reduce,     "AndGate",       60,  60,  1, 1, V_CELL_PAD),
+  "$reduce_or":   CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1, V_CELL_PAD),
+  "$reduce_xor":  CellInfo(place_reduce,     "XorGate",       60,  60,  1, 1, V_CELL_PAD),
+  "$reduce_xnor": CellInfo(place_reduce,     "XnorGate",      60,  60,  1, 1, V_CELL_PAD),
+  "$reduce_bool": CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1, V_CELL_PAD),
   # ── DFFs ──
-  "$dff":         CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),   # ConstantVal/NotGate at x-60
-  "$dffe":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
-  "$adff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
-  "$adffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
-  "$sdff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
-  "$sdffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2),
+  "$dff":         CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$dffe":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$adff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$adffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$sdff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$sdffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
   # ── Bus ops ──
-  "$slice":       CellInfo(place_slice,      "Splitter",      0,   0,   1, None),  # right_pins computed dynamically
-  "$concat":      CellInfo(place_concat,     "Splitter",      0,   0,   2, 1),
-  "$mem_v2":      CellInfo(place_mem_v2,     "verilogRAM",    0,   0,   4, 1),    # approximate
-  # ── Gate-level types (no handler — dispatched via place_gate_cells) ──
-  "$_AND_":       CellInfo(None, "AndGate",      0, 0, 2, 1),
-  "$_OR_":        CellInfo(None, "OrGate",       0, 0, 2, 1),
-  "$_NOT_":       CellInfo(None, "NotGate",      0, 0, 1, 1),
-  "$_NAND_":      CellInfo(None, "NandGate",     0, 0, 2, 1),
-  "$_NOR_":       CellInfo(None, "NorGate",      0, 0, 2, 1),
-  "$_XOR_":       CellInfo(None, "XorGate",      0, 0, 2, 1),
-  "$_XNOR_":      CellInfo(None, "XnorGate",     0, 0, 2, 1),
-  "$_MUX_":       CellInfo(None, "Multiplexer",  0, 0, 2, 1),  # select is bottom
+  "$slice":       CellInfo(place_slice,      "Splitter",      0,   0,   1, None, V_CELL_PAD),
+  "$concat":      CellInfo(place_concat,     "Splitter",      0,   0,   2, 1, V_CELL_PAD),
+  "$cv_splitter": CellInfo(place_cv_splitter,"Splitter",      0,   0,   2, 2, V_CELL_PAD),
+  "$mem_v2":      CellInfo(place_mem_v2,     "verilogRAM",    0,   0,   4, 1, V_CELL_PAD),
+  # ── Gate-level types ──
+  "$_AND_":       CellInfo(place_gate_logic, "AndGate",      0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_OR_":        CellInfo(place_gate_logic, "OrGate",       0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_NOT_":       CellInfo(place_gate_logic, "NotGate",      0, 0, 1, 1, GATE_V_CELL_PAD),
+  "$_NAND_":      CellInfo(place_gate_logic, "NandGate",     0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_NOR_":       CellInfo(place_gate_logic, "NorGate",      0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_XOR_":       CellInfo(place_gate_logic, "XorGate",      0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_XNOR_":      CellInfo(place_gate_logic, "XnorGate",     0, 0, 2, 1, GATE_V_CELL_PAD),
+  "$_MUX_":       CellInfo(place_gate_mux,   "Multiplexer",  0, 0, 2, 1, GATE_V_CELL_PAD),
 }
+
+# Fallback for $_DFF* variants (many combinations, not enumerable)
+_GATE_DFF_INFO = CellInfo(place_gate_dff, "DflipFlop", 0, 0, 2, 2, GATE_V_CELL_PAD)
+
+
+def _lookup_cell_info(ctype):
+  """Look up CellInfo from registry, with DFF prefix fallback."""
+  info = _CELL_REGISTRY.get(ctype)
+  if info is None and ctype.startswith(_YOSYS_DFF_PREFIX):
+    return _GATE_DFF_INFO
+  return info
 
 
 # ── Topological sort ───────────────────────────────────────────────────────
@@ -172,10 +186,7 @@ def _cell_h_extent(ctype, cell, sub_scope_ids=None):
   if sub_scope_ids and ctype in sub_scope_ids:
     hw = sub_scope_ids[ctype].get("layout_w", 100) // 2
     return (hw, hw)
-  # Gate-level DFF types (prefix match, not in registry)
-  if ctype.startswith("$_DFF"):
-    return (20, 20)
-  info = _CELL_REGISTRY.get(ctype)
+  info = _lookup_cell_info(ctype)
   if not info:
     _log.debug("_cell_h_extent: unknown cell type '%s', using fallback (40, 40)", ctype)
     return (40, 40)  # fallback
@@ -206,10 +217,7 @@ def _cell_outward_pins(ctype, cell, sub_scope_ids=None):
     n_in = sum(1 for p in pi.values() if p["direction"] == "input")
     n_out = sum(1 for p in pi.values() if p["direction"] == "output")
     return (max(n_in, 1), max(n_out, 1))
-  # Gate-level DFF types (prefix match, not in registry)
-  if ctype.startswith("$_DFF"):
-    return (2, 2)
-  info = _CELL_REGISTRY.get(ctype)
+  info = _lookup_cell_info(ctype)
   if not info:
     _log.debug("_cell_outward_pins: unknown cell type '%s', using fallback (1, 1)", ctype)
     return (1, 1)  # fallback
@@ -276,7 +284,7 @@ def compute_col_x(col_cells, min_col_gap=COL_GAP, sub_scope_ids=None):
 
 def _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
                       x_center, y_cell, cv_subcircuits, sc_comps):
-  """Place a single subcircuit instance. Returns height consumed."""
+  """Place a single subcircuit instance. Returns (height, n_max)."""
   ctype = cell["type"]
   sid = sub_scope_ids[ctype]
   port_info = sid["port_info"]
@@ -348,8 +356,9 @@ def _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
   return h, n_max
 
 
-def _place_hl_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):
-  """Place high-level (multi-bit) cells. Returns (components, cell_positions,
+def _place_cells_impl(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None,
+                      default_v_pad=V_CELL_PAD):
+  """Place cells (gate-level or high-level). Returns (components, cell_positions,
   cv_subcircuits, sc_comps)."""
   components = {}
   cell_positions = {}
@@ -370,18 +379,20 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):
 
       # Subcircuit cell
       if sub_scope_ids and ctype in sub_scope_ids:
-        h = _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
-                              x_cell, y_cell, cv_subcircuits, sc_comps)
-        y_cell += h + V_CELL_PAD
+        h, n_max = _place_subcircuit(cell_name, cell, na, bit_nodes,
+                                     sub_scope_ids, x_cell, y_cell,
+                                     cv_subcircuits, sc_comps)
+        y_cell += h + pin_clearance(n_max) + default_v_pad
         continue
 
-      conns = cell["connections"]
-      info = _CELL_REGISTRY.get(ctype)
+      info = _lookup_cell_info(ctype)
       handler = info.handler if info else None
 
       if handler:
+        conns = cell["connections"]
+        v_pad = info.v_pad if info else default_v_pad
         y_cell += handler(cell, conns, na, bit_nodes,
-                          components, x_cell, y_cell) + V_CELL_PAD
+                          components, x_cell, y_cell) + v_pad
       else:
         _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)
 
@@ -400,8 +411,7 @@ def place_cells(col_cells, na, bit_nodes, gate_level=False, col_x=None,
   cv_subcircuits: list of SubCircuit dicts (empty for flat exports)
   sc_comps: list of synthetic component dicts for router blocking
   """
-  if gate_level:
-    return place_gate_cells(col_cells, na, bit_nodes, col_x=col_x,
-                            sub_scope_ids=sub_scope_ids)
-  return _place_hl_cells(col_cells, na, bit_nodes, col_x=col_x,
-                         sub_scope_ids=sub_scope_ids)
+  default_v_pad = GATE_V_CELL_PAD if gate_level else V_CELL_PAD
+  return _place_cells_impl(col_cells, na, bit_nodes, col_x=col_x,
+                           sub_scope_ids=sub_scope_ids,
+                           default_v_pad=default_v_pad)

@@ -1,10 +1,13 @@
-"""Port placement for CircuitVerse: Input/Output with splitters.
+"""Port placement for CircuitVerse: Input/Output components.
 
 Ports are placed **outside** the bounding box of all logic cells:
-  - Inputs + splitters to the left of the bbox
-  - Outputs + joiners to the right of the bbox
+  - Inputs to the left of the bbox
+  - Outputs to the right of the bbox
 Each port aligns vertically with its target cell (leftmost consumer
 for inputs, rightmost producer for outputs).
+
+Width-adaptation splitters are inserted by the splitter_pass before
+placement — this module only creates Input/Output components.
 
 All positions snap to 10×10 grid.
 """
@@ -15,87 +18,6 @@ _log = logging.getLogger(__name__)
 
 from common.constants import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START, pin_clearance, CTOR_PARAMS_KEY, GRID_UNIT
 from synthesis.gates.registry import pin_pos, dimensions
-
-
-def _compute_split_groups(port_bits, direction, ymod):
-    """Compute optimal bitWidthSplit groups for a port based on consumer/producer analysis.
-
-    For 'input' ports: analyze which cells consume each bit.
-    For 'output' ports: analyze which cells produce each bit.
-
-    Consecutive bits consumed/produced by the same cell port at contiguous
-    positions are grouped together.  E.g. a 4-bit port consumed as two
-    2-bit buses returns [2, 2] instead of [1, 1, 1, 1].
-    """
-    cells = ymod.get("cells", {})
-    bw = len(port_bits)
-    if bw <= 1:
-        return [1]
-
-    target_dir = "input" if direction == "input" else "output"
-    port_bits_set = set(b for b in port_bits if not isinstance(b, str))
-
-    # For each bit index, collect (cell_name, port_name, position_in_port) refs
-    bit_to_refs = {}
-    for cell_name, cell in cells.items():
-        if cell.get("type") == "$scopeinfo":
-            continue
-        dirs = cell.get("port_directions", {})
-        conns = cell.get("connections", {})
-        for pname, d in dirs.items():
-            if d != target_dir:
-                continue
-            port_conn_bits = conns.get(pname, [])
-            for pos, b in enumerate(port_conn_bits):
-                if isinstance(b, str) or b not in port_bits_set:
-                    continue
-                bit_to_refs.setdefault(b, []).append((cell_name, pname, pos))
-
-    # Sort each bit's refs for deterministic comparison
-    for b in bit_to_refs:
-        bit_to_refs[b] = sorted(bit_to_refs[b], key=lambda r: (r[0], r[1], r[2]))
-
-    # Greedy left-to-right grouping
-    groups = []
-    i = 0
-    while i < bw:
-        bit = port_bits[i]
-        if isinstance(bit, str):
-            groups.append(1)
-            i += 1
-            continue
-
-        refs = bit_to_refs.get(bit, [])
-        if not refs:
-            groups.append(1)
-            i += 1
-            continue
-
-        group_len = 1
-        while i + group_len < bw:
-            next_bit = port_bits[i + group_len]
-            if isinstance(next_bit, str):
-                break
-            next_refs = bit_to_refs.get(next_bit, [])
-            if len(next_refs) != len(refs):
-                break
-
-            compatible = True
-            for ref, next_ref in zip(refs, next_refs):
-                if ref[0] != next_ref[0] or ref[1] != next_ref[1]:
-                    compatible = False
-                    break
-                if next_ref[2] != ref[2] + group_len:
-                    compatible = False
-                    break
-            if not compatible:
-                break
-            group_len += 1
-
-        groups.append(group_len)
-        i += group_len
-
-    return groups
 
 
 def _find_port_target(port_bits, direction, ymod, cell_depth):
@@ -206,42 +128,25 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
 
     bbox_left, bbox_top, bbox_right, bbox_bottom = bbox
 
-    # Pre-compute optimal split groups for all ports
-    port_groups = {}
-    for port_name, port_info in ymod.get("ports", {}).items():
-        bits = port_info["bits"]
-        bw = len(bits)
-        if bw > 1:
-            grps = _compute_split_groups(bits, port_info["direction"], ymod)
-        else:
-            grps = [1]
-        port_groups[port_name] = grps
-
-    # Find max bitwidths and max splitter group counts for body/clearance sizing
+    # Find max bitwidths for body/clearance sizing
     max_in_bw = max((len(p["bits"]) for p in ymod.get("ports", {}).values()
                      if p["direction"] == "input"), default=1)
     max_out_bw = max((len(p["bits"]) for p in ymod.get("ports", {}).values()
                      if p["direction"] == "output"), default=1)
     # Compute fixed x columns for inputs (left of bbox) and outputs (right of bbox)
-    # No clearance between Input↔Splitter (directly wired).
-    # Clearance on the logic side uses bw * 20 + 20 (same formula as components).
     inp_body_right = max_in_bw * 10  # Input body right edge (from pin_pos formula)
-    spl_body_width = 30  # splitter left(10) + right(20)
-    spl_logic_clearance = max_in_bw * 20 + 20  # clearance facing logic cells
+    inp_clearance = max_in_bw * 20 + 20
 
-    inp_x = _snap(bbox_left - spl_logic_clearance - spl_body_width - inp_body_right)
-    spl_x = _snap((inp_x + inp_body_right + bbox_left) // 2)
+    inp_x = _snap(bbox_left - inp_clearance - inp_body_right)
 
     out_body_left = max_out_bw * 10
-    join_body_width = 30
-    join_logic_clearance = max_out_bw * 20 + 20  # clearance facing logic cells
+    out_clearance = max_out_bw * 20 + 20
 
-    out_x = _snap(bbox_right + join_logic_clearance + join_body_width + out_body_left)
-    join_x = _snap((bbox_right + out_x - out_body_left) // 2)
+    out_x = _snap(bbox_right + out_clearance + out_body_left)
 
-    _log.debug("place_ports: bbox=(%d,%d,%d,%d) inp_x=%d spl_x=%d join_x=%d out_x=%d",
+    _log.debug("place_ports: bbox=(%d,%d,%d,%d) inp_x=%d out_x=%d",
                bbox_left, bbox_top, bbox_right, bbox_bottom,
-               inp_x, spl_x, join_x, out_x)
+               inp_x, out_x)
 
     cv_inputs = []
     cv_outputs = []
@@ -269,7 +174,6 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
         direction = port_info["direction"]
         bits = port_info["bits"]
         bw = len(bits)
-        bws = port_groups[port_name]
         port_height = max(bw * 20 + 20, CELL_GAP)
 
         # Find target cell for proximity placement
@@ -288,36 +192,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
             if bw == 1:
                 out_node = _new_pin(na, bit_nodes, bits[0], 1, 1, rx=inp_px, ry=inp_py)
             else:
-                out_node = na.alloc(inp_px, inp_py, 1, bw)
-                si_x, si_y = pin_pos("Splitter", "inp1", bitWidth=bw, bitWidthSplit=bws)
-                spl_inp = na.alloc(si_x, si_y, 0, bw)
-                na.connect(out_node, spl_inp)
-                spl_outputs = []
-                bit_offset = 0
-                for gi, gw in enumerate(bws):
-                    so_x, so_y = pin_pos("Splitter", "outputs", index=gi, bitWidth=bw, bitWidthSplit=bws)
-                    group_bits = bits[bit_offset:bit_offset + gw]
-                    if gw == 1:
-                        spl_out = _new_pin(na, bit_nodes, group_bits[0], 1, 1, rx=so_x, ry=so_y)
-                    else:
-                        spl_out = _new_bus_pin(na, bit_nodes, group_bits, 1, gw, rx=so_x, ry=so_y)
-                    spl_outputs.append(spl_out)
-                    bit_offset += gw
-                cv_splitters.append({
-                    "x": spl_x, "y": port_y + 10,
-                    "objectType": "Splitter",
-                    "label": "",
-                    "direction": "RIGHT",
-                    "labelDirection": "LEFT",
-                    "propagationDelay": 10,
-                    "customData": {
-                        CTOR_PARAMS_KEY: ["RIGHT", bw, bws],
-                        "nodes": {
-                            "outputs": spl_outputs,
-                            "inp1": spl_inp,
-                        },
-                    },
-                })
+                out_node = _new_bus_pin(na, bit_nodes, bits, 1, bw, rx=inp_px, ry=inp_py)
 
             cv_inputs.append({
                 "x": inp_x, "y": port_y,
@@ -350,36 +225,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
             if bw == 1:
                 inp_node = _new_pin(na, bit_nodes, bits[0], 0, 1, rx=out_px, ry=out_py)
             else:
-                inp_node = na.alloc(out_px, out_py, 0, bw)
-                ji_x, ji_y = pin_pos("Splitter", "inp1", bitWidth=bw, bitWidthSplit=bws)
-                jn_out = na.alloc(ji_x, ji_y, 1, bw)
-                na.connect(jn_out, inp_node)
-                jn_inputs = []
-                bit_offset = 0
-                for gi, gw in enumerate(bws):
-                    so_x, so_y = pin_pos("Splitter", "outputs", index=gi, bitWidth=bw, bitWidthSplit=bws)
-                    group_bits = bits[bit_offset:bit_offset + gw]
-                    if gw == 1:
-                        jn_in = _new_pin(na, bit_nodes, group_bits[0], 0, 1, rx=so_x, ry=so_y)
-                    else:
-                        jn_in = _new_bus_pin(na, bit_nodes, group_bits, 0, gw, rx=so_x, ry=so_y)
-                    jn_inputs.append(jn_in)
-                    bit_offset += gw
-                cv_splitters.append({
-                    "x": join_x, "y": port_y + 10,
-                    "objectType": "Splitter",
-                    "label": "",
-                    "direction": "LEFT",
-                    "labelDirection": "RIGHT",
-                    "propagationDelay": 10,
-                    "customData": {
-                        CTOR_PARAMS_KEY: ["LEFT", bw, bws],
-                        "nodes": {
-                            "outputs": jn_inputs,
-                            "inp1": jn_out,
-                        },
-                    },
-                })
+                inp_node = _new_bus_pin(na, bit_nodes, bits, 0, bw, rx=out_px, ry=out_py)
 
             cv_outputs.append({
                 "x": out_x, "y": port_y,
@@ -399,7 +245,6 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
             layout_pin_y_out += 20
 
     # Compute overall y extents for layout height calculation
-    all_y = [c["y"] for c in cv_inputs + cv_outputs]
     y_in = max((c["y"] + CELL_GAP for c in cv_inputs), default=0)
     y_out = max((c["y"] + CELL_GAP for c in cv_outputs), default=0)
 
