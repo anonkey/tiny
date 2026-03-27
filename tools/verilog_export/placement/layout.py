@@ -160,14 +160,18 @@ def topo_sort_cells(ymod):
     d = cell_depth[cname]
     col_cells.setdefault(d, []).append((cname, cell))
 
-  return sorted_cells, col_cells
+  return sorted_cells, col_cells, cell_depth
 
 
 # ── Horizontal extent per Yosys cell type ────────────────────────────────
 
-def _cell_h_extent(ctype, cell):
+def _cell_h_extent(ctype, cell, sub_scope_ids=None):
   """Return (left, right) reach from column center for a Yosys cell."""
   from synthesis.gates.registry import dimensions
+  # Subcircuit types — extent is half layout width on each side
+  if sub_scope_ids and ctype in sub_scope_ids:
+    hw = sub_scope_ids[ctype].get("layout_w", 100) // 2
+    return (hw, hw)
   # Gate-level DFF types (prefix match, not in registry)
   if ctype.startswith("$_DFF"):
     return (20, 20)
@@ -190,12 +194,18 @@ def _cell_h_extent(ctype, cell):
   return (left, right)
 
 
-def _cell_outward_pins(ctype, cell):
+def _cell_outward_pins(ctype, cell, sub_scope_ids=None):
   """Return (left_pins, right_pins) outward-facing horizontal pin counts.
 
   'Outward' means: leftmost sub-component's left side pin count,
   rightmost sub-component's right side pin count.
   """
+  # Subcircuit types — pin count from port_info
+  if sub_scope_ids and ctype in sub_scope_ids:
+    pi = sub_scope_ids[ctype].get("port_info", {})
+    n_in = sum(1 for p in pi.values() if p["direction"] == "input")
+    n_out = sum(1 for p in pi.values() if p["direction"] == "output")
+    return (max(n_in, 1), max(n_out, 1))
   # Gate-level DFF types (prefix match, not in registry)
   if ctype.startswith("$_DFF"):
     return (2, 2)
@@ -219,7 +229,7 @@ def _cell_outward_pins(ctype, cell):
   return (lp, rp)
 
 
-def _col_extents(col_cells):
+def _col_extents(col_cells, sub_scope_ids=None):
   """Compute max (left, right) extent and outward pin counts per column."""
   extents = {}
   for depth, cells in col_cells.items():
@@ -228,8 +238,8 @@ def _col_extents(col_cells):
     max_left_pins = 0
     max_right_pins = 0
     for _, cell in cells:
-      l, r = _cell_h_extent(cell["type"], cell)
-      lp, rp = _cell_outward_pins(cell["type"], cell)
+      l, r = _cell_h_extent(cell["type"], cell, sub_scope_ids)
+      lp, rp = _cell_outward_pins(cell["type"], cell, sub_scope_ids)
       max_left = max(max_left, l)
       max_right = max(max_right, r)
       max_left_pins = max(max_left_pins, lp)
@@ -238,9 +248,9 @@ def _col_extents(col_cells):
   return extents
 
 
-def compute_col_x(col_cells, min_col_gap=COL_GAP):
+def compute_col_x(col_cells, min_col_gap=COL_GAP, sub_scope_ids=None):
   """Compute x position for each column depth using pin-count-based clearance."""
-  extents = _col_extents(col_cells)
+  extents = _col_extents(col_cells, sub_scope_ids)
   depths = sorted(col_cells.keys())
   if not depths:
     return {}
@@ -264,13 +274,91 @@ def compute_col_x(col_cells, min_col_gap=COL_GAP):
 
 
 
-def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
-  """Place high-level (multi-bit) cells. Returns components dict."""
+def _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
+                      x_center, y_cell, cv_subcircuits, sc_comps):
+  """Place a single subcircuit instance. Returns height consumed."""
+  ctype = cell["type"]
+  sid = sub_scope_ids[ctype]
+  port_info = sid["port_info"]
+  layout_w = sid.get("layout_w", 100)
+  dirs = cell.get("port_directions", {})
+  conns = cell["connections"]
+
+  input_nodes = []
+  output_nodes = []
+
+  # Allocate input ports first, then outputs, matching the
+  # sub-scope's Input/Output declaration order (port_info order).
+  for pname in port_info:
+    d = dirs.get(pname)
+    if d != "input":
+      continue
+    bits = conns.get(pname, [])
+    bw = len(bits)
+    pi = port_info.get(pname, {"x": 0, "y": 20})
+    nid = na.alloc(pi["x"], pi["y"], 0, bw)
+    input_nodes.append(nid)
+    for b in bits:
+      if not isinstance(b, str):
+        bit_nodes.setdefault(b, []).append(nid)
+  for pname in port_info:
+    d = dirs.get(pname)
+    if d != "output":
+      continue
+    bits = conns.get(pname, [])
+    bw = len(bits)
+    pi = port_info.get(pname, {"x": 0, "y": 20})
+    nid = na.alloc(pi["x"], pi["y"], 1, bw)
+    output_nodes.append(nid)
+    for b in bits:
+      if not isinstance(b, str):
+        bit_nodes.setdefault(b, []).append(nid)
+
+  n_max = max(len(input_nodes), len(output_nodes), 1)
+  h = 20 * n_max + 40
+
+  # SubCircuit origin is top-left; col_x is center, so offset by half width
+  sc_x = x_center - layout_w // 2
+
+  sc_dict = {
+    "x": sc_x, "y": y_cell,
+    "id": sid["scope_id"],
+    "label": cell_name,
+    "labelDirection": "RIGHT",
+    "inputNodes": input_nodes,
+    "outputNodes": output_nodes,
+    "version": "2.0",
+  }
+  cv_subcircuits.append(sc_dict)
+
+  # Synthetic component dict so the router can block the body
+  all_nids = input_nodes + output_nodes
+  sc_comps.append({
+    "x": sc_x, "y": y_cell,
+    "objectType": "",
+    "customData": {
+      "nodes": {"pins": all_nids},
+      "_sc_dimensions": {
+        "left": 0, "right": layout_w,
+        "up": 0, "down": h,
+      },
+    },
+  })
+
+  return h
+
+
+def _place_hl_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):
+  """Place high-level (multi-bit) cells. Returns (components, cell_positions,
+  cv_subcircuits, sc_comps)."""
   components = {}
+  cell_positions = {}
+  cv_subcircuits = []
+  sc_comps = []
 
   # Use pre-computed column x positions, or compute them now
   if col_x is None:
-    col_x = compute_col_x(col_cells)
+    col_x = compute_col_x(col_cells, sub_scope_ids=sub_scope_ids)
 
   for depth in sorted(col_cells.keys()):
     x_cell = col_x.get(depth, X_START + depth * COL_GAP)
@@ -278,6 +366,15 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
 
     for cell_name, cell in col_cells[depth]:
       ctype = cell["type"]
+      cell_positions[cell_name] = (x_cell, y_cell)
+
+      # Subcircuit cell
+      if sub_scope_ids and ctype in sub_scope_ids:
+        h = _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
+                              x_cell, y_cell, cv_subcircuits, sc_comps)
+        y_cell += h + V_CELL_PAD
+        continue
+
       conns = cell["connections"]
       info = _CELL_REGISTRY.get(ctype)
       handler = info.handler if info else None
@@ -288,16 +385,23 @@ def _place_hl_cells(col_cells, na, bit_nodes, col_x=None):
       else:
         _log.warning("unmapped cell type '%s' (%s)", ctype, cell_name)
 
-  return components
+  return components, cell_positions, cv_subcircuits, sc_comps
 
 
 # ── Public entry point ────────────────────────────────────────────────────
 
-def place_cells(col_cells, na, bit_nodes, gate_level=False, col_x=None):
+def place_cells(col_cells, na, bit_nodes, gate_level=False, col_x=None,
+                sub_scope_ids=None):
   """Map Yosys cells to CircuitVerse components, placed by column.
 
-  Returns components dict (objectType -> [component_dict, ...]).
+  Returns (components, cell_positions, cv_subcircuits, sc_comps).
+  components: dict (objectType -> [component_dict, ...])
+  cell_positions: dict (cell_name -> (x, y))
+  cv_subcircuits: list of SubCircuit dicts (empty for flat exports)
+  sc_comps: list of synthetic component dicts for router blocking
   """
   if gate_level:
-    return place_gate_cells(col_cells, na, bit_nodes, col_x=col_x)
-  return _place_hl_cells(col_cells, na, bit_nodes, col_x=col_x)
+    return place_gate_cells(col_cells, na, bit_nodes, col_x=col_x,
+                            sub_scope_ids=sub_scope_ids)
+  return _place_hl_cells(col_cells, na, bit_nodes, col_x=col_x,
+                         sub_scope_ids=sub_scope_ids)

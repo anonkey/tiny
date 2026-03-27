@@ -16,7 +16,6 @@ from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
 from common.constants import CELL_GAP, COL_GAP, GATE_COL_GAP
 from placement.layout import topo_sort_cells, place_cells, compute_col_x
 from placement.ports import place_ports
-from common.constants import X_START
 
 
 def _run_yosys(script):
@@ -127,12 +126,16 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
     na = _CVNodeAlloc()
     bit_nodes = {}
 
-    _, col_cells = topo_sort_cells(ymod)
+    _, col_cells, cell_depth = topo_sort_cells(ymod)
     min_gap = GATE_COL_GAP if gate_level else COL_GAP
     col_x = compute_col_x(col_cells, min_col_gap=min_gap)
+    components, cell_positions, _, _ = place_cells(
+        col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
+    from placement.ports import compute_bbox
+    bbox = compute_bbox(col_cells, col_x, cell_positions, [])
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells, col_x)
-    components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
+        ymod, na, bit_nodes, col_cells, col_x,
+        cell_depth=cell_depth, cell_positions=cell_positions, bbox=bbox)
 
     # Wire nodes sharing the same Yosys net — chain topology
     # (each node connects to the next, not full mesh)
@@ -148,7 +151,9 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
         if n["type"] == 2 and n["connections"]
     )
 
-    total_w = max(col_x.values()) + 400 if col_x else 600
+    rightmost_col = max(col_x.values()) if col_x else 0
+    rightmost_port = max((c["x"] for c in cv_outputs), default=0)
+    total_w = max(rightmost_col + 400, rightmost_port + 200) if (rightmost_col or rightmost_port) else 600
 
     return {
         "layout": {
@@ -208,188 +213,53 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
     """Build a CircuitVerse scope for a single Yosys module.
 
     Cells whose type matches another module in the netlist become SubCircuit
-    references. All other cells go through the normal HL dispatch.
+    references. All other cells go through the normal HL/gate dispatch.
 
     Returns (scope_dict, scope_id, port_info, subcircuit_types).
     port_info = {port_name: {"direction": dir, "width": bw, "x": pin_x, "y": pin_y}}
     """
     scope_id = _cv_scope_id()
-
-    # Separate cells into native (HL dispatch) and subcircuit references
-    native_cells = []
-    subcircuit_cells = []
-    for cell_name, cell in ymod.get("cells", {}).items():
-        if cell["type"] == "$scopeinfo":
-            continue
-        if cell["type"] in sub_scope_ids:
-            subcircuit_cells.append((cell_name, cell))
-        else:
-            native_cells.append((cell_name, cell))
-
-    # Topo-sort native cells using existing infrastructure
-    # Build a fake ymod with only native cells for topo_sort
-    native_ymod = {
-        "ports": ymod.get("ports", {}),
-        "cells": {n: c for n, c in native_cells},
-    }
-    _, col_cells = topo_sort_cells(native_ymod)
-
-    # Place ports and native cells
     LAYOUT_W = 100
     min_gap = GATE_COL_GAP if gate_level else COL_GAP
-    col_x = compute_col_x(col_cells, min_col_gap=min_gap)
+
+    # ── Phase A: place all cells (native + subcircuit) in one pass ────────
+
+    # Unified topo-sort over all non-scopeinfo cells
+    _, col_cells, cell_depth = topo_sort_cells(ymod)
+    col_x = compute_col_x(col_cells, min_col_gap=min_gap,
+                           sub_scope_ids=sub_scope_ids)
+
+    # Unified placement — native cells dispatch to handlers, subcircuit
+    # cells dispatch to _place_subcircuit, all in the same column loop.
+    components, cell_positions, cv_subcircuits, sc_comps = place_cells(
+        col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x,
+        sub_scope_ids=sub_scope_ids)
+
+    # Collect subcircuit types used in this module
+    subcircuit_types = []
+    for cell_name, cell in ymod.get("cells", {}).items():
+        if cell["type"] != "$scopeinfo" and cell["type"] in sub_scope_ids:
+            if cell["type"] not in subcircuit_types:
+                subcircuit_types.append(cell["type"])
+
+    # ── Phase B: place ports outside the bounding box ──────────────────
+
+    from placement.ports import compute_bbox
+    bbox = compute_bbox(col_cells, col_x, cell_positions, sc_comps,
+                        sub_scope_ids=sub_scope_ids)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells, col_x, layout_w=LAYOUT_W)
-    components = place_cells(col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
+        ymod, na, bit_nodes, col_cells, col_x,
+        cell_depth=cell_depth, cell_positions=cell_positions,
+        bbox=bbox, layout_w=LAYOUT_W)
 
-    # Place subcircuit instances
-    cv_subcircuits = []
-    sc_comps = []  # synthetic component dicts for router body-blocking
-    subcircuit_types = []  # parallel to cv_subcircuits: Yosys module type
-    max_native_depth = max(col_cells.keys()) if col_cells else 0
+    # ── Wiring + routing ─────────────────────────────────────────────────
 
-    # Topo-sort subcircuit cells
-    bit_producer = {}
-    for cn, cc in native_cells:
-        dirs = cc.get("port_directions", {})
-        for pn, d in dirs.items():
-            if d == "output":
-                for b in cc["connections"].get(pn, []):
-                    if not isinstance(b, str):
-                        bit_producer[b] = cn
-    for cn, cc in subcircuit_cells:
-        dirs = cc.get("port_directions", {})
-        for pn, d in dirs.items():
-            if d == "output":
-                for b in cc["connections"].get(pn, []):
-                    if not isinstance(b, str):
-                        bit_producer[b] = cn
-
-    sc_by_name = {n: c for n, c in subcircuit_cells}
-    sc_depth = {}
-
-    def _sc_depth(cname, visiting=None):
-        if cname in sc_depth:
-            return sc_depth[cname]
-        if visiting is None:
-            visiting = set()
-        if cname in visiting:
-            return 0
-        visiting.add(cname)
-        cell = sc_by_name.get(cname)
-        if not cell:
-            return 0
-        dirs = cell.get("port_directions", {})
-        max_d = 0
-        for pn, d in dirs.items():
-            if d != "input":
-                continue
-            for b in cell["connections"].get(pn, []):
-                if not isinstance(b, str) and b in bit_producer:
-                    prod = bit_producer[b]
-                    if prod != cname and prod in sc_by_name:
-                        max_d = max(max_d, _sc_depth(prod, visiting) + 1)
-        sc_depth[cname] = max_d
-        return max_d
-
-    for cn, _ in subcircuit_cells:
-        _sc_depth(cn)
-
-    sorted_sc = sorted(subcircuit_cells,
-                       key=lambda nc: (sc_depth.get(nc[0], 0),
-                                       subcircuit_cells.index(nc)))
-
-    # Group into columns
-    sc_columns = {}
-    for cn, cc in sorted_sc:
-        d = sc_depth.get(cn, 0)
-        sc_columns.setdefault(d, []).append((cn, cc))
-
-    SC_COL_GAP = 200
-    SC_ROW_GAP = 40
-    sc_x_start = X_START + (max_native_depth + 1) * COL_GAP if col_cells else X_START
-
-    for depth in sorted(sc_columns.keys()):
-        col_x = sc_x_start + depth * (LAYOUT_W + SC_COL_GAP)
-        col_y = 0
-        for cn, cc in sc_columns[depth]:
-            sid = sub_scope_ids[cc["type"]]
-            port_info = sid["port_info"]
-            dirs = cc.get("port_directions", {})
-            conns = cc["connections"]
-
-            input_nodes = []
-            output_nodes = []
-
-            # Allocate input ports first, then outputs, matching the
-            # sub-scope's Input/Output declaration order (port_info order).
-            for pname in port_info:
-                d = dirs.get(pname)
-                if d != "input":
-                    continue
-                bits = conns.get(pname, [])
-                bw = len(bits)
-                pi = port_info.get(pname, {"x": 0, "y": 20})
-                nid = na.alloc(pi["x"], pi["y"], 0, bw)
-                input_nodes.append(nid)
-                for b in bits:
-                    if not isinstance(b, str):
-                        bit_nodes.setdefault(b, []).append(nid)
-            for pname in port_info:
-                d = dirs.get(pname)
-                if d != "output":
-                    continue
-                bits = conns.get(pname, [])
-                bw = len(bits)
-                pi = port_info.get(pname, {"x": 0, "y": 20})
-                nid = na.alloc(pi["x"], pi["y"], 1, bw)
-                output_nodes.append(nid)
-                for b in bits:
-                    if not isinstance(b, str):
-                        bit_nodes.setdefault(b, []).append(nid)
-
-            n_max = max(len(input_nodes), len(output_nodes), 1)
-            h = 20 * n_max + 40
-
-            sc_dict = {
-                "x": col_x, "y": col_y,
-                "id": sid["scope_id"],
-                "label": cn,
-                "labelDirection": "RIGHT",
-                "inputNodes": input_nodes,
-                "outputNodes": output_nodes,
-                "version": "2.0",
-            }
-            cv_subcircuits.append(sc_dict)
-
-            # Synthetic component dict so the router can block the body,
-            # compute pin departure directions and clearance corridors —
-            # same rules as any native component.
-            # SubCircuit origin (x, y) is top-left corner, so dimensions
-            # extend rightward and downward from that origin.
-            all_nids = input_nodes + output_nodes
-            sc_comps.append({
-                "x": col_x, "y": col_y,
-                "objectType": "",
-                "customData": {
-                    "nodes": {"pins": all_nids},
-                    "_sc_dimensions": {
-                        "left": 0, "right": LAYOUT_W,
-                        "up": 0, "down": h,
-                    },
-                },
-            })
-
-            subcircuit_types.append(cc["type"])
-            col_y += h + SC_ROW_GAP
-
-    # Collect SC input port node IDs (to relocate after routing).
-    # SC output nodes stay in place; only inputs move to the end.
+    # Collect SC input port node IDs (to relocate after routing)
     sc_port_nids = set()
     for sc in cv_subcircuits:
         sc_port_nids.update(sc["inputNodes"])
 
-    # Wire all nodes sharing the same Yosys net
+    # Wire all nodes sharing the same Yosys net — chain topology
     for _, node_ids in bit_nodes.items():
         for i in range(len(node_ids) - 1):
             na.connect(node_ids[i], node_ids[i + 1])
@@ -399,28 +269,23 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         sx, sy = sc["x"], sc["y"]
         for nid in sc["inputNodes"] + sc["outputNodes"]:
             na.set_parent_pos(nid, sx, sy)
+
     # Route with subcircuit body-blocking pseudo-components included
     _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
                        extra_comps=sc_comps)
 
-    # Relocate SC port nodes to the end of allNodes so they come after
-    # routing nodes, matching CircuitVerse's expected ordering.
+    # Relocate SC port nodes to end of allNodes (CircuitVerse ordering)
     if sc_port_nids:
         old_nodes = na.nodes
         n = len(old_nodes)
-        # Build new ordering: non-SC nodes first, then SC port nodes
         non_sc = [i for i in range(n) if i not in sc_port_nids]
         sc_list = [i for i in range(n) if i in sc_port_nids]
         new_order = non_sc + sc_list
-        # old_id -> new_id mapping
         remap = {old: new for new, old in enumerate(new_order)}
-        # Reorder nodes and abs_pos
         na.nodes = [old_nodes[i] for i in new_order]
         na.abs_pos = [na.abs_pos[i] for i in new_order]
-        # Remap all connection references
         for node in na.nodes:
             node["connections"] = [remap[c] for c in node["connections"]]
-        # Remap component node references
         _remap_comp_nodes(cv_inputs + cv_outputs + cv_splitters, remap)
         for comp_list in components.values():
             _remap_comp_nodes(comp_list, remap)
@@ -433,11 +298,14 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         if n["type"] == 2 and n["connections"]
     )
 
-    max_sc_depth = max(sc_columns.keys()) if sc_columns else 0
-    total_cols = (max_native_depth + 1) + (max_sc_depth + 1) if sc_columns else (max_native_depth + 1)
-    total_w = total_cols * COL_GAP + 400
+    # ── Layout dimensions ────────────────────────────────────────────────
 
-    # Build port_info for parent scopes to use when placing this as a SubCircuit
+    # Account for both cell columns and output port positions
+    rightmost_x = max(col_x.values()) if col_x else 0
+    rightmost_port = max((c["x"] for c in cv_outputs), default=0)
+    total_w = max(rightmost_x + 400, rightmost_port + 200) if (rightmost_x or rightmost_port) else 600
+
+    # Build port_info for parent scopes to use when placing this as SubCircuit
     port_info = {}
     pin_y = 40
     for pname, pdata in ymod.get("ports", {}).items():
@@ -451,10 +319,6 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         if pdata["direction"] == "output":
             port_info[pname] = {"direction": "output", "width": bw, "x": LAYOUT_W, "y": pin_y}
             pin_y += 20
-
-    sub_scope_id_list = [s["scope_id"] for s in sub_scope_ids.values()
-                         if any(c["type"] == t for t in sub_scope_ids
-                                for _, c in subcircuit_cells)]
 
     scope = {
         "layout": _cv_layout(len(cv_inputs), len(cv_outputs)),
@@ -563,6 +427,7 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name, cache_dir=None,
         sub_scope_ids[mod_name] = {
             "scope_id": scope_id,
             "port_info": port_info,
+            "layout_w": 100,
         }
 
         if mod_name != top_name:

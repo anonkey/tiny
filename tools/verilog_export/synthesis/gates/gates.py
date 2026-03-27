@@ -11,9 +11,14 @@ from common.constants import (
 from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
-  """Place gate-level (1-bit) cells. Returns components dict."""
+def place_gate_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):
+  """Place gate-level (1-bit) cells. Returns (components, cell_positions,
+  cv_subcircuits, sc_comps)."""
+  from placement.layout import _place_subcircuit
   components = {}
+  cell_positions = {}
+  cv_subcircuits = []
+  sc_comps = []
 
   for depth in sorted(col_cells.keys()):
     x_cell = col_x.get(depth, X_START + depth * COL_GAP) if col_x else X_START + depth * COL_GAP
@@ -21,6 +26,16 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
 
     for cell_name, cell in col_cells[depth]:
       ctype = cell["type"]
+      cell_positions[cell_name] = (x_cell, y_cell)
+
+      # Subcircuit cell
+      if sub_scope_ids and ctype in sub_scope_ids:
+        from common.constants import V_CELL_PAD
+        h = _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
+                              x_cell, y_cell, cv_subcircuits, sc_comps)
+        y_cell += h + V_CELL_PAD + GATE_V_CELL_PAD
+        continue
+
       cv_info = _YOSYS_GATE_TO_CV.get(ctype)
 
       if ctype in ("$_AND_", "$_OR_", "$_NAND_", "$_NOR_",
@@ -88,4 +103,4 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
         continue
       y_cell += GATE_V_CELL_PAD
 
-  return components
+  return components, cell_positions, cv_subcircuits, sc_comps

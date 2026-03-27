@@ -50,7 +50,7 @@ By default, output goes to `<module_dir>/export/`.
 
 **`circuitverse-yosys`** — synthesizes the full design through Yosys (`flatten → techmap → abc`) down to individual gates. Requires `yosys` on PATH. Produces real AND, OR, NOT, NAND, NOR, XOR, XNOR, MUX and DFF components.
 
-**`circuitverse-yosys-hier`** — elaborates through Yosys without flattening, preserving module hierarchy. Each module becomes a SubCircuit scope with independently routed internals. Supports `--gate` to decompose each module to 1-bit primitives (AND/OR/NOT/DFF/MUX). With `--cache`, routed scopes are saved to disk (keyed by source MD5) so that unchanged modules are placed and routed only once across repeated exports. Stale caches are auto-pruned.
+**`circuitverse-yosys-hier`** — elaborates through Yosys without flattening, preserving module hierarchy. Each module becomes a SubCircuit scope with independently routed internals. SubCircuit instances use the same pin-count-based column spacing (`pin_clearance` / `compute_col_x`) and vertical padding (`V_CELL_PAD`) as base components, and clearance verification covers both equally. Supports `--gate` to decompose each module to 1-bit primitives (AND/OR/NOT/DFF/MUX). With `--cache`, routed scopes are saved to disk (keyed by source MD5) so that unchanged modules are placed and routed only once across repeated exports. Stale caches are auto-pruned.
 
 ## KiCad hierarchical grouping
 

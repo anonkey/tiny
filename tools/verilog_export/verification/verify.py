@@ -189,12 +189,18 @@ def _check_clearance_violations(nets, abs_pos, components):
     for comp in components:
         cx, cy = comp.get("x", 0), comp.get("y", 0)
         ct = comp.get("objectType", "")
-        if not ct:
-            continue
-        params = _extract_comp_params(ct, comp)
-        try:
-            dim = _ref_dimensions(ct, **params)
-        except KeyError:
+        # Support both base components (registry lookup) and subcircuits
+        # (inline _sc_dimensions) — same clearance rules for both.
+        sc_dim = comp.get("customData", {}).get("_sc_dimensions")
+        if sc_dim:
+            dim = sc_dim
+        elif ct:
+            params = _extract_comp_params(ct, comp)
+            try:
+                dim = _ref_dimensions(ct, **params)
+            except KeyError:
+                continue
+        else:
             continue
 
         bx0 = cx - dim["left"] + 1
@@ -223,9 +229,10 @@ def _check_clearance_violations(nets, abs_pos, components):
                         if any(py == sy and sx0 <= px <= sx1 for px, py in own_pin_pos):
                             continue
                         issues += 1
+                        label = ct or "SubCircuit"
                         _log.warning("CLEARANCE: H wire y=%d x=[%d,%d] "
                                      "crosses %s@(%d,%d) body [%d,%d]x[%d,%d]",
-                                     sy, sx0, sx1, ct, cx, cy,
+                                     sy, sx0, sx1, label, cx, cy,
                                      cx - dim['left'], cx + dim['right'],
                                      cy - dim['up'], cy + dim['down'])
                 elif seg[0] == 'V':
@@ -235,9 +242,10 @@ def _check_clearance_violations(nets, abs_pos, components):
                         if any(px == sx and sy0 <= py <= sy1 for px, py in own_pin_pos):
                             continue
                         issues += 1
+                        label = ct or "SubCircuit"
                         _log.warning("CLEARANCE: V wire x=%d y=[%d,%d] "
                                      "crosses %s@(%d,%d) body [%d,%d]x[%d,%d]",
-                                     sx, sy0, sy1, ct, cx, cy,
+                                     sx, sy0, sy1, label, cx, cy,
                                      cx - dim['left'], cx + dim['right'],
                                      cy - dim['up'], cy + dim['down'])
     return issues
