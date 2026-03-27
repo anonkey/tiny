@@ -1,9 +1,15 @@
 """Memory cell: $mem_v2."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from common.constants import pin_clearance, _new_bus_pin, _param_int, CTOR_PARAMS_KEY
+from common.node_alloc import _CVNodeAlloc
+from common.types import BitNodes, CompMap
 
 
-def place_mem_v2(cell, conns, na, bit_nodes, components, x, y):
+def place_mem_v2(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Map Yosys $mem_v2 to CircuitVerse verilogRAM. Returns y-advance."""
   params = cell.get("parameters", {})
   data_bw = _param_int(cell, "WIDTH", 8)

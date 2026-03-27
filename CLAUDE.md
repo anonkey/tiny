@@ -5,6 +5,7 @@ Use debug output (or add logs) for debbuging errors
 use shell tools as far as possible it's faster (sed for replacement e.g.)
 write test when you fix a bug to avoid regression
 use and update manager as far as possible
+Always use modern python syntax (class, types, ...)
 ## Module structure (monorepo)
 
 Each Verilog module is a self-contained package under `modules/`:

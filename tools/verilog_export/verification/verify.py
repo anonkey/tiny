@@ -3,23 +3,28 @@
 Each check is a
 standalone function that returns an issue count and logs warnings.
 """
+from __future__ import annotations
 
 import logging
 
 from common.constants import GRID_UNIT
+from common.types import AbsPos, CompDict, NodeDict
 from common.utils import _extract_comp_params
 
-_log = logging.getLogger(__name__)
+# A net: (node_ids, cells, segments, junction_cells)
+Net = tuple[set[int], set[tuple[int, int]], set[tuple[str, int, int, int]], set[tuple[int, int]]]
 
-GRID = GRID_UNIT
+_log: logging.Logger = logging.getLogger(__name__)
+
+GRID: int = GRID_UNIT
 
 
-def _collect_comp_pin_nids(components):
+def _collect_comp_pin_nids(components: list[CompDict] | None) -> set[int]:
     """Extract pin node IDs from component dicts.
 
     Returns set[int] of all node IDs that belong to component pins.
     """
-    pin_nids = set()
+    pin_nids: set[int] = set()
     if not components:
         return pin_nids
     for comp in components:
@@ -34,21 +39,21 @@ def _collect_comp_pin_nids(components):
     return pin_nids
 
 
-def _collect_nets(nodes, abs_pos):
+def _collect_nets(nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[Net], int]:
     """BFS net discovery, segment/cell collection, diagonal detection.
 
     Returns (nets, diag_issues) where each net is
     (nids, cells, segments, junction_cells).
     """
-    issues = 0
-    visited = set()
-    nets = []
+    issues: int = 0
+    visited: set[int] = set()
+    nets: list[Net] = []
 
     for start in range(len(nodes)):
         if start in visited or not nodes[start]["connections"]:
             continue
-        net_nids = set()
-        queue = [start]
+        net_nids: set[int] = set()
+        queue: list[int] = [start]
         while queue:
             nid = queue.pop(0)
             if nid in net_nids:
@@ -59,8 +64,8 @@ def _collect_nets(nodes, abs_pos):
                     queue.append(cid)
         visited |= net_nids
 
-        net_cells = set()
-        net_segments = set()
+        net_cells: set[tuple[int, int]] = set()
+        net_segments: set[tuple[str, int, int, int]] = set()
         for nid in net_nids:
             ax, ay = abs_pos[nid]
             for cid in nodes[nid]["connections"]:
@@ -79,7 +84,7 @@ def _collect_nets(nodes, abs_pos):
                         _log.warning("DIAG: node %d(%d,%d) <-> node %d(%d,%d)",
                                      nid, ax, ay, cid, bx, by)
 
-        junction_cells = set()
+        junction_cells: set[tuple[int, int]] = set()
         for nid in net_nids:
             if len(nodes[nid]["connections"]) >= 3:
                 junction_cells.add(abs_pos[nid])
@@ -88,12 +93,12 @@ def _collect_nets(nodes, abs_pos):
     return nets, issues
 
 
-def _check_visual_shorts(nets):
+def _check_visual_shorts(nets: list[Net]) -> int:
     """Detect junction-on-junction shorts between different nets.
 
     Returns issue count.
     """
-    issues = 0
+    issues: int = 0
     for i in range(len(nets)):
         for j in range(i + 1, len(nets)):
             shared = nets[i][1] & nets[j][1]
@@ -115,12 +120,12 @@ def _check_visual_shorts(nets):
     return issues
 
 
-def _check_segment_overlaps(nets):
+def _check_segment_overlaps(nets: list[Net]) -> int:
     """Detect collinear segment overlaps between different nets.
 
     Returns issue count.
     """
-    issues = 0
+    issues: int = 0
     for i in range(len(nets)):
         for j in range(i + 1, len(nets)):
             for seg_i in nets[i][2]:
@@ -143,12 +148,12 @@ def _check_segment_overlaps(nets):
     return issues
 
 
-def _check_endpoints_on_wires(nets, abs_pos, comp_pin_nids):
+def _check_endpoints_on_wires(nets: list[Net], abs_pos: AbsPos, comp_pin_nids: set[int]) -> int:
     """Detect wire endpoints landing on another net's segment.
 
     Returns issue count.
     """
-    issues = 0
+    issues: int = 0
     for i, (nids_i, _, segs_i, _) in enumerate(nets):
         for nid in nids_i:
             if nid in comp_pin_nids:
@@ -175,7 +180,7 @@ def _check_endpoints_on_wires(nets, abs_pos, comp_pin_nids):
     return issues
 
 
-def _check_clearance_violations(nets, abs_pos, components):
+def _check_clearance_violations(nets: list[Net], abs_pos: AbsPos, components: list[CompDict] | None) -> int:
     """Detect wire segments crossing component bodies.
 
     Returns issue count.
@@ -185,7 +190,7 @@ def _check_clearance_violations(nets, abs_pos, components):
 
     from synthesis.gates.registry import dimensions as _ref_dimensions
 
-    issues = 0
+    issues: int = 0
     for comp in components:
         cx, cy = comp.get("x", 0), comp.get("y", 0)
         ct = comp.get("objectType", "")
@@ -208,7 +213,7 @@ def _check_clearance_violations(nets, abs_pos, components):
         by0 = cy - dim["up"] + 1
         by1 = cy + dim["down"] - 1
 
-        own_nids = set()
+        own_nids: set[int] = set()
         cd = comp.get("customData", {}).get("nodes", {})
         for val in cd.values():
             if isinstance(val, int):
@@ -218,7 +223,7 @@ def _check_clearance_violations(nets, abs_pos, components):
                     if isinstance(nid, int):
                         own_nids.add(nid)
 
-        own_pin_pos = {abs_pos[nid] for nid in own_nids}
+        own_pin_pos: set[tuple[int, int]] = {abs_pos[nid] for nid in own_nids}
 
         for _, _, net_segs, _ in nets:
             for seg in net_segs:
@@ -251,14 +256,14 @@ def _check_clearance_violations(nets, abs_pos, components):
     return issues
 
 
-def _check_bitwidth_mismatches(nets, nodes):
+def _check_bitwidth_mismatches(nets: list[Net], nodes: list[NodeDict]) -> int:
     """Detect connected nodes with different bitWidths.
 
     Returns issue count.
     """
-    issues = 0
+    issues: int = 0
     for net_nids, _, _, _ in nets:
-        bws = {}
+        bws: dict[int, list[int]] = {}
         for nid in net_nids:
             bw = nodes[nid].get("bitWidth", 1)
             bws.setdefault(bw, []).append(nid)
@@ -270,7 +275,7 @@ def _check_bitwidth_mismatches(nets, nodes):
     return issues
 
 
-def _check_hanging_wires(nets, abs_pos, comp_pin_nids, nodes):
+def _check_hanging_wires(nets: list[Net], abs_pos: AbsPos, comp_pin_nids: set[int], nodes: list[NodeDict]) -> int:
     """Detect wire endpoints that don't terminate on a component pin.
 
     A hanging wire is a node with exactly 1 connection (degree-1 endpoint)
@@ -278,7 +283,7 @@ def _check_hanging_wires(nets, abs_pos, comp_pin_nids, nodes):
 
     Returns issue count.
     """
-    issues = 0
+    issues: int = 0
     for net_nids, _, _, _ in nets:
         for nid in net_nids:
             if len(nodes[nid]["connections"]) == 1 and nid not in comp_pin_nids:
@@ -289,12 +294,13 @@ def _check_hanging_wires(nets, abs_pos, comp_pin_nids, nodes):
     return issues
 
 
-def verify_routing(nodes, abs_pos, components=None):
+def verify_routing(nodes: list[NodeDict], abs_pos: AbsPos, components: list[CompDict] | None = None) -> int:
     """Check for routing issues: diagonals, visual shorts, clearance, endpoints-on-wire, hanging wires.
 
     Prints warnings to stderr.  Returns number of issues found.
     """
-    comp_pin_nids = _collect_comp_pin_nids(components)
+    comp_pin_nids: set[int] = _collect_comp_pin_nids(components)
+    nets: list[Net]
     nets, issues = _collect_nets(nodes, abs_pos)
 
     issues += _check_visual_shorts(nets)

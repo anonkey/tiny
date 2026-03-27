@@ -4,13 +4,18 @@ Note: CircuitVerse uses the misspelled key ``constructorParamaters`` in its
 JSON format.  See ``CTOR_PARAMS_KEY`` in ``common/constants.py``.
 """
 
+from __future__ import annotations
+
+from typing import Any
 
 from common.emit import CTOR_PARAMS_KEY
+from common.types import CompDict
 
-def _extract_comp_params(comp_type, comp):
+
+def _extract_comp_params(comp_type: str, comp: CompDict) -> dict[str, Any]:
     """Extract dimension-relevant params from a component's constructorParamaters."""
-    ctor = comp.get("customData", {}).get(CTOR_PARAMS_KEY, [])
-    params = {}
+    ctor: list[Any] = comp.get("customData", {}).get(CTOR_PARAMS_KEY, [])
+    params: dict[str, Any] = {}
     if comp_type in ("Input", "Output", "ConstantVal"):
         if len(ctor) >= 2:
             bw = ctor[1]

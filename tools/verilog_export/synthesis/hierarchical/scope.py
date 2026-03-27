@@ -1,7 +1,11 @@
 """CircuitVerse scope ID allocator, layout, and scope builder."""
+from __future__ import annotations
+
+from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
 from common.emit import CTOR_PARAMS_KEY
+from common.types import ScopeDict
 
 
 class _CVScopeCounter:
@@ -9,20 +13,22 @@ class _CVScopeCounter:
 
     _SCOPE_ID_BASE = 10_000_000_000  # high base avoids collisions with CV internals
 
-    def __init__(self):
+    _counter: int
+
+    def __init__(self) -> None:
         self._counter = -1
 
-    def __call__(self):
+    def __call__(self) -> str:
         self._counter += 1
         return str(self._SCOPE_ID_BASE + self._counter)
 
-    def reset(self):
+    def reset(self) -> None:
         self._counter = -1
 
-_cv_scope_id = _CVScopeCounter()
+_cv_scope_id: _CVScopeCounter = _CVScopeCounter()
 
 
-def _cv_layout(n_inputs, n_outputs):
+def _cv_layout(n_inputs: int, n_outputs: int) -> dict[str, Any]:
     """Compute subcircuit layout block size."""
     n_max = max(n_inputs, n_outputs, 1)
     return {
@@ -34,7 +40,9 @@ def _cv_layout(n_inputs, n_outputs):
     }
 
 
-def _build_cv_scope(mod, na):
+def _build_cv_scope(
+    mod: verilog_parser.Module, na: _CVNodeAlloc
+) -> tuple[ScopeDict, str, dict[str, dict[str, Any]]]:
     """Build a CircuitVerse scope dict for a Module (subcircuit definition).
 
     Returns (scope_dict, scope_id, pin_positions).
@@ -46,11 +54,11 @@ def _build_cv_scope(mod, na):
     layout = _cv_layout(len(mod.inputs), len(mod.outputs))
     layout_w = layout["width"]
 
-    inputs = []
-    outputs = []
-    pin_positions = {}  # port_name -> {x, y} on the SubCircuit box
+    inputs: list[dict[str, Any]] = []
+    outputs: list[dict[str, Any]] = []
+    pin_positions: dict[str, dict[str, Any]] = {}  # port_name -> {x, y} on the SubCircuit box
 
-    pin_y = 40
+    pin_y: int = 40
     for p in mod.inputs:
         out_node = sna.alloc(10, 0, 1, p.width)
         bw = str(p.width) if p.width > 1 else 1
@@ -95,7 +103,7 @@ def _build_cv_scope(mod, na):
         })
         pin_y += 20
 
-    scope = {
+    scope: ScopeDict = {
         "layout": layout,
         "verilogMetadata": {
             "isVerilogCircuit": False,

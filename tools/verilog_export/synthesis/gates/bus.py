@@ -1,10 +1,16 @@
 """Bus operations: $slice, $concat, $cv_splitter."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from common.constants import pin_clearance, _new_bus_pin, _param_int
 from common.emit import emit_splitter, register_bits
+from common.node_alloc import _CVNodeAlloc
+from common.types import BitNodes, CompMap
 
 
-def place_slice(cell, conns, na, bit_nodes, components, x, y):
+def place_slice(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a bus slice ($slice). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
@@ -33,7 +39,7 @@ def place_slice(cell, conns, na, bit_nodes, components, x, y):
   return 60 + pin_clearance(max(1, len(groups)))
 
 
-def place_concat(cell, conns, na, bit_nodes, components, x, y):
+def place_concat(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a bus concat ($concat). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
@@ -53,7 +59,7 @@ def place_concat(cell, conns, na, bit_nodes, components, x, y):
   return 60 + pin_clearance(2)
 
 
-def place_cv_splitter(cell, conns, na, bit_nodes, components, x, y):
+def place_cv_splitter(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a synthetic $cv_splitter inserted by splitter_pass. Returns y-advance."""
   params = cell["parameters"]
   bw = params["BW"]

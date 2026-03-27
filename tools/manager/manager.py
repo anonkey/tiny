@@ -9,7 +9,6 @@ Usage:
     python manage.py --deps half_cpu              # show dependency tree
     python manage.py --tool assembler -- --help   # run tool directly
     python manage.py --export-all                 # export all modules (circuitverse-yosys --gate)
-    python manage.py --export-all -f kicad-flat   # export all modules with specific format
 """
 
 import os
@@ -84,7 +83,7 @@ def main():
 
     if args and args[0] == "--export-all":
         export_script = os.path.join(TOOLS_DIR, "verilog_export", "verilog_export.py")
-        passthrough = args[1:]  # e.g. -f kicad-flat, --gate
+        passthrough = args[1:]  # e.g. --gate
         if not any(a in ("-f", "--format") for a in passthrough):
             passthrough = ["-f", "circuitverse-yosys", "--gate"] + passthrough
         modules = sorted(registry.keys())

@@ -1,14 +1,20 @@
 """Arithmetic cells: $add, $sub, $mul, $div, $mod, $neg."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _adapt_width, _adapt_single,
   _append_comp, _make_comp,
 )
 from common.emit import emit_alu, register_bits
+from common.node_alloc import _CVNodeAlloc
+from common.types import BitNodes, CompMap
 from synthesis.gates.registry import pin_pos, component_height
 
 
-def place_add(cell, conns, na, bit_nodes, components, x, y):
+def place_add(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place an adder ($add). Returns y-advance."""
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -48,7 +54,7 @@ def place_add(cell, conns, na, bit_nodes, components, x, y):
   return component_height("Adder") + pin_clearance(3) + eh
 
 
-def place_sub(cell, conns, na, bit_nodes, components, x, y):
+def place_sub(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a subtractor ($sub) via ALU mode 110. Returns y-advance."""
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -67,7 +73,7 @@ def place_sub(cell, conns, na, bit_nodes, components, x, y):
   return component_height("ALU") + pin_clearance(2) + eh
 
 
-def place_mul(cell, conns, na, bit_nodes, components, x, y):
+def place_mul(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a multiplier ($mul). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
@@ -89,7 +95,7 @@ def place_mul(cell, conns, na, bit_nodes, components, x, y):
   return component_height("verilogMultiplier") + pin_clearance(2) + eh
 
 
-def place_divmod(cell, conns, na, bit_nodes, components, x, y):
+def place_divmod(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a divider ($div/$mod). Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
@@ -117,7 +123,7 @@ def place_divmod(cell, conns, na, bit_nodes, components, x, y):
   return component_height("verilogDivider") + pin_clearance(2) + eh
 
 
-def place_neg(cell, conns, na, bit_nodes, components, x, y):
+def place_neg(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a negation ($neg) via TwoComplement. Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))

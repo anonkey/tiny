@@ -1,12 +1,18 @@
 """Gate-level (1-bit) cell handlers: $_AND_, $_OR_, $_NOT_, $_MUX_, $_DFF*."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from common.constants import (
   _YOSYS_GATE_TO_CV, _new_pin, _make_comp, pin_clearance,
 )
+from common.node_alloc import _CVNodeAlloc
+from common.types import BitNodes, CompMap
 from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_gate_logic(cell, conns, na, bit_nodes, components, x, y):
+def place_gate_logic(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a 1-bit logic gate ($_AND_, $_OR_, $_NOT_, etc.). Returns height."""
   ctype = cell["type"]
   cv_type, n_inp = _YOSYS_GATE_TO_CV[ctype]
@@ -32,7 +38,7 @@ def place_gate_logic(cell, conns, na, bit_nodes, components, x, y):
   return component_height(cv_type, inputLength=2) + pin_clearance(2)
 
 
-def place_gate_mux(cell, conns, na, bit_nodes, components, x, y):
+def place_gate_mux(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a 1-bit $_MUX_. Returns height."""
   _css = 1
   ia_x, ia_y = pin_pos("Multiplexer", "inp", index=0, controlSignalSize=_css)
@@ -52,7 +58,7 @@ def place_gate_mux(cell, conns, na, bit_nodes, components, x, y):
   return component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)
 
 
-def place_gate_dff(cell, conns, na, bit_nodes, components, x, y):
+def place_gate_dff(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a gate-level $_DFF* variant. Returns height."""
   dx, dy = pin_pos("DflipFlop", "dInp")
   cx, cy = pin_pos("DflipFlop", "clockInp")

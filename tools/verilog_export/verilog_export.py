@@ -8,14 +8,16 @@ Usage:
     python verilog_export.py half_cpu -o out/                            # custom output directory
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 import os
 import sys
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-_MANAGER_DIR = os.path.join(os.path.dirname(_SCRIPT_DIR), "manager")
+_SCRIPT_DIR: str = os.path.dirname(os.path.abspath(__file__))
+_MANAGER_DIR: str = os.path.join(os.path.dirname(_SCRIPT_DIR), "manager")
 if _MANAGER_DIR not in sys.path:
     sys.path.insert(0, _MANAGER_DIR)
 if _SCRIPT_DIR not in sys.path:
@@ -25,10 +27,10 @@ from manager_utils import discover_modules, find_project_root, resolve_deps
 
 from synthesis.hierarchical import generate_circuitverse_yosys, generate_circuitverse_yosys_hier
 
-_FORMATS = ["circuitverse-yosys", "circuitverse-yosys-hier"]
+_FORMATS: list[str] = ["circuitverse-yosys", "circuitverse-yosys-hier"]
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export Verilog modules to CircuitVerse JSON via Yosys."
     )

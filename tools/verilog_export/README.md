@@ -1,17 +1,8 @@
-> **Export Verilog modules to KiCad schematics or CircuitVerse JSON**
+> **Export Verilog modules to CircuitVerse JSON**
 
 ## Usage
 
 ```bash
-# KiCad flat schematic (default)
-python tools/verilog_export/verilog_export.py alu
-
-# KiCad hierarchical schematic (sub-sheets grouped by category)
-python tools/verilog_export/verilog_export.py half_cpu -f kicad-hier
-
-# KiCad symbol library only
-python tools/verilog_export/verilog_export.py cpu_fsm -f kicad-sym
-
 # CircuitVerse (block-level subcircuits)
 python tools/verilog_export/verilog_export.py half_cpu -f circuitverse
 
@@ -37,9 +28,6 @@ By default, output goes to `<module_dir>/export/`.
 
 | `-f` / `--format` | Output |
 |------------|--------|
-| `kicad-flat` *(default)* | Flat `.kicad_sch` + `.kicad_sym` |
-| `kicad-hier` | Root sheet + per-category sub-sheets + `.kicad_sym` |
-| `kicad-sym` | `.kicad_sym` symbol library only |
 | `circuitverse` | `.cv.json` — block-level with SubCircuit scopes |
 | `circuitverse-yosys` | `.gate.cv.json` — gate-level (AND/OR/NOT/DFF/MUX) via Yosys |
 | `circuitverse-yosys-hier` | `.hlsynth-hier.cv.json` — hierarchical with SubCircuit scopes via Yosys |
@@ -51,13 +39,6 @@ By default, output goes to `<module_dir>/export/`.
 **`circuitverse-yosys`** — synthesizes the full design through Yosys (`flatten → techmap → abc`) down to individual gates. Requires `yosys` on PATH. Produces real AND, OR, NOT, NAND, NOR, XOR, XNOR, MUX and DFF components.
 
 **`circuitverse-yosys-hier`** — elaborates through Yosys without flattening, preserving module hierarchy. Each module becomes a SubCircuit scope with independently routed internals. SubCircuit instances use the same pin-count-based column spacing (`pin_clearance` / `compute_col_x`) and vertical padding (`V_CELL_PAD`) as base components, and clearance verification covers both equally. Supports `--gate` to decompose each module to 1-bit primitives (AND/OR/NOT/DFF/MUX). With `--cache`, routed scopes are saved to disk (keyed by source MD5) so that unchanged modules are placed and routed only once across repeated exports. Stale caches are auto-pruned.
-
-## KiCad hierarchical grouping
-
-With `kicad-hier`, modules are grouped into sub-sheets by their category path:
-- `lib/cells/` — primitives (dff, mux)
-- `lib/core/` — datapath (alu, decoder, regfile, pc, ...)
-- `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_phy)
 
 ## Code structure
 
@@ -71,12 +52,9 @@ verilog_export/
 │   └── gates/               # Component handlers (AND, OR, DFF, ALU, …) + registry
 ├── placement/               # Topological sort, column layout, port placement
 ├── routing/                 # A* orthogonal wire router
-├── verification/            # Post-routing checks, ASCII diagram renderer
-└── kicad/                   # KiCad schematic / symbol export
+└── verification/            # Post-routing checks, ASCII diagram renderer
 ```
 
 ## Limitations
 
-- KiCad layout is left-to-right linear — adjust placement in KiCad GUI
-- KiCad symbols are embedded inline (no external library path needed)
 - Generate blocks (`genvar` loops) are not expanded in block-level formats

@@ -1,15 +1,25 @@
 """Verilog parser: extract modules, ports, parameters and instances."""
 
+from __future__ import annotations
+
 import logging
 import re
 
-_log = logging.getLogger(__name__)
+_log: logging.Logger = logging.getLogger(__name__)
 
 
 class Port:
     __slots__ = ("name", "direction", "width", "msb", "lsb", "raw_range")
 
-    def __init__(self, name, direction, width=1, msb=0, lsb=0, raw_range=""):
+    name: str
+    direction: str
+    width: int
+    msb: int
+    lsb: int
+    raw_range: str
+
+    def __init__(self, name: str, direction: str, width: int = 1,
+                 msb: int = 0, lsb: int = 0, raw_range: str = "") -> None:
         self.name = name
         self.direction = direction  # "input" | "output"
         self.width = width
@@ -17,9 +27,9 @@ class Port:
         self.lsb = lsb
         self.raw_range = raw_range  # e.g. "[7:0]" or "[N-1:0]"
 
-    def label(self):
+    def label(self) -> str:
         if self.width > 1 or self.raw_range:
-            rng = self.raw_range or f"[{self.msb}:{self.lsb}]"
+            rng: str = self.raw_range or f"[{self.msb}:{self.lsb}]"
             return f"{self.name}{rng}"
         return self.name
 
@@ -27,7 +37,10 @@ class Port:
 class Param:
     __slots__ = ("name", "default")
 
-    def __init__(self, name, default=""):
+    name: str
+    default: str
+
+    def __init__(self, name: str, default: str = "") -> None:
         self.name = name
         self.default = default
 
@@ -35,7 +48,14 @@ class Param:
 class Instance:
     __slots__ = ("module_name", "inst_name", "params", "connections")
 
-    def __init__(self, module_name, inst_name, params=None, connections=None):
+    module_name: str
+    inst_name: str
+    params: dict[str, str]
+    connections: dict[str, str]
+
+    def __init__(self, module_name: str, inst_name: str,
+                 params: dict[str, str] | None = None,
+                 connections: dict[str, str] | None = None) -> None:
         self.module_name = module_name
         self.inst_name = inst_name
         self.params = params or {}      # {param_name: value_str}
@@ -45,7 +65,16 @@ class Instance:
 class Module:
     __slots__ = ("name", "params", "ports", "instances", "path")
 
-    def __init__(self, name, params=None, ports=None, instances=None, path=""):
+    name: str
+    params: list[Param]
+    ports: list[Port]
+    instances: list[Instance]
+    path: str
+
+    def __init__(self, name: str, params: list[Param] | None = None,
+                 ports: list[Port] | None = None,
+                 instances: list[Instance] | None = None,
+                 path: str = "") -> None:
         self.name = name
         self.params = params or []
         self.ports = ports or []
@@ -53,25 +82,25 @@ class Module:
         self.path = path
 
     @property
-    def inputs(self):
+    def inputs(self) -> list[Port]:
         return [p for p in self.ports if p.direction == "input"]
 
     @property
-    def outputs(self):
+    def outputs(self) -> list[Port]:
         return [p for p in self.ports if p.direction == "output"]
 
 
-def _strip_comments(text):
+def _strip_comments(text: str) -> str:
     """Remove // and /* */ comments."""
     text = re.sub(r'//.*', '', text)
     text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
     return text
 
 
-def _match_balanced_parens(text, start):
+def _match_balanced_parens(text: str, start: int) -> int:
     """From position of '(' at `start`, return the index after matching ')'."""
-    depth = 0
-    i = start
+    depth: int = 0
+    i: int = start
     while i < len(text):
         if text[i] == '(':
             depth += 1
@@ -83,19 +112,19 @@ def _match_balanced_parens(text, start):
     return len(text)
 
 
-def _parse_dot_connections(text):
+def _parse_dot_connections(text: str) -> dict[str, str]:
     """Parse '.name(expr)' pairs from a string, handling nested parens."""
-    result = {}
+    result: dict[str, str] = {}
     for m in re.finditer(r'\.(\w+)\s*\(', text):
-        name = m.group(1)
-        paren_start = m.end() - 1
-        paren_end = _match_balanced_parens(text, paren_start)
-        value = text[paren_start + 1:paren_end - 1].strip()
+        name: str = m.group(1)
+        paren_start: int = m.end() - 1
+        paren_end: int = _match_balanced_parens(text, paren_start)
+        value: str = text[paren_start + 1:paren_end - 1].strip()
         result[name] = value
     return result
 
 
-_INST_SKIP_KW = {
+_INST_SKIP_KW: set[str] = {
     'module', 'input', 'output', 'wire', 'reg', 'assign',
     'always', 'initial', 'function', 'endfunction', 'generate',
     'endgenerate', 'for', 'if', 'else', 'begin', 'end',
@@ -103,60 +132,60 @@ _INST_SKIP_KW = {
 }
 
 
-def _parse_instances(body):
+def _parse_instances(body: str) -> list[Instance]:
     """Parse submodule instantiations from a module body, handling nested parens."""
-    instances = []
+    instances: list[Instance] = []
     # Pattern: module_name [#(...)] inst_name (
     # We find candidates by looking for: word [#(...)] word (
-    pat = re.compile(r'(\w+)\s*(#\s*\()?')
-    pos = 0
+    pat: re.Pattern[str] = re.compile(r'(\w+)\s*(#\s*\()?')
+    pos: int = 0
     while pos < len(body):
-        m = pat.match(body, pos)
+        m: re.Match[str] | None = pat.match(body, pos)
         if not m:
             pos += 1
             continue
 
-        mtype = m.group(1)
+        mtype: str = m.group(1)
         if mtype in _INST_SKIP_KW:
             pos = m.end()
             continue
 
-        has_params = m.group(2) is not None
+        has_params: bool = m.group(2) is not None
 
         if has_params:
             # Find matching ')' for the #( block
-            param_paren_start = body.index('(', m.start(2))
-            param_paren_end = _match_balanced_parens(body, param_paren_start)
-            param_str = body[param_paren_start + 1:param_paren_end - 1]
-            rest_start = param_paren_end
+            param_paren_start: int = body.index('(', m.start(2))
+            param_paren_end: int = _match_balanced_parens(body, param_paren_start)
+            param_str: str = body[param_paren_start + 1:param_paren_end - 1]
+            rest_start: int = param_paren_end
         else:
             param_str = ""
             rest_start = m.end()
 
         # After params: expect inst_name then '('
-        rest = body[rest_start:].lstrip()
-        inst_m = re.match(r'(\w+)\s*\(', rest)
+        rest: str = body[rest_start:].lstrip()
+        inst_m: re.Match[str] | None = re.match(r'(\w+)\s*\(', rest)
         if not inst_m:
             pos = rest_start + 1
             continue
 
-        iname = inst_m.group(1)
+        iname: str = inst_m.group(1)
         if iname in _INST_SKIP_KW:
             pos = rest_start + 1
             continue
 
-        conn_paren_start = rest_start + rest.index('(', inst_m.start())
-        conn_paren_end = _match_balanced_parens(body, conn_paren_start)
-        conn_str = body[conn_paren_start + 1:conn_paren_end - 1]
+        conn_paren_start: int = rest_start + rest.index('(', inst_m.start())
+        conn_paren_end: int = _match_balanced_parens(body, conn_paren_start)
+        conn_str: str = body[conn_paren_start + 1:conn_paren_end - 1]
 
         # Check for semicolon after
-        after = body[conn_paren_end:conn_paren_end + 10].lstrip()
+        after: str = body[conn_paren_end:conn_paren_end + 10].lstrip()
         if not after.startswith(';'):
             pos = conn_paren_end
             continue
 
-        inst_params = _parse_dot_connections(param_str)
-        connections = _parse_dot_connections(conn_str)
+        inst_params: dict[str, str] = _parse_dot_connections(param_str)
+        connections: dict[str, str] = _parse_dot_connections(conn_str)
         instances.append(Instance(mtype, iname, inst_params, connections))
 
         pos = conn_paren_end + 1
@@ -164,7 +193,7 @@ def _parse_instances(body):
     return instances
 
 
-def _eval_width(expr, params):
+def _eval_width(expr: str, params: list[Param]) -> tuple[int, str]:
     """Try to evaluate a width expression given parameter defaults."""
     expr = expr.strip()
     if not expr:
@@ -178,7 +207,7 @@ def _eval_width(expr, params):
             _log.debug("_eval_width: cannot convert param '%s' default '%s' to int",
                        p.name, p.default)
     # Handle $clog2
-    def clog2_sub(m):
+    def clog2_sub(m: re.Match[str]) -> str:
         inner = m.group(1)
         try:
             val = eval(inner, {"__builtins__": {}}, env)
@@ -195,7 +224,7 @@ def _eval_width(expr, params):
         return 1, f"[{expr}]"
 
 
-def parse_verilog(filepath):
+def parse_verilog(filepath: str) -> list[Module]:
     """Parse a Verilog file and return a list of Module objects."""
     with open(filepath) as f:
         text = f.read()

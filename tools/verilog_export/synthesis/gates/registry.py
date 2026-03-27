@@ -1,15 +1,18 @@
 """Component registry: loads components_reference.json and provides pin position
 and dimension lookups for CircuitVerse component types."""
 
+from __future__ import annotations
+
 import json
 import os
+from typing import Any
 
-_REF_PATH = os.path.join(os.path.dirname(__file__), "components_reference.json")
+_REF_PATH: str = os.path.join(os.path.dirname(__file__), "components_reference.json")
 with open(_REF_PATH) as _f:
-  _REF = json.load(_f)
+  _REF: dict[str, Any] = json.load(_f)
 
 # Flatten category -> component into a single dict keyed by component type name
-_COMPONENTS = {}
+_COMPONENTS: dict[str, Any] = {}
 for _cat_key, _cat_val in _REF.items():
   if _cat_key.startswith("_"):
     continue
@@ -18,10 +21,10 @@ for _cat_key, _cat_val in _REF.items():
       _COMPONENTS[_comp_name] = _comp_data
 
 # Gates with inverted output (bubble) — output at x=25 instead of x=20
-_INVERTED_GATES = {"NandGate", "NorGate", "XnorGate"}
+_INVERTED_GATES: set[str] = {"NandGate", "NorGate", "XnorGate"}
 
 
-def _resolve_bw(bw_spec, params):
+def _resolve_bw(bw_spec: int | str, params: dict[str, Any]) -> int:
   """Resolve a bitWidth spec like 'param:bitWidth' or int."""
   if isinstance(bw_spec, int):
     return bw_spec
@@ -33,7 +36,7 @@ def _resolve_bw(bw_spec, params):
 
 # ── Pin position lookup ─────────────────────────────────────────────────
 
-def pin_pos(component_type, pin_name, index=None, **params):
+def pin_pos(component_type: str, pin_name: str, index: int | None = None, **params: Any) -> tuple[int, int]:
   """Return (x, y) for a pin on a component.
 
   Pin positions are always in RIGHT orientation; the node allocator
@@ -90,7 +93,7 @@ def pin_pos(component_type, pin_name, index=None, **params):
   return (pin.get("x", 0), pin.get("y", 0))
 
 
-def _gate_input_pos(pin_name, index, **params):
+def _gate_input_pos(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
   """Gate input distribution: inputs at x=-10, vertically centered."""
   if pin_name == "output1":
     return (20, 0)  # overridden below for inverted gates
@@ -101,14 +104,14 @@ def _gate_input_pos(pin_name, index, **params):
   return (-10, y)
 
 
-def gate_output_pos(component_type):
+def gate_output_pos(component_type: str) -> tuple[int, int]:
   """Return output pin position for a gate type."""
   if component_type in _INVERTED_GATES:
     return (25, 0)
   return (20, 0)
 
 
-def _mux_pin(pin_name, index, **params):
+def _mux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
   """Multiplexer pin positions from shared formula."""
   css = params.get("controlSignalSize", 1)
   input_size = 2 ** css
@@ -125,7 +128,7 @@ def _mux_pin(pin_name, index, **params):
   return (0, 0)
 
 
-def _demux_pin(pin_name, index, **params):
+def _demux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
   """Demultiplexer pin positions from shared formula."""
   css = params.get("controlSignalSize", 1)
   output_size = 2 ** css
@@ -142,7 +145,7 @@ def _demux_pin(pin_name, index, **params):
   return (0, 0)
 
 
-def _decoder_pin(pin_name, index, **params):
+def _decoder_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
   """Decoder pin positions from shared formula."""
   bw = params.get("bitWidth", 1)
   output_size = 2 ** bw
@@ -157,7 +160,7 @@ def _decoder_pin(pin_name, index, **params):
   return (0, 0)
 
 
-def _splitter_pin(pin_name, index, **params):
+def _splitter_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
   """Splitter pin positions based on bitWidthSplit."""
   bws = params.get("bitWidthSplit", [1])
   bw = params.get("bitWidth", sum(bws))
@@ -174,7 +177,7 @@ def _splitter_pin(pin_name, index, **params):
 
 # ── Dimensions lookup ────────────────────────────────────────────────────
 
-def dimensions(component_type, **params):
+def dimensions(component_type: str, **params: Any) -> dict[str, int]:
   """Return {left, right, up, down} for a component."""
   comp = _COMPONENTS.get(component_type)
   if comp is None:
@@ -191,7 +194,7 @@ def dimensions(component_type, **params):
   return {"left": 20, "right": 20, "up": 20, "down": 20}
 
 
-def _eval_dimensions(component_type, formula, **params):
+def _eval_dimensions(component_type: str, formula: dict[str, Any], **params: Any) -> dict[str, int]:
   """Evaluate dynamic dimension formulas."""
   # Gates: height scales with inputLength
   if component_type in ("AndGate", "OrGate", "NandGate", "NorGate",
@@ -241,13 +244,13 @@ def _eval_dimensions(component_type, formula, **params):
   return {"left": 20, "right": 20, "up": 20, "down": 20}
 
 
-def component_height(component_type, **params):
+def component_height(component_type: str, **params: Any) -> int:
   """Total component height = up + down."""
   d = dimensions(component_type, **params)
   return d["up"] + d["down"]
 
 
-def component_width(component_type, **params):
+def component_width(component_type: str, **params: Any) -> int:
   """Total component width = left + right."""
   d = dimensions(component_type, **params)
   return d["left"] + d["right"]

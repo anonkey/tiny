@@ -1,13 +1,19 @@
 """CircuitVerse JSON generation (block-level)."""
+from __future__ import annotations
 
 import re
+from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
+from common.types import ScopeDict
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout, _build_cv_scope
 from common.emit import unique_pos, CTOR_PARAMS_KEY
 
+import verilog_parser
 
-def generate_circuitverse(top_mod, sub_modules):
+
+def generate_circuitverse(top_mod: verilog_parser.Module,
+                          sub_modules: list[verilog_parser.Module]) -> dict[str, Any]:
     """Generate a CircuitVerse-compatible JSON dict.
 
     Top-level ports become Input/Output components. Each unique submodule
@@ -15,61 +21,64 @@ def generate_circuitverse(top_mod, sub_modules):
     wired together via allNodes connections.
     """
     _cv_scope_id.reset()
-    na = _CVNodeAlloc()
-    mod_map = {m.name: m for m in sub_modules}
+    na: _CVNodeAlloc = _CVNodeAlloc()
+    mod_map: dict[str, verilog_parser.Module] = {m.name: m for m in sub_modules}
 
     # --- Build subcircuit scopes ---
-    scope_ids = {}    # module_name -> scope_id
-    scope_pins = {}   # module_name -> {port_name: {x, y}}
-    scopes = []
-    seen = set()
+    scope_ids: dict[str, str] = {}    # module_name -> scope_id
+    scope_pins: dict[str, dict[str, dict[str, Any]]] = {}   # module_name -> {port_name: {x, y}}
+    scopes: list[ScopeDict] = []
+    seen: set[str] = set()
     for inst in top_mod.instances:
         if inst.module_name in seen or inst.module_name not in mod_map:
             continue
         seen.add(inst.module_name)
-        sub = mod_map[inst.module_name]
+        sub: verilog_parser.Module = mod_map[inst.module_name]
+        scope: ScopeDict
+        sid: str
+        pins: dict[str, dict[str, Any]]
         scope, sid, pins = _build_cv_scope(sub, na)
         scope_ids[inst.module_name] = sid
         scope_pins[inst.module_name] = pins
         scopes.append(scope)
 
     # --- Net map: net_name -> list of node IDs (to connect later) ---
-    net_nodes = {}
+    net_nodes: dict[str, list[int]] = {}
 
-    def _register_net(net_name, node_id):
-        net = re.sub(r'\[.*?\]', '', net_name).strip()
+    def _register_net(net_name: str, node_id: int) -> None:
+        net: str = re.sub(r'\[.*?\]', '', net_name).strip()
         if not net:
             return
         net_nodes.setdefault(net, []).append(node_id)
 
     # --- Topological sort of instances for left-to-right data flow ---
-    inst_list = []
+    inst_list: list[verilog_parser.Instance] = []
     for inst in top_mod.instances:
-        sub = mod_map.get(inst.module_name)
+        sub: verilog_parser.Module | None = mod_map.get(inst.module_name)
         if sub and inst.module_name in scope_ids:
             inst_list.append(inst)
 
-    net_producer = {}   # net_name -> inst_name
-    net_consumers = {}  # net_name -> [inst_name, ...]
+    net_producer: dict[str, str] = {}   # net_name -> inst_name
+    net_consumers: dict[str, list[str]] = {}  # net_name -> [inst_name, ...]
 
     for inst in inst_list:
-        sub = mod_map[inst.module_name]
-        port_dir = {p.name: p.direction for p in sub.ports}
+        sub_m: verilog_parser.Module = mod_map[inst.module_name]
+        port_dir: dict[str, str] = {p.name: p.direction for p in sub_m.ports}
         for port_name, net_expr in inst.connections.items():
-            net = re.sub(r'\[.*?\]', '', net_expr).strip()
+            net: str = re.sub(r'\[.*?\]', '', net_expr).strip()
             if not net:
                 continue
-            d = port_dir.get(port_name, "input")
+            d: str = port_dir.get(port_name, "input")
             if d == "output":
                 net_producer[net] = inst.inst_name
             else:
                 net_consumers.setdefault(net, []).append(inst.inst_name)
 
     # Compute depth
-    inst_depth = {}
-    inst_by_name = {inst.inst_name: inst for inst in inst_list}
+    inst_depth: dict[str, int] = {}
+    inst_by_name: dict[str, verilog_parser.Instance] = {inst.inst_name: inst for inst in inst_list}
 
-    def _get_depth(iname, visiting=None):
+    def _get_depth(iname: str, visiting: set[str] | None = None) -> int:
         if iname in inst_depth:
             return inst_depth[iname]
         if visiting is None:
@@ -77,15 +86,15 @@ def generate_circuitverse(top_mod, sub_modules):
         if iname in visiting:
             return 0
         visiting.add(iname)
-        inst = inst_by_name[iname]
-        sub = mod_map[inst.module_name]
-        port_dir = {p.name: p.direction for p in sub.ports}
-        max_dep = 0
-        for port_name, net_expr in inst.connections.items():
-            net = re.sub(r'\[.*?\]', '', net_expr).strip()
-            d = port_dir.get(port_name, "input")
+        inst_i: verilog_parser.Instance = inst_by_name[iname]
+        sub_d: verilog_parser.Module = mod_map[inst_i.module_name]
+        port_dir_d: dict[str, str] = {p.name: p.direction for p in sub_d.ports}
+        max_dep: int = 0
+        for port_name, net_expr in inst_i.connections.items():
+            net: str = re.sub(r'\[.*?\]', '', net_expr).strip()
+            d: str = port_dir_d.get(port_name, "input")
             if d == "input" and net in net_producer:
-                producer = net_producer[net]
+                producer: str = net_producer[net]
                 if producer != iname:
                     max_dep = max(max_dep, _get_depth(producer, visiting) + 1)
         inst_depth[iname] = max_dep
@@ -94,70 +103,72 @@ def generate_circuitverse(top_mod, sub_modules):
     for inst in inst_list:
         _get_depth(inst.inst_name)
 
-    sorted_insts = sorted(inst_list, key=lambda i: (inst_depth[i.inst_name],
-                                                     inst_list.index(i)))
+    sorted_insts: list[verilog_parser.Instance] = sorted(
+        inst_list, key=lambda i: (inst_depth[i.inst_name], inst_list.index(i)))
 
-    columns = {}
+    columns: dict[int, list[verilog_parser.Instance]] = {}
     for inst in sorted_insts:
-        d = inst_depth[inst.inst_name]
+        d: int = inst_depth[inst.inst_name]
         columns.setdefault(d, []).append(inst)
 
     # --- Compute SubCircuit positions ---
-    COL_GAP = 200
-    ROW_GAP = 20
-    LAYOUT_W = 120
-    X_START = 100
+    COL_GAP: int = 200
+    ROW_GAP: int = 20
+    LAYOUT_W: int = 120
+    X_START: int = 100
 
-    inst_positions = {}
-    inst_heights = {}
-    used_positions = set()
+    inst_positions: dict[str, tuple[int, int]] = {}
+    inst_heights: dict[str, int] = {}
+    used_positions: set[tuple[int, int]] = set()
 
     for depth in sorted(columns.keys()):
-        col_x = X_START + depth * (LAYOUT_W + COL_GAP)
-        col_y = 0
+        col_x: int = X_START + depth * (LAYOUT_W + COL_GAP)
+        col_y: int = 0
         for idx, inst in enumerate(columns[depth]):
-            sub = mod_map[inst.module_name]
-            n_max = max(len(sub.inputs), len(sub.outputs), 1)
-            h = 20 * n_max + 20
+            sub_c: verilog_parser.Module = mod_map[inst.module_name]
+            n_max: int = max(len(sub_c.inputs), len(sub_c.outputs), 1)
+            h: int = 20 * n_max + 20
             # Per-instance y-jitter to stagger pins across columns
-            jitter = (idx % 3) * 7
+            jitter: int = (idx % 3) * 7
             inst_positions[inst.inst_name] = (col_x, col_y + jitter)
             inst_heights[inst.inst_name] = h
             col_y += h + ROW_GAP + jitter
 
     # --- Place top-level Inputs ---
-    cv_inputs = []
-    IO_MARGIN = 80
+    cv_inputs: list[dict[str, Any]] = []
+    IO_MARGIN: int = 80
 
     for p in top_mod.inputs:
-        net = p.name
-        bw = str(p.width) if p.width > 1 else 1
-        consumers = net_consumers.get(net, [])
+        net: str = p.name
+        bw: str | int = str(p.width) if p.width > 1 else 1
+        consumers: list[str] = net_consumers.get(net, [])
         if consumers:
-            min_x = min(inst_positions[c][0] for c in consumers
-                        if c in inst_positions)
-            target_y = None
+            min_x: int = min(inst_positions[c][0] for c in consumers
+                             if c in inst_positions)
+            target_y: int | None = None
             for c in consumers:
                 if c not in inst_positions:
                     continue
-                ci = inst_by_name[c]
-                pins = scope_pins[ci.module_name]
+                ci: verilog_parser.Instance = inst_by_name[c]
+                pins: dict[str, dict[str, Any]] = scope_pins[ci.module_name]
                 for port_name, net_expr in ci.connections.items():
-                    n = re.sub(r'\[.*?\]', '', net_expr).strip()
+                    n: str = re.sub(r'\[.*?\]', '', net_expr).strip()
                     if n == net and port_name in pins:
+                        cx: int
+                        cy: int
                         cx, cy = inst_positions[c]
                         target_y = cy + pins[port_name]["y"]
                         break
                 if target_y is not None:
                     break
-            ix = min_x - IO_MARGIN
-            iy = target_y if target_y is not None else 0
+            ix: int = min_x - IO_MARGIN
+            iy: int = target_y if target_y is not None else 0
         else:
             ix = X_START - IO_MARGIN
             iy = len(cv_inputs) * 40
         ix, iy = unique_pos(ix, iy, used_positions)
 
-        out_node = na.alloc(10, 0, 1, p.width)
+        out_node: int = na.alloc(10, 0, 1, p.width)
         cv_inputs.append({
             "x": ix, "y": iy,
             "objectType": "Input",
@@ -175,31 +186,33 @@ def generate_circuitverse(top_mod, sub_modules):
         _register_net(p.name, out_node)
 
     # --- Place top-level Outputs ---
-    cv_outputs = []
+    cv_outputs: list[dict[str, Any]] = []
 
     for p in top_mod.outputs:
         net = p.name
         bw = str(p.width) if p.width > 1 else 1
-        producer = net_producer.get(net)
-        if producer and producer in inst_positions:
-            pi = inst_by_name[producer]
-            pins = scope_pins[pi.module_name]
-            px, py = inst_positions[producer]
-            ox = px + LAYOUT_W + IO_MARGIN
-            target_y = py
+        producer_name: str | None = net_producer.get(net)
+        if producer_name and producer_name in inst_positions:
+            pi: verilog_parser.Instance = inst_by_name[producer_name]
+            pins_o: dict[str, dict[str, Any]] = scope_pins[pi.module_name]
+            px: int
+            py: int
+            px, py = inst_positions[producer_name]
+            ox: int = px + LAYOUT_W + IO_MARGIN
+            target_y_o: int = py
             for port_name, net_expr in pi.connections.items():
                 n = re.sub(r'\[.*?\]', '', net_expr).strip()
-                if n == net and port_name in pins:
-                    target_y = py + pins[port_name]["y"]
+                if n == net and port_name in pins_o:
+                    target_y_o = py + pins_o[port_name]["y"]
                     break
-            oy = target_y
+            oy: int = target_y_o
         else:
-            max_depth = max(columns.keys()) if columns else 0
+            max_depth: int = max(columns.keys()) if columns else 0
             ox = X_START + (max_depth + 1) * (LAYOUT_W + COL_GAP)
             oy = len(cv_outputs) * 40
         ox, oy = unique_pos(ox, oy, used_positions)
 
-        inp_node = na.alloc(-10, 0, 0, p.width)
+        inp_node: int = na.alloc(-10, 0, 0, p.width)
         cv_outputs.append({
             "x": ox, "y": oy,
             "objectType": "Output",
@@ -216,34 +229,36 @@ def generate_circuitverse(top_mod, sub_modules):
         _register_net(p.name, inp_node)
 
     # --- Place SubCircuit instances ---
-    cv_subcircuits = []
+    cv_subcircuits: list[dict[str, Any]] = []
 
     for inst in sorted_insts:
-        sub = mod_map[inst.module_name]
-        sid = scope_ids[inst.module_name]
-        pins = scope_pins[inst.module_name]
+        sub_sc: verilog_parser.Module = mod_map[inst.module_name]
+        sid_sc: str = scope_ids[inst.module_name]
+        pins_sc: dict[str, dict[str, Any]] = scope_pins[inst.module_name]
+        sx: int
+        sy: int
         sx, sy = inst_positions[inst.inst_name]
 
-        input_nodes = []
-        output_nodes = []
+        input_nodes: list[int] = []
+        output_nodes: list[int] = []
 
-        for p in sub.inputs:
-            pin = pins.get(p.name, {"x": 0, "y": 20})
-            nid = na.alloc(pin["x"], pin["y"], 0, p.width)
+        for p in sub_sc.inputs:
+            pin: dict[str, Any] = pins_sc.get(p.name, {"x": 0, "y": 20})
+            nid: int = na.alloc(pin["x"], pin["y"], 0, p.width)
             input_nodes.append(nid)
-            net_expr = inst.connections.get(p.name, "")
-            _register_net(net_expr, nid)
+            net_expr_i: str = inst.connections.get(p.name, "")
+            _register_net(net_expr_i, nid)
 
-        for p in sub.outputs:
-            pin = pins.get(p.name, {"x": LAYOUT_W, "y": 20})
+        for p in sub_sc.outputs:
+            pin = pins_sc.get(p.name, {"x": LAYOUT_W, "y": 20})
             nid = na.alloc(pin["x"], pin["y"], 1, p.width)
             output_nodes.append(nid)
-            net_expr = inst.connections.get(p.name, "")
-            _register_net(net_expr, nid)
+            net_expr_o: str = inst.connections.get(p.name, "")
+            _register_net(net_expr_o, nid)
 
         cv_subcircuits.append({
             "x": sx, "y": sy,
-            "id": sid,
+            "id": sid_sc,
             "label": inst.inst_name,
             "labelDirection": "RIGHT",
             "inputNodes": input_nodes,
@@ -256,11 +271,11 @@ def generate_circuitverse(top_mod, sub_modules):
         for i in range(len(node_ids) - 1):
             na.connect(node_ids[i], node_ids[i + 1])
 
-    wired_ids = sorted(set(
+    wired_ids: list[int] = sorted(set(
         nid for ids in net_nodes.values() if len(ids) > 1 for nid in ids
     ))
 
-    result = {
+    result: dict[str, Any] = {
         "layout": _cv_layout(len(top_mod.inputs), len(top_mod.outputs)),
         "verilogMetadata": {
             "isVerilogCircuit": False,

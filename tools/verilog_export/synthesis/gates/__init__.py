@@ -1,5 +1,7 @@
 """CircuitVerse component handlers for Yosys cell types."""
 
+from __future__ import annotations
+
 from synthesis.gates.logic import place_logic
 from synthesis.gates.mux import place_mux
 from synthesis.gates.arithmetic import place_add, place_sub, place_mul, place_divmod, place_neg

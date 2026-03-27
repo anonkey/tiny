@@ -1,13 +1,19 @@
 """Reduction and logic operations: $reduce_*, $logic_not, $logic_and, $logic_or."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _append_comp,
 )
 from common.emit import emit_split_reduce, register_bits
+from common.node_alloc import _CVNodeAlloc
+from common.types import BitNodes, CompMap
 from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_reduce(cell, conns, na, bit_nodes, components, x, y):
+def place_reduce(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a reduction op ($reduce_and/or/xor/xnor/bool). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   reduce_map = {
@@ -27,7 +33,7 @@ def place_reduce(cell, conns, na, bit_nodes, components, x, y):
   return component_height(gate_type, inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_not(cell, conns, na, bit_nodes, components, x, y):
+def place_logic_not(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place $logic_not (NOR reduction). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   spl_inp = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=-10, ry=0)
@@ -38,13 +44,13 @@ def place_logic_not(cell, conns, na, bit_nodes, components, x, y):
   return component_height("NorGate", inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_and_or(cell, conns, na, bit_nodes, components, x, y):
+def place_logic_and_or(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place $logic_and or $logic_or. Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
 
-  def _reduce_to_bool(bits, bw, x_off, y_off):
+  def _reduce_to_bool(bits: list[int | str], bw: int, x_off: int, y_off: int) -> int:
     if bw == 1:
       return _new_bus_pin(na, bit_nodes, bits, 0, 1, rx=-20, ry=0)
     spl_inp = _new_bus_pin(na, bit_nodes, bits, 0, bw, rx=-10, ry=0)
