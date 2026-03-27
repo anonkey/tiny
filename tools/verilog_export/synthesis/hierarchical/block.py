@@ -2,9 +2,9 @@
 
 import re
 
-from cv_node_alloc import _CVNodeAlloc
-from cv_scope import _cv_scope_id, _cv_layout, _build_cv_scope
-from cv_emit import unique_pos
+from common.node_alloc import _CVNodeAlloc
+from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout, _build_cv_scope
+from common.emit import unique_pos, CTOR_PARAMS_KEY
 
 
 def generate_circuitverse(top_mod, sub_modules):
@@ -168,7 +168,7 @@ def generate_circuitverse(top_mod, sub_modules):
             "customData": {
                 "nodes": {"output1": out_node},
                 "values": {"state": 0},
-                "constructorParamaters": ["RIGHT", bw,
+                CTOR_PARAMS_KEY: ["RIGHT", bw,
                     {"x": 0, "y": 20, "id": f"main_{p.name}"}],
             },
         })
@@ -209,7 +209,7 @@ def generate_circuitverse(top_mod, sub_modules):
             "propagationDelay": 0,
             "customData": {
                 "nodes": {"inp1": inp_node},
-                "constructorParamaters": ["LEFT", bw,
+                CTOR_PARAMS_KEY: ["LEFT", bw,
                     {"x": 0, "y": 20, "id": f"main_{p.name}"}],
             },
         })

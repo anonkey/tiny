@@ -1,6 +1,6 @@
 """Memory cell: $mem_v2."""
 
-from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
+from common.constants import pin_clearance, _new_bus_pin, _param_int, CTOR_PARAMS_KEY
 
 
 def place_mem_v2(cell, conns, na, bit_nodes, components, x, y):
@@ -122,7 +122,7 @@ def place_mem_v2(cell, conns, na, bit_nodes, components, x, y):
     "labelDirection": "LEFT",
     "propagationDelay": 100,
     "customData": {
-      "constructorParamaters": [
+      CTOR_PARAMS_KEY: [
         "RIGHT", data_bw, addr_bw,
         mem_data, n_words,
         n_rd, n_wr,

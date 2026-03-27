@@ -1,6 +1,7 @@
 """CircuitVerse scope ID allocator, layout, and scope builder."""
 
-from cv_node_alloc import _CVNodeAlloc
+from common.node_alloc import _CVNodeAlloc
+from common.emit import CTOR_PARAMS_KEY
 
 
 class _CVScopeCounter:
@@ -64,7 +65,7 @@ def _build_cv_scope(mod, na):
             "customData": {
                 "nodes": {"output1": out_node},
                 "values": {"state": 0},
-                "constructorParamaters": [
+                CTOR_PARAMS_KEY: [
                     "RIGHT", bw,
                     {"x": 0, "y": pin_y, "id": f"sc_{mod.name}_{p.name}"},
                 ],
@@ -86,7 +87,7 @@ def _build_cv_scope(mod, na):
             "propagationDelay": 0,
             "customData": {
                 "nodes": {"inp1": inp_node},
-                "constructorParamaters": [
+                CTOR_PARAMS_KEY: [
                     "LEFT", bw,
                     {"x": layout_w, "y": pin_y, "id": f"sc_{mod.name}_{p.name}"},
                 ],

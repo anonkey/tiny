@@ -1,10 +1,10 @@
 """High-level multi-bit logic gates: $and, $or, $xor, $xnor, $not."""
 
-from circuitverse.components._common import (
-  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
+from common.constants import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width, _append_comp,
 )
-from cv_emit import emit_zero_extend, register_bits
-from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
+from common.emit import emit_zero_extend, register_bits
+from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_logic(cell, conns, na, bit_nodes, components, x, y):
@@ -25,19 +25,9 @@ def place_logic(cell, conns, na, bit_nodes, components, x, y):
       a_rx=ia_x, a_ry=ia_y, b_rx=ib_x, b_ry=ib_y)
     ox, oy = gate_output_pos(cv_type)
     out_y = _new_bus_pin(na, bit_nodes, conns["Y"], 1, bw, rx=ox, ry=oy)
-    comp = {
-      "x": x, "y": y,
-      "objectType": cv_type,
-      "label": "",
-      "direction": "RIGHT",
-      "labelDirection": "LEFT",
-      "propagationDelay": 100,
-      "customData": {
-        "constructorParamaters": ["RIGHT", 2, bw],
-        "nodes": {"inp": [a_node, b_node], "output1": out_y},
-      },
-    }
-    components.setdefault(cv_type, []).append(comp)
+    _append_comp(components, cv_type, x, y,
+      ["RIGHT", 2, bw],
+      {"inp": [a_node, b_node], "output1": out_y})
     return component_height(cv_type, inputLength=2) + pin_clearance(2) + eh
 
   # $not
@@ -52,17 +42,6 @@ def place_logic(cell, conns, na, bit_nodes, components, x, y):
     for c in ext_comps:
       components.setdefault(c["objectType"], []).append(c)
   out_y = _new_bus_pin(na, bit_nodes, conns["Y"], 1, bw, rx=20, ry=0)
-  comp = {
-    "x": x, "y": y,
-    "objectType": "NotGate",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", bw],
-      "nodes": {"inp1": inp_a, "output1": out_y},
-    },
-  }
-  components.setdefault("NotGate", []).append(comp)
+  _append_comp(components, "NotGate", x, y,
+    ["RIGHT", bw], {"inp1": inp_a, "output1": out_y})
   return component_height("NotGate") + pin_clearance(1)

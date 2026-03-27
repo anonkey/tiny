@@ -1,8 +1,8 @@
 """Shift operations: $shl, $sshl, $shr, $sshr (merged)."""
 
-from circuitverse.components._common import pin_clearance, _new_bus_pin, _param_int
-from cv_emit import register_bits
-from circuitverse.components.registry import pin_pos, component_height
+from common.constants import pin_clearance, _new_bus_pin, _param_int, _append_comp
+from common.emit import register_bits
+from synthesis.gates.registry import pin_pos, component_height
 
 
 def place_shift(cell, conns, na, bit_nodes, components, x, y):
@@ -21,21 +21,7 @@ def place_shift(cell, conns, na, bit_nodes, components, x, y):
   out_y = na.alloc(20, 0, 1, y_bw)
   register_bits(na, bit_nodes, conns["Y"], out_y, y_bw)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": cv_type,
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", a_bw, y_bw],
-      "nodes": {
-        "inp1": inp_a,
-        "shiftInp": inp_b,
-        "output1": out_y,
-      },
-    },
-  }
-  components.setdefault(cv_type, []).append(comp)
+  _append_comp(components, cv_type, x, y,
+    ["RIGHT", a_bw, y_bw],
+    {"inp1": inp_a, "shiftInp": inp_b, "output1": out_y})
   return component_height(cv_type) + pin_clearance(2)

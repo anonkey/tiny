@@ -1,7 +1,8 @@
 """Shared constants and pin helpers for component handlers."""
 
-from cv_node_alloc import _CVNodeAlloc
-from cv_emit import (
+from common.node_alloc import _CVNodeAlloc
+from common.emit import (
+  CTOR_PARAMS_KEY, _make_comp, _append_comp,
   emit_constant, emit_not_gate, emit_zero_extend,
   register_bits, emit_splitter, emit_split_reduce,
 )
@@ -20,13 +21,6 @@ _YOSYS_GATE_TO_CV = {
 }
 
 _YOSYS_DFF_PREFIX = "$_DFF"
-
-# ── CircuitVerse JSON key ────────────────────────────────────────────────
-# CircuitVerse uses the misspelled key "constructorParamaters" (not
-# "constructorParameters") in its JSON format.  All emitters MUST use this
-# constant so the output is loadable by CircuitVerse.  Do NOT "fix" the
-# spelling — it matches the upstream API.
-CTOR_PARAMS_KEY = "constructorParamaters"
 
 # ── Layout constants ─────────────────────────────────────────────────────
 # All values are multiples of 10 (CircuitVerse grid = 10x10).
@@ -86,6 +80,19 @@ def _param_bits(cell, name):
 
 # ── Width adaptation ─────────────────────────────────────────────────────
 
+def _adapt_single(na, bit_nodes, components, bits, port_bw, target_bw,
+                   x, y, rx=0, ry=0):
+  """Zero-extend a single port to target_bw. Returns (node, extra_h)."""
+  if port_bw == target_bw:
+    return _new_bus_pin(na, bit_nodes, bits, 0, port_bw, rx=rx, ry=ry), 0
+  ext_comps, narrow, wide = emit_zero_extend(
+    na, bit_nodes, port_bw, target_bw, x - 80, y)
+  register_bits(na, bit_nodes, bits, narrow, port_bw)
+  for c in ext_comps:
+    components.setdefault(c["objectType"], []).append(c)
+  return wide, 40
+
+
 def _adapt_width(na, bit_nodes, components, cell, target_bw, x, y,
                   a_rx=-20, a_ry=-10, b_rx=-20, b_ry=10):
   """Create zero-extended inputs A and B matched to target_bw.
@@ -95,31 +102,11 @@ def _adapt_width(na, bit_nodes, components, cell, target_bw, x, y,
   conns = cell["connections"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
-  extra_h = 0
-
-  if a_bw == target_bw:
-    a_node = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=a_rx, ry=a_ry)
-  else:
-    ext_comps, a_node, a_wide = emit_zero_extend(
-      na, bit_nodes, a_bw, target_bw, x - 80, y)
-    register_bits(na, bit_nodes, conns["A"], a_node, a_bw)
-    for c in ext_comps:
-      components.setdefault(c["objectType"], []).append(c)
-    a_node = a_wide
-    extra_h += 40
-
-  if b_bw == target_bw:
-    b_node = _new_bus_pin(na, bit_nodes, conns["B"], 0, b_bw, rx=b_rx, ry=b_ry)
-  else:
-    ext_comps, b_node, b_wide = emit_zero_extend(
-      na, bit_nodes, b_bw, target_bw, x - 80, y + 40)
-    register_bits(na, bit_nodes, conns["B"], b_node, b_bw)
-    for c in ext_comps:
-      components.setdefault(c["objectType"], []).append(c)
-    b_node = b_wide
-    extra_h += 40
-
-  return a_node, b_node, extra_h
+  a_node, eh_a = _adapt_single(na, bit_nodes, components,
+    conns["A"], a_bw, target_bw, x, y, rx=a_rx, ry=a_ry)
+  b_node, eh_b = _adapt_single(na, bit_nodes, components,
+    conns["B"], b_bw, target_bw, x, y + 40, rx=b_rx, ry=b_ry)
+  return a_node, b_node, eh_a + eh_b
 
 
 # ── Polarity-conditional NOT insertion ───────────────────────────────────

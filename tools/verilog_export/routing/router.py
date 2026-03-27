@@ -8,8 +8,8 @@ maze routing + nearest-sink decomposition.
 import heapq
 import logging
 
-from circuitverse.components._common import GRID_UNIT
-from cv_utils import _extract_comp_params
+from common.constants import GRID_UNIT
+from common.utils import _extract_comp_params
 
 _log = logging.getLogger(__name__)
 
@@ -292,7 +292,7 @@ class _OccupancyGrid:
         if not components:
             return
 
-        from circuitverse.components.registry import dimensions as _ref_dimensions
+        from synthesis.gates.registry import dimensions as _ref_dimensions
 
         for comp in components:
             cx, cy = comp.get("x", 0), comp.get("y", 0)

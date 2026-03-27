@@ -59,6 +59,22 @@ With `kicad-hier`, modules are grouped into sub-sheets by their category path:
 - `lib/core/` — datapath (alu, decoder, regfile, pc, ...)
 - `subsystem/` — controllers (cpu_fsm, mem_ctrl, spi_phy)
 
+## Code structure
+
+```
+verilog_export/
+├── verilog_export.py        # CLI entry point
+├── verilog_parser.py        # Verilog source parser
+├── common/                  # Shared constants, emitters, node allocator, utilities
+├── synthesis/
+│   ├── hierarchical/        # Block-level and Yosys-based scope generation
+│   └── gates/               # Component handlers (AND, OR, DFF, ALU, …) + registry
+├── placement/               # Topological sort, column layout, port placement
+├── routing/                 # A* orthogonal wire router
+├── verification/            # Post-routing checks, ASCII diagram renderer
+└── kicad/                   # KiCad schematic / symbol export
+```
+
 ## Limitations
 
 - KiCad layout is left-to-right linear — adjust placement in KiCad GUI

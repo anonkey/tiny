@@ -11,8 +11,8 @@ Layout columns (left to right):
 All positions snap to 10×10 grid.
 """
 
-from circuitverse.components._common import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START, pin_clearance
-from circuitverse.components.registry import pin_pos, dimensions
+from common.constants import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START, pin_clearance, CTOR_PARAMS_KEY
+from synthesis.gates.registry import pin_pos, dimensions
 
 
 def _compute_split_groups(port_bits, direction, ymod):
@@ -128,7 +128,7 @@ def _compute_port_x(ymod, col_x, col_cells, max_in_groups=None, max_out_groups=N
     spl_right = spl_x + 20  # Splitter body right + pin extent
     spl_right_pins = max_in_groups if max_in_groups is not None else max_in_bw
     if col_x:
-        from circuitverse.yosys_layout import _col_extents
+        from placement.layout import _col_extents
         extents = _col_extents(col_cells)
         first_depth = min(col_x.keys())
         first_left, _, first_left_pins, _ = extents.get(first_depth, (40, 40, 1, 1))
@@ -240,7 +240,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None, layout_w=100):
                     "labelDirection": "LEFT",
                     "propagationDelay": 10,
                     "customData": {
-                        "constructorParamaters": ["RIGHT", bw, bws],
+                        CTOR_PARAMS_KEY: ["RIGHT", bw, bws],
                         "nodes": {
                             "outputs": spl_outputs,
                             "inp1": spl_inp,
@@ -258,7 +258,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None, layout_w=100):
                 "customData": {
                     "nodes": {"output1": out_node},
                     "values": {"state": 0},
-                    "constructorParamaters": ["RIGHT", str(bw) if bw > 1 else 1,
+                    CTOR_PARAMS_KEY: ["RIGHT", str(bw) if bw > 1 else 1,
                         {"x": 0, "y": layout_pin_y_in, "id": f"p_{port_name}"}],
                 },
             })
@@ -294,7 +294,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None, layout_w=100):
                     "labelDirection": "RIGHT",
                     "propagationDelay": 10,
                     "customData": {
-                        "constructorParamaters": ["LEFT", bw, bws],
+                        CTOR_PARAMS_KEY: ["LEFT", bw, bws],
                         "nodes": {
                             "outputs": jn_inputs,
                             "inp1": jn_out,
@@ -311,7 +311,7 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None, layout_w=100):
                 "propagationDelay": 0,
                 "customData": {
                     "nodes": {"inp1": inp_node},
-                    "constructorParamaters": ["LEFT", str(bw) if bw > 1 else 1,
+                    CTOR_PARAMS_KEY: ["LEFT", str(bw) if bw > 1 else 1,
                         {"x": layout_w, "y": layout_pin_y_out, "id": f"p_{port_name}"}],
                 },
             })

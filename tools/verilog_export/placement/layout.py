@@ -9,12 +9,12 @@ from collections import namedtuple
 
 _log = logging.getLogger(__name__)
 
-from circuitverse.components._common import (
+from common.constants import (
   _YOSYS_DFF_PREFIX, COL_GAP, X_START, H_COL_PAD, V_CELL_PAD, GRID_UNIT,
   pin_clearance, _new_pin, _new_bus_pin, _param_int, _param_bits,
   _adapt_width, _maybe_invert,
 )
-from circuitverse.components import (
+from synthesis.gates import (
   place_gate_cells,
   place_logic, place_mux,
   place_add, place_sub, place_mul, place_divmod, place_neg,
@@ -167,7 +167,7 @@ def topo_sort_cells(ymod):
 
 def _cell_h_extent(ctype, cell):
   """Return (left, right) reach from column center for a Yosys cell."""
-  from circuitverse.components.registry import dimensions
+  from synthesis.gates.registry import dimensions
   # Gate-level DFF types (prefix match, not in registry)
   if ctype.startswith("$_DFF"):
     return (20, 20)

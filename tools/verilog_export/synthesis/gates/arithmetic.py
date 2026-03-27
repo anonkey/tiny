@@ -1,10 +1,11 @@
 """Arithmetic cells: $add, $sub, $mul, $div, $mod, $neg."""
 
-from circuitverse.components._common import (
-  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
+from common.constants import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width, _adapt_single,
+  _append_comp, _make_comp,
 )
-from cv_emit import emit_constant, emit_not_gate, emit_zero_extend, register_bits
-from circuitverse.components.registry import pin_pos, component_height
+from common.emit import emit_alu, register_bits
+from synthesis.gates.registry import pin_pos, component_height
 
 
 def place_add(cell, conns, na, bit_nodes, components, x, y):
@@ -33,40 +34,17 @@ def place_add(cell, conns, na, bit_nodes, components, x, y):
     na.connect(sum_node, spl_sum)
     na.connect(carry_out, spl_carry)
     register_bits(na, bit_nodes, conns["Y"], spl_inp, y_bw)
-    components.setdefault("Splitter", []).append({
-      "x": x + 60, "y": y,
-      "objectType": "Splitter",
-      "label": "",
-      "direction": "LEFT",
-      "labelDirection": "RIGHT",
-      "propagationDelay": 10,
-      "customData": {
-        "constructorParamaters": ["LEFT", y_bw, [op_bw, 1]],
-        "nodes": {"outputs": [spl_sum, spl_carry], "inp1": spl_inp},
-      },
-    })
+    _append_comp(components, "Splitter", x + 60, y,
+      ["LEFT", y_bw, [op_bw, 1]],
+      {"outputs": [spl_sum, spl_carry], "inp1": spl_inp},
+      direction="LEFT", propagation_delay=10)
   else:
     register_bits(na, bit_nodes, conns["Y"][:op_bw], sum_node, op_bw)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": "Adder",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw],
-      "nodes": {
-        "inpA": a_node,
-        "inpB": b_node,
-        "carryIn": carry_in,
-        "sum": sum_node,
-        "carryOut": carry_out,
-      },
-    },
-  }
-  components.setdefault("Adder", []).append(comp)
+  _append_comp(components, "Adder", x, y,
+    ["RIGHT", op_bw],
+    {"inpA": a_node, "inpB": b_node, "carryIn": carry_in,
+     "sum": sum_node, "carryOut": carry_out})
   return component_height("Adder") + pin_clearance(3) + eh
 
 
@@ -83,38 +61,9 @@ def place_sub(cell, conns, na, bit_nodes, components, x, y):
     na, bit_nodes, components, cell, op_bw, x, y,
     a_rx=a1_x, a_ry=a1_y, b_rx=a2_x, b_ry=a2_y)
 
-  ctrl_comp, ctrl_out = emit_constant(na, bit_nodes, "110", 3,
-                                       x - 60, y - 50)
-  components.setdefault("ConstantVal", []).append(ctrl_comp)
-
-  c_x, c_y = pin_pos("ALU", "controlSignalInput")
-  o_x, o_y = pin_pos("ALU", "output")
-  co_x, co_y = pin_pos("ALU", "carryOut")
-  ctrl_in = na.alloc(c_x, c_y, 0, 3)
-  na.connect(ctrl_out, ctrl_in)
-  out_node = na.alloc(o_x, o_y, 1, op_bw)
-  carry_out = na.alloc(co_x, co_y, 1, 1)
+  out_node, carry_out = emit_alu(na, bit_nodes, components, op_bw, "110",
+                                  x, y, a_node, b_node)
   register_bits(na, bit_nodes, conns["Y"], out_node, y_bw)
-
-  comp = {
-    "x": x, "y": y,
-    "objectType": "ALU",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw],
-      "nodes": {
-        "inp1": a_node,
-        "inp2": b_node,
-        "controlSignalInput": ctrl_in,
-        "output": out_node,
-        "carryOut": carry_out,
-      },
-    },
-  }
-  components.setdefault("ALU", []).append(comp)
   return component_height("ALU") + pin_clearance(2) + eh
 
 
@@ -134,23 +83,9 @@ def place_mul(cell, conns, na, bit_nodes, components, x, y):
   prod_node = na.alloc(20, 0, 1, y_bw)
   register_bits(na, bit_nodes, conns["Y"], prod_node, y_bw)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": "verilogMultiplier",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw, y_bw],
-      "nodes": {
-        "inpA": a_node,
-        "inpB": b_node,
-        "product": prod_node,
-      },
-    },
-  }
-  components.setdefault("verilogMultiplier", []).append(comp)
+  _append_comp(components, "verilogMultiplier", x, y,
+    ["RIGHT", op_bw, y_bw],
+    {"inpA": a_node, "inpB": b_node, "product": prod_node})
   return component_height("verilogMultiplier") + pin_clearance(2) + eh
 
 
@@ -175,24 +110,10 @@ def place_divmod(cell, conns, na, bit_nodes, components, x, y):
   else:
     register_bits(na, bit_nodes, conns["Y"], rem_node, y_bw)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": "verilogDivider",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw, y_bw],
-      "nodes": {
-        "inpA": a_node,
-        "inpB": b_node,
-        "quotient": quot_node,
-        "remainder": rem_node,
-      },
-    },
-  }
-  components.setdefault("verilogDivider", []).append(comp)
+  _append_comp(components, "verilogDivider", x, y,
+    ["RIGHT", op_bw, y_bw],
+    {"inpA": a_node, "inpB": b_node, "quotient": quot_node,
+     "remainder": rem_node})
   return component_height("verilogDivider") + pin_clearance(2) + eh
 
 
@@ -205,29 +126,12 @@ def place_neg(cell, conns, na, bit_nodes, components, x, y):
   i_x, i_y = pin_pos("TwoComplement", "inp1")
   o_x, o_y = pin_pos("TwoComplement", "output1")
 
-  if a_bw == op_bw:
-    inp_node = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=i_x, ry=i_y)
-  else:
-    ext_comps, inp_narrow, inp_node = emit_zero_extend(
-      na, bit_nodes, a_bw, op_bw, x - 80, y)
-    register_bits(na, bit_nodes, conns["A"], inp_narrow, a_bw)
-    for c in ext_comps:
-      components.setdefault(c["objectType"], []).append(c)
+  inp_node, _ = _adapt_single(na, bit_nodes, components,
+    conns["A"], a_bw, op_bw, x, y, rx=i_x, ry=i_y)
 
   out_node = na.alloc(o_x, o_y, 1, op_bw)
   register_bits(na, bit_nodes, conns["Y"], out_node, y_bw)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": "TwoComplement",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw],
-      "nodes": {"inp1": inp_node, "output1": out_node},
-    },
-  }
-  components.setdefault("TwoComplement", []).append(comp)
+  _append_comp(components, "TwoComplement", x, y,
+    ["RIGHT", op_bw], {"inp1": inp_node, "output1": out_node})
   return component_height("TwoComplement") + pin_clearance(1)

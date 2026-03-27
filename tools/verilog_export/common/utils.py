@@ -1,13 +1,15 @@
 """Shared utilities for CircuitVerse export modules.
 
 Note: CircuitVerse uses the misspelled key ``constructorParamaters`` in its
-JSON format.  See ``CTOR_PARAMS_KEY`` in ``circuitverse/components/_common.py``.
+JSON format.  See ``CTOR_PARAMS_KEY`` in ``common/constants.py``.
 """
 
 
+from common.emit import CTOR_PARAMS_KEY
+
 def _extract_comp_params(comp_type, comp):
     """Extract dimension-relevant params from a component's constructorParamaters."""
-    ctor = comp.get("customData", {}).get("constructorParamaters", [])
+    ctor = comp.get("customData", {}).get(CTOR_PARAMS_KEY, [])
     params = {}
     if comp_type in ("Input", "Output", "ConstantVal"):
         if len(ctor) >= 2:

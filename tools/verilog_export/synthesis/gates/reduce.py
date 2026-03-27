@@ -1,10 +1,10 @@
 """Reduction and logic operations: $reduce_*, $logic_not, $logic_and, $logic_or."""
 
-from circuitverse.components._common import (
-  pin_clearance, _new_bus_pin, _param_int,
+from common.constants import (
+  pin_clearance, _new_bus_pin, _param_int, _append_comp,
 )
-from cv_emit import emit_split_reduce, register_bits
-from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
+from common.emit import emit_split_reduce, register_bits
+from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_reduce(cell, conns, na, bit_nodes, components, x, y):
@@ -65,16 +65,6 @@ def place_logic_and_or(cell, conns, na, bit_nodes, components, x, y):
   na.connect(b_bool, gb)
   gout = na.alloc(go_x, go_y, 1, 1)
   register_bits(na, bit_nodes, conns["Y"], gout, 1)
-  components.setdefault(gate_type, []).append({
-    "x": x + 40, "y": y,
-    "objectType": gate_type,
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", 2, 1],
-      "nodes": {"inp": [ga, gb], "output1": gout},
-    },
-  })
+  _append_comp(components, gate_type, x + 40, y,
+    ["RIGHT", 2, 1], {"inp": [ga, gb], "output1": gout})
   return component_height(gate_type, inputLength=2) + pin_clearance(1) + 40

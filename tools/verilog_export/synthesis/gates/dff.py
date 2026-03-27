@@ -1,10 +1,10 @@
 """High-level DFF variants: $dff, $dffe, $adff, $adffe, $sdff, $sdffe."""
 
-from circuitverse.components._common import (
-  pin_clearance, _new_bus_pin, _param_int, _maybe_invert,
+from common.constants import (
+  pin_clearance, _new_bus_pin, _param_int, _maybe_invert, _append_comp,
 )
-from cv_emit import emit_constant, register_bits
-from circuitverse.components.registry import pin_pos, component_height
+from common.emit import emit_constant, register_bits
+from synthesis.gates.registry import pin_pos, component_height
 
 
 def place_dff(cell, conns, na, bit_nodes, components, x, y):
@@ -67,25 +67,9 @@ def place_dff(cell, conns, na, bit_nodes, components, x, y):
     _maybe_invert(na, bit_nodes, components, en_raw, en_node,
                   en_pol, x - 60, y + 30)
 
-  comp = {
-    "x": x, "y": y,
-    "objectType": "DflipFlop",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "nodes": {
-        "clockInp": clk_node,
-        "dInp": d_node,
-        "qOutput": q_node,
-        "qInvOutput": q_inv,
-        "reset": rst_node,
-        "preset": preset_node,
-        "en": en_node,
-      },
-      "constructorParamaters": ["RIGHT", bw],
-    },
-  }
-  components.setdefault("DflipFlop", []).append(comp)
+  _append_comp(components, "DflipFlop", x, y,
+    ["RIGHT", bw],
+    {"clockInp": clk_node, "dInp": d_node, "qOutput": q_node,
+     "qInvOutput": q_inv, "reset": rst_node, "preset": preset_node,
+     "en": en_node})
   return component_height("DflipFlop") + pin_clearance(2)

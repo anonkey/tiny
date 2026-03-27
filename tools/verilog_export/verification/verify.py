@@ -1,13 +1,13 @@
 """Routing verification checks for CircuitVerse exports.
 
-Split from cv_common.verify_routing() for clarity.  Each check is a
+Each check is a
 standalone function that returns an issue count and logs warnings.
 """
 
 import logging
 
-from circuitverse.components._common import GRID_UNIT
-from cv_utils import _extract_comp_params
+from common.constants import GRID_UNIT
+from common.utils import _extract_comp_params
 
 _log = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ def _check_clearance_violations(nets, abs_pos, components):
     if not components:
         return 0
 
-    from circuitverse.components.registry import dimensions as _ref_dimensions
+    from synthesis.gates.registry import dimensions as _ref_dimensions
 
     issues = 0
     for comp in components:

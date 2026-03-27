@@ -43,10 +43,10 @@ class _CVNodeAlloc:
 
         Prints warnings to stderr.  Returns number of issues found.
         """
-        from cv_verify import verify_routing as _verify
+        from verification.verify import verify_routing as _verify
         return _verify(self.nodes, self.abs_pos, components)
 
     def route_orthogonal(self, components=None):
         """Insert intermediate type-2 nodes so all wires are orthogonal."""
-        from cv_router import route_orthogonal as _route
+        from routing.router import route_orthogonal as _route
         _route(self.nodes, self.abs_pos, components)

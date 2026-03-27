@@ -11,12 +11,12 @@ import os
 import subprocess
 import tempfile
 
-from cv_node_alloc import _CVNodeAlloc
-from cv_scope import _cv_scope_id, _cv_layout
-from circuitverse.components._common import CELL_GAP, COL_GAP, GATE_COL_GAP
-from circuitverse.yosys_layout import topo_sort_cells, place_cells, compute_col_x
-from circuitverse.yosys_ports import place_ports
-from circuitverse.components._common import X_START
+from common.node_alloc import _CVNodeAlloc
+from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
+from common.constants import CELL_GAP, COL_GAP, GATE_COL_GAP
+from placement.layout import topo_sort_cells, place_cells, compute_col_x
+from placement.ports import place_ports
+from common.constants import X_START
 
 
 def _run_yosys(script):
@@ -38,8 +38,8 @@ def _run_yosys(script):
             os.unlink(tmp_path)
 
 
-def _yosys_synth(verilog_paths, top_name, gate_level=False):
-    """Run Yosys synthesis and return the JSON netlist dict."""
+def _yosys_script(verilog_paths, top_name, gate_level=False, flatten=True):
+    """Build a Yosys synthesis script string."""
     read_cmds = "; ".join(f"read_verilog {p}" for p in verilog_paths)
     if gate_level:
         synth_steps = (
@@ -48,15 +48,31 @@ def _yosys_synth(verilog_paths, top_name, gate_level=False):
         )
     else:
         synth_steps = "memory -nomap; pmuxtree; opt; "
-    script = (
+    flatten_cmd = "flatten; opt; " if flatten else ""
+    return (
         f"{read_cmds}; "
         f"hierarchy -top {top_name}; "
-        f"proc; opt; flatten; opt; "
+        f"proc; opt; {flatten_cmd}"
         f"{synth_steps}"
         f"clean -purge; "
         f"write_json {{out}}"
     )
-    return _run_yosys(script)
+
+
+def _yosys_synth(verilog_paths, top_name, gate_level=False):
+    """Run Yosys synthesis (flattened) and return the JSON netlist dict."""
+    return _run_yosys(_yosys_script(verilog_paths, top_name, gate_level, flatten=True))
+
+
+def _remap_comp_nodes(comps, remap):
+    """Remap node IDs in component customData.nodes dicts."""
+    for comp in comps:
+        cd = comp["customData"]
+        for k, v in cd["nodes"].items():
+            if isinstance(v, int):
+                cd["nodes"][k] = remap[v]
+            elif isinstance(v, list):
+                cd["nodes"][k] = [remap[x] for x in v]
 
 
 def _set_node_abs_positions(na, all_comps):
@@ -73,6 +89,24 @@ def _set_node_abs_positions(na, all_comps):
                 for nid in val:
                     if isinstance(nid, int):
                         na.set_parent_pos(nid, cx, cy, direction)
+
+
+def _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
+                       extra_comps=None, check=False):
+    """Collect all components, set absolute positions, run orthogonal routing.
+
+    Returns the full component list used for routing.
+    """
+    all_comps = cv_inputs + cv_outputs + cv_splitters
+    for comp_list in components.values():
+        all_comps.extend(comp_list)
+    if extra_comps:
+        all_comps.extend(extra_comps)
+    _set_node_abs_positions(na, all_comps)
+    na.route_orthogonal(all_comps)
+    if check:
+        na.verify_routing(all_comps)
+    return all_comps
 
 
 def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check=False):
@@ -106,15 +140,8 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
         for i in range(len(node_ids) - 1):
             na.connect(node_ids[i], node_ids[i + 1])
 
-    # Compute absolute node positions from component placements, then
-    # insert routing nodes so all wires are horizontal or vertical.
-    all_comps = cv_inputs + cv_outputs + cv_splitters
-    for comp_list in components.values():
-        all_comps.extend(comp_list)
-    _set_node_abs_positions(na, all_comps)
-    na.route_orthogonal(all_comps)
-    if check:
-        na.verify_routing(all_comps)
+    _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
+                       check=check)
 
     wired_ids = sorted(
         i for i, n in enumerate(na.nodes)
@@ -151,30 +178,14 @@ def generate_circuitverse_yosys(verilog_paths, top_name, gate_level=False, check
         "nodes": wired_ids,
         "scopes": [],
         "logixClipBoardData": True,
-    }
+    }, netlist
 
 
 # ── Hierarchical (non-flattened) mode ─────────────────────────────────────
 
 def _yosys_elaborate(verilog_paths, top_name, gate_level=False):
     """Run Yosys elaboration without flatten — preserves module hierarchy."""
-    read_cmds = "; ".join(f"read_verilog {p}" for p in verilog_paths)
-    if gate_level:
-        synth_steps = (
-            "techmap; opt; "
-            "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX; opt; "
-        )
-    else:
-        synth_steps = "memory -nomap; pmuxtree; opt; "
-    script = (
-        f"{read_cmds}; "
-        f"hierarchy -top {top_name}; "
-        f"proc; opt; "
-        f"{synth_steps}"
-        f"clean -purge; "
-        f"write_json {{out}}"
-    )
-    return _run_yosys(script)
+    return _run_yosys(_yosys_script(verilog_paths, top_name, gate_level, flatten=False))
 
 
 def _clean_yosys_name(name):
@@ -383,20 +394,14 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         for i in range(len(node_ids) - 1):
             na.connect(node_ids[i], node_ids[i + 1])
 
-    # Compute absolute positions and route
-    all_comps = cv_inputs + cv_outputs + cv_splitters
-    for comp_list in components.values():
-        all_comps.extend(comp_list)
-    _set_node_abs_positions(na, all_comps)
-    # Set positions for subcircuit nodes too
+    # Set positions for subcircuit nodes before routing
     for sc in cv_subcircuits:
         sx, sy = sc["x"], sc["y"]
         for nid in sc["inputNodes"] + sc["outputNodes"]:
             na.set_parent_pos(nid, sx, sy)
-    # Include subcircuit body-blocking pseudo-components so the router
-    # applies the same clearance / pin-corridor rules as native components.
-    all_comps.extend(sc_comps)
-    na.route_orthogonal(all_comps)
+    # Route with subcircuit body-blocking pseudo-components included
+    _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
+                       extra_comps=sc_comps)
 
     # Relocate SC port nodes to the end of allNodes so they come after
     # routing nodes, matching CircuitVerse's expected ordering.
@@ -416,28 +421,9 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         for node in na.nodes:
             node["connections"] = [remap[c] for c in node["connections"]]
         # Remap component node references
-        for comp in cv_inputs + cv_outputs:
-            cd = comp["customData"]
-            for k, v in cd["nodes"].items():
-                if isinstance(v, int):
-                    cd["nodes"][k] = remap[v]
-                elif isinstance(v, list):
-                    cd["nodes"][k] = [remap[x] for x in v]
-        for comp in cv_splitters:
-            cd = comp["customData"]
-            for k, v in cd["nodes"].items():
-                if isinstance(v, int):
-                    cd["nodes"][k] = remap[v]
-                elif isinstance(v, list):
-                    cd["nodes"][k] = [remap[x] for x in v]
+        _remap_comp_nodes(cv_inputs + cv_outputs + cv_splitters, remap)
         for comp_list in components.values():
-            for comp in comp_list:
-                cd = comp["customData"]
-                for k, v in cd["nodes"].items():
-                    if isinstance(v, int):
-                        cd["nodes"][k] = remap[v]
-                    elif isinstance(v, list):
-                        cd["nodes"][k] = [remap[x] for x in v]
+            _remap_comp_nodes(comp_list, remap)
         for sc in cv_subcircuits:
             sc["inputNodes"] = [remap[x] for x in sc["inputNodes"]]
             sc["outputNodes"] = [remap[x] for x in sc["outputNodes"]]
@@ -541,7 +527,7 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name, cache_dir=None,
     # Optional scope cache (keyed by MD5 of all source files)
     cache = None
     if cache_dir:
-        from cv_scope_cache import ScopeCache
+        from synthesis.hierarchical.scope_cache import ScopeCache
         cache = ScopeCache(cache_dir, verilog_paths)
 
     # Build scopes bottom-up
@@ -592,4 +578,4 @@ def generate_circuitverse_yosys_hier(verilog_paths, top_name, cache_dir=None,
     top_scope["scopes"] = scopes
     top_scope["logixClipBoardData"] = True
 
-    return top_scope
+    return top_scope, netlist

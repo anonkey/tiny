@@ -4,27 +4,11 @@ import logging
 
 _log = logging.getLogger(__name__)
 
-from circuitverse.components._common import (
+from common.constants import (
   _YOSYS_GATE_TO_CV, _YOSYS_DFF_PREFIX, COL_GAP, X_START,
-  GATE_V_CELL_PAD, pin_clearance, _new_pin,
+  GATE_V_CELL_PAD, pin_clearance, _new_pin, _make_comp,
 )
-from circuitverse.components.registry import pin_pos, gate_output_pos, component_height
-
-
-def _make_component(x, y, obj_type, nodes, ctor_params, propagation_delay=100):
-  """Build a component dict for a gate-level cell."""
-  return {
-    "x": x, "y": y,
-    "objectType": obj_type,
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": propagation_delay,
-    "customData": {
-      "constructorParamaters": ctor_params,
-      "nodes": nodes,
-    },
-  }
+from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
 def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
@@ -48,16 +32,16 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=ia_x, ry=ia_y)
         inp_b = _new_pin(na, bit_nodes, cell["connections"]["B"][0], 0, rx=ib_x, ry=ib_y)
         out_y = _new_pin(na, bit_nodes, cell["connections"]["Y"][0], 1, rx=ox, ry=oy)
-        comp = _make_component(x_cell, y_cell, cv_type,
-          {"inp": [n for n in [inp_a, inp_b] if n is not None], "output1": out_y},
-          ["RIGHT", n_inp, 1])
+        comp = _make_comp(cv_type, x_cell, y_cell,
+          ["RIGHT", n_inp, 1],
+          {"inp": [n for n in [inp_a, inp_b] if n is not None], "output1": out_y})
         components.setdefault(cv_type, []).append(comp)
         y_cell += component_height(cv_type, inputLength=2) + pin_clearance(2)
       elif ctype == "$_NOT_":
         inp_a = _new_pin(na, bit_nodes, cell["connections"]["A"][0], 0, rx=-10, ry=0)
         out_y = _new_pin(na, bit_nodes, cell["connections"]["Y"][0], 1, rx=20, ry=0)
-        comp = _make_component(x_cell, y_cell, "NotGate",
-          {"inp1": inp_a, "output1": out_y}, ["RIGHT", 1])
+        comp = _make_comp("NotGate", x_cell, y_cell,
+          ["RIGHT", 1], {"inp1": inp_a, "output1": out_y})
         components.setdefault("NotGate", []).append(comp)
         y_cell += component_height("NotGate") + pin_clearance(1)
       elif ctype.startswith(_YOSYS_DFF_PREFIX):
@@ -76,10 +60,10 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
         rst = _new_pin(na, bit_nodes, conns["R"][0], 0, rx=rx_, ry=ry_) if "R" in conns else na.alloc(rx_, ry_, 0, 1)
         preset = _new_pin(na, bit_nodes, conns["S"][0], 0, rx=px, ry=py) if "S" in conns else na.alloc(px, py, 0, 1)
         en = _new_pin(na, bit_nodes, conns["E"][0], 0, rx=ex, ry=ey) if "E" in conns else na.alloc(ex, ey, 0, 1)
-        comp = _make_component(x_cell, y_cell, "DflipFlop",
+        comp = _make_comp("DflipFlop", x_cell, y_cell,
+          ["RIGHT", 1],
           {"clockInp": clk_node, "dInp": d_node, "qOutput": q_node,
-           "qInvOutput": q_inv, "reset": rst, "preset": preset, "en": en},
-          ["RIGHT", 1])
+           "qInvOutput": q_inv, "reset": rst, "preset": preset, "en": en})
         components.setdefault("DflipFlop", []).append(comp)
         y_cell += component_height("DflipFlop") + pin_clearance(2)
       elif ctype == "$_MUX_":
@@ -92,10 +76,11 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None):
         inp_b = _new_pin(na, bit_nodes, cell["connections"]["B"][0], 0, rx=ib_x, ry=ib_y)
         sel = _new_pin(na, bit_nodes, cell["connections"]["S"][0], 0, rx=sx, ry=sy)
         out_y = _new_pin(na, bit_nodes, cell["connections"]["Y"][0], 1, rx=ox, ry=oy)
-        comp = _make_component(x_cell, y_cell, "Multiplexer",
+        comp = _make_comp("Multiplexer", x_cell, y_cell,
+          ["RIGHT", 1, 1],
           {"inp": [n for n in [inp_a, inp_b] if n is not None],
            "output1": out_y, "controlSignalInput": sel},
-          ["RIGHT", 1, 1], propagation_delay=10)
+          propagation_delay=10)
         components.setdefault("Multiplexer", []).append(comp)
         y_cell += component_height("Multiplexer", controlSignalSize=1) + pin_clearance(2)
       else:

@@ -1,13 +1,13 @@
 """Comparison cells: $eq, $ne, $lt, $gt, $le, $ge."""
 
-from circuitverse.components._common import (
-  pin_clearance, _new_bus_pin, _param_int, _adapt_width,
+from common.constants import (
+  pin_clearance, _new_bus_pin, _param_int, _adapt_width, _append_comp,
 )
-from cv_emit import (
-  emit_constant, emit_not_gate, emit_splitter, emit_split_reduce,
-  register_bits,
+from common.emit import (
+  emit_not_gate, emit_splitter, emit_split_reduce,
+  emit_alu, register_bits,
 )
-from circuitverse.components.registry import pin_pos, component_height
+from synthesis.gates.registry import pin_pos, component_height
 
 
 def place_eq_ne(cell, conns, na, bit_nodes, components, x, y):
@@ -22,19 +22,9 @@ def place_eq_ne(cell, conns, na, bit_nodes, components, x, y):
 
   # XNOR gate: bitwise compare
   xnor_out = na.alloc(20, 0, 1, op_bw)
-  xnor_comp = {
-    "x": x, "y": y,
-    "objectType": "XnorGate",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", 2, op_bw],
-      "nodes": {"inp": [a_node, b_node], "output1": xnor_out},
-    },
-  }
-  components.setdefault("XnorGate", []).append(xnor_comp)
+  _append_comp(components, "XnorGate", x, y,
+    ["RIGHT", 2, op_bw],
+    {"inp": [a_node, b_node], "output1": xnor_out})
 
   # Split-reduce: AND for $eq, NAND for $ne
   reduce_type = "AndGate" if ctype == "$eq" else "NandGate"
@@ -74,37 +64,8 @@ def place_lt_gt_le_ge(cell, conns, na, bit_nodes, components, x, y):
       a_rx=a1_x, a_ry=a1_y, b_rx=a2_x, b_ry=a2_y)
 
   # ALU with control = 111 (LESS comparison)
-  c_x, c_y = pin_pos("ALU", "controlSignalInput")
-  ctrl_comp, ctrl_out = emit_constant(na, bit_nodes, "111", 3,
-                                       x - 60, y - 50)
-  components.setdefault("ConstantVal", []).append(ctrl_comp)
-
-  o_x, o_y = pin_pos("ALU", "output")
-  co_x, co_y = pin_pos("ALU", "carryOut")
-  ctrl_in = na.alloc(c_x, c_y, 0, 3)
-  na.connect(ctrl_out, ctrl_in)
-  alu_out = na.alloc(o_x, o_y, 1, op_bw)
-  carry_out = na.alloc(co_x, co_y, 1, 1)
-
-  alu_comp = {
-    "x": x, "y": y,
-    "objectType": "ALU",
-    "label": "",
-    "direction": "RIGHT",
-    "labelDirection": "LEFT",
-    "propagationDelay": 100,
-    "customData": {
-      "constructorParamaters": ["RIGHT", op_bw],
-      "nodes": {
-        "inp1": a_node,
-        "inp2": b_node,
-        "controlSignalInput": ctrl_in,
-        "output": alu_out,
-        "carryOut": carry_out,
-      },
-    },
-  }
-  components.setdefault("ALU", []).append(alu_comp)
+  alu_out, carry_out = emit_alu(na, bit_nodes, components, op_bw, "111",
+                                 x, y, a_node, b_node)
 
   # Extract bit 0 via Splitter
   spl_comp, spl_inp, spl_outs = emit_splitter(
