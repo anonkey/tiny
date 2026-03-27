@@ -193,19 +193,74 @@ def _yosys_elaborate(verilog_paths, top_name, gate_level=False):
     return _run_yosys(_yosys_script(verilog_paths, top_name, gate_level, flatten=False))
 
 
-def _clean_yosys_name(name):
+def _parse_yosys_param(val):
+    """Convert a Yosys parameter value string to a decimal integer.
+
+    Handles formats like:
+      s32'00000000000000000000000000001000  -> 8   (signed binary)
+      32'00000000000000000000000000001000   -> 8   (unsigned binary)
+      plain binary digits                   -> int(val, 2)
+    """
+    # Strip signedness prefix and bit-width (e.g. "s32'" or "32'")
+    raw = val
+    signed = raw.startswith("s")
+    if signed:
+        raw = raw[1:]
+    if "'" in raw:
+        width_str, raw = raw.split("'", 1)
+        width = int(width_str)
+    else:
+        width = len(raw)
+    n = int(raw, 2)
+    if signed and width and n >= (1 << (width - 1)):
+        n -= 1 << width
+    return n
+
+
+def _clean_yosys_name(name, ymod=None):
     """Extract a readable name from a Yosys parameterized module name.
 
-    e.g. '$paramod$abc123\\mux' -> 'mux' (with hash for uniqueness)
+    Produces {component}-{param1_decimal}(-{param2_decimal}...) format.
+    e.g. '$paramod\\mux\\N=s32'00...001000' -> 'mux-8'
+         '$paramod\\rom\\DEPTH=...\\WIDTH=...' -> 'rom-256-8'
+         '$paramod$abc123\\mux' with ymod params {S:2, N:8} -> 'mux-2-8'
     """
-    if name.startswith("$paramod"):
-        # Extract the base module name after the last backslash
-        base = name.rsplit("\\", 1)[-1] if "\\" in name else name
-        # Extract hash prefix for uniqueness
-        parts = name.split("$")
-        h = parts[2][:6] if len(parts) > 2 else ""
-        return f"{base}_{h}" if h else base
-    return name
+    if not name.startswith("$paramod"):
+        return name
+
+    # Split on backslash to extract parts
+    parts = name.split("\\")
+    # Find the base module name and inline params
+    base = None
+    params = []
+    for part in parts:
+        if part.startswith("$paramod") or part.startswith("$"):
+            continue
+        if "=" in part:
+            _, val = part.split("=", 1)
+            try:
+                params.append(str(_parse_yosys_param(val)))
+            except (ValueError, IndexError):
+                params.append(val)
+        elif base is None:
+            base = part
+    if base is None:
+        base = name.rsplit("\\", 1)[-1]
+
+    # If no params found in name, extract from Yosys module data
+    if not params and ymod:
+        for val in ymod.get("parameter_default_values", {}).values():
+            if isinstance(val, str):
+                try:
+                    params.append(str(_parse_yosys_param(val)))
+                except (ValueError, IndexError):
+                    params.append(val)
+            else:
+                params.append(str(int(val)))
+
+    if params:
+        return f"{base}-{'-'.join(params)}"
+    return base
 
 
 def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
@@ -330,7 +385,7 @@ def _build_yosys_scope(mod_name, ymod, na, bit_nodes, sub_scope_ids,
         },
         "allNodes": na.nodes,
         "id": int(scope_id),
-        "name": _clean_yosys_name(mod_name),
+        "name": _clean_yosys_name(mod_name, ymod),
         "Input": cv_inputs,
         "Output": cv_outputs,
         **({"Splitter": cv_splitters} if cv_splitters else {}),

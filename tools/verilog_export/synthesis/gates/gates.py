@@ -30,10 +30,9 @@ def place_gate_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):
 
       # Subcircuit cell
       if sub_scope_ids and ctype in sub_scope_ids:
-        from common.constants import V_CELL_PAD
-        h = _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
-                              x_cell, y_cell, cv_subcircuits, sc_comps)
-        y_cell += h + V_CELL_PAD + GATE_V_CELL_PAD
+        h, n_max = _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
+                                     x_cell, y_cell, cv_subcircuits, sc_comps)
+        y_cell += h + pin_clearance(n_max) + GATE_V_CELL_PAD
         continue
 
       cv_info = _YOSYS_GATE_TO_CV.get(ctype)

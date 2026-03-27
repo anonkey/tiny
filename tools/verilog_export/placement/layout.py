@@ -345,7 +345,7 @@ def _place_subcircuit(cell_name, cell, na, bit_nodes, sub_scope_ids,
     },
   })
 
-  return h
+  return h, n_max
 
 
 def _place_hl_cells(col_cells, na, bit_nodes, col_x=None, sub_scope_ids=None):

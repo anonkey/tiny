@@ -217,25 +217,26 @@ def place_ports(ymod, na, bit_nodes, col_cells, col_x=None,
             grps = [1]
         port_groups[port_name] = grps
 
-    # Find max bitwidths for body sizing
+    # Find max bitwidths and max splitter group counts for body/clearance sizing
     max_in_bw = max((len(p["bits"]) for p in ymod.get("ports", {}).values()
                      if p["direction"] == "input"), default=1)
     max_out_bw = max((len(p["bits"]) for p in ymod.get("ports", {}).values()
                      if p["direction"] == "output"), default=1)
-
     # Compute fixed x columns for inputs (left of bbox) and outputs (right of bbox)
+    # No clearance between Input↔Splitter (directly wired).
+    # Clearance on the logic side uses bw * 20 + 20 (same formula as components).
     inp_body_right = max_in_bw * 10  # Input body right edge (from pin_pos formula)
-    inp_clearance = pin_clearance(1) + pin_clearance(1)  # 40
     spl_body_width = 30  # splitter left(10) + right(20)
+    spl_logic_clearance = max_in_bw * 20 + 20  # clearance facing logic cells
 
-    inp_x = _snap(bbox_left - inp_clearance - spl_body_width - inp_clearance - inp_body_right)
+    inp_x = _snap(bbox_left - spl_logic_clearance - spl_body_width - inp_body_right)
     spl_x = _snap((inp_x + inp_body_right + bbox_left) // 2)
 
     out_body_left = max_out_bw * 10
-    out_clearance = pin_clearance(1) + pin_clearance(1)  # 40
     join_body_width = 30
+    join_logic_clearance = max_out_bw * 20 + 20  # clearance facing logic cells
 
-    out_x = _snap(bbox_right + out_clearance + join_body_width + out_clearance + out_body_left)
+    out_x = _snap(bbox_right + join_logic_clearance + join_body_width + out_body_left)
     join_x = _snap((bbox_right + out_x - out_body_left) // 2)
 
     _log.debug("place_ports: bbox=(%d,%d,%d,%d) inp_x=%d spl_x=%d join_x=%d out_x=%d",
