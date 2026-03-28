@@ -46,13 +46,13 @@ def place_dff(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: B
     arst_raw = na.create_bend(x + rx_, y + ry_, 1)
     register_bits(na, bit_nodes, conns["ARST"], arst_raw, 1)
     _maybe_invert(na, bit_nodes, components, arst_raw, rst_node,
-                  arst_pol, x - 60, y + 20)
+                  1 - arst_pol, x - 60, y + 20)
   elif "SRST" in conns:
     srst_pol = _param_int(cell, "SRST_POLARITY", 1)
     srst_raw = na.create_bend(x + rx_, y + ry_, 1)
     register_bits(na, bit_nodes, conns["SRST"], srst_raw, 1)
     _maybe_invert(na, bit_nodes, components, srst_raw, rst_node,
-                  srst_pol, x - 60, y + 20)
+                  1 - srst_pol, x - 60, y + 20)
 
   # Preset (from ARST_VALUE)
   preset_node = na.alloc(px, py, 0, bw)
