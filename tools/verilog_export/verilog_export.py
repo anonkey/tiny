@@ -6,6 +6,7 @@ Usage:
     python verilog_export.py half_cpu --gate                             # CircuitVerse (gate-level via Yosys)
     python verilog_export.py mux -f circuitverse-yosys-hier             # CircuitVerse (high-level via Yosys, hierarchical)
     python verilog_export.py half_cpu -o out/                            # custom output directory
+    python verilog_export.py half_cpu --check-only                         # verify existing .cv.json (no synthesis)
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ if _SCRIPT_DIR not in sys.path:
 
 from manager_utils import discover_modules, get_module_info, find_project_root, resolve_deps  # noqa: E402
 
+from common.types import ScopeDict  # noqa: E402
 from synthesis.hierarchical import generate_circuitverse_yosys  # noqa: E402
 
 
@@ -57,6 +59,10 @@ def parse_args() -> argparse.Namespace:
         "--cache", action="store_true",
         help="Cache routed module scopes for faster repeated hier exports",
     )
+    parser.add_argument(
+        "--check-only", action="store_true",
+        help="Run verification on an existing .cv.json file (skip synthesis)",
+    )
     return parser.parse_args()
 
 def main() -> None:
@@ -74,6 +80,25 @@ def main() -> None:
 
     module_info = get_module_info(registry, args.module)
     out_dir = args.output or os.path.join(module_info.path, "export")
+
+    # --- Check-only: load existing .cv.json and verify ---
+    if args.check_only:
+        fmt = args.format
+        if fmt == "circuitverse-yosys":
+            suffix = "gate" if args.gate else "hlsynth"
+        else:
+            suffix = "gate-hier" if args.gate else "hlsynth-hier"
+        cv_path = os.path.join(out_dir, f"{args.module}.{suffix}.cv.json")
+        with open(cv_path) as f:
+            cv = ScopeDict.from_dict(json.load(f))
+        print(f"  verify {os.path.relpath(cv_path, project_root)}")
+        issues: int = cv.verify_routing()
+        if issues:
+            print(f"  {issues} issue(s) found")
+            sys.exit(1)
+        print("  OK")
+        return
+
     os.makedirs(out_dir, exist_ok=True)
 
     all_paths = list(dict.fromkeys(resolve_deps(args.module, registry) + [module_info.verilog]))
@@ -106,6 +131,10 @@ def main() -> None:
     with open(cv_path, "w") as f:
         json.dump(cv.to_dict(), f, indent=2)
     print(f"  -> {os.path.relpath(cv_path, project_root)}")
+
+    # Final routing verification (all scopes)
+    if args.check:
+        cv.verify_routing()
 
 
 if __name__ == "__main__":

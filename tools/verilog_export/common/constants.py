@@ -50,6 +50,22 @@ def pin_clearance(n: int) -> int:
   return 20 if n <= 1 else (n + 1) * 10
 
 
+# ── Splitter pin geometry ─────────────────────────────────────────────────
+# Single source of truth for CircuitVerse splitter pin offsets.
+# Used by emit_splitter(), place_cv_splitter(), place_concat(), and the
+# registry's _splitter_pin().
+
+def splitter_inp_ry(n_groups: int) -> int:
+  """Relative y of the bus-side pin (inp1) for *n_groups* output groups."""
+  return int(10 + (n_groups / 2 - 1) * 20)
+
+
+def splitter_out_ry(index: int, n_groups: int) -> int:
+  """Relative y of the *index*-th multi-pin output for *n_groups* groups."""
+  y_offset: int = int((n_groups / 2 - 1) * 20)
+  return int(index * 20 - y_offset - 20)
+
+
 # ── Pin helpers ──────────────────────────────────────────────────────────
 
 def _new_pin(na: _CVNodeAlloc, bit_nodes: BitNodes, bit_idx: int | str,

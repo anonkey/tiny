@@ -26,6 +26,7 @@ from manager_utils import (
     fallback_select,
     find_project_root,
     resolve_name,
+    topo_sort_all,
 )
 from manager_modules import (
     interactive_module,
@@ -86,7 +87,7 @@ def main():
         passthrough = args[1:]  # e.g. --gate
         if not any(a in ("-f", "--format") for a in passthrough):
             passthrough = ["-f", "circuitverse-yosys", "--gate"] + passthrough
-        modules = sorted(registry.keys())
+        modules = topo_sort_all(registry)
         failed = []
         for mod in modules:
             console.print(f"[bold]=== {mod} ===[/bold]")

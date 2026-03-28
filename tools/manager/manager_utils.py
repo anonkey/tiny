@@ -142,6 +142,23 @@ def discover_modules(modules_dir: str) -> Registry:
     return registry
 
 
+def topo_sort_all(registry: Registry) -> list[str]:
+    """Return all module names in topological order (leaves first)."""
+    visited: set[str] = set()
+    order: list[str] = []
+    def visit(n: str) -> None:
+        if n in visited:
+            return
+        visited.add(n)
+        for dep in registry[n].deps:
+            if dep in registry:
+                visit(dep)
+        order.append(n)
+    for name in sorted(registry):
+        visit(name)
+    return order
+
+
 def resolve_deps(name: str, registry: Registry) -> list[str]:
     """Recursively resolve transitive deps. Returns list of .v paths in topological order."""
     visited: set[str] = set()

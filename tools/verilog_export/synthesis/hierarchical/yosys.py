@@ -217,6 +217,8 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
         name=_clean_yosys_name(mod_name, ymod),
         nodes=wired_node_ids(na),
         components=scope_components,
+        _abs_pos=na.abs_pos,
+        _all_comps=cv_inputs + cv_outputs + all_splitters + sc_comps + [c for cl in components.values() for c in cl],
     )
 
     return scope, scope_id, port_info, subcircuit_types

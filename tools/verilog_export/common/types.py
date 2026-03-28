@@ -242,6 +242,62 @@ class ScopeDict:
   # Top-level only
   scopes: list[ScopeDict] | None = None
   logixClipBoardData: bool | None = None
+  # Internal (not serialized) — kept for post-export verification
+  _abs_pos: AbsPos = field(default_factory=list, repr=False)
+  _all_comps: list[CompDict] = field(default_factory=list, repr=False)
+
+  def _rebuild_abs_pos(self) -> None:
+    """Reconstruct _abs_pos and _all_comps from loaded scope data."""
+    n: int = len(self.allNodes)
+    self._abs_pos = [(0, 0)] * n
+    self._all_comps = []
+    for k, comp_list in self.components.items():
+      if k == "SubCircuit":
+        continue
+      for item in comp_list:
+        if not isinstance(item, CompDict):
+          continue
+        self._all_comps.append(item)
+        cx, cy = item.x, item.y
+        direction: str = item.direction
+        for val in item.customData.nodes.values():
+          if isinstance(val, int) and val < n:
+            node = self.allNodes[val]
+            nx: int = -node.x if direction == "LEFT" else node.x
+            self._abs_pos[val] = (cx + nx, cy + node.y)
+          elif isinstance(val, list):
+            for nid in val:
+              if isinstance(nid, int) and nid < n:
+                node = self.allNodes[nid]
+                nx = -node.x if direction == "LEFT" else node.x
+                self._abs_pos[nid] = (cx + nx, cy + node.y)
+    # Type-2 bend nodes: abs pos == their (x, y)
+    for i, node in enumerate(self.allNodes):
+      if node.type == 2:
+        self._abs_pos[i] = (node.x, node.y)
+    # SubCircuit pin nodes
+    for sc in self.components.get("SubCircuit", []):
+      if not isinstance(sc, dict):
+        continue
+      sx, sy = sc.get("x", 0), sc.get("y", 0)
+      for nid in sc.get("inputNodes", []) + sc.get("outputNodes", []):
+        if isinstance(nid, int) and nid < n:
+          self._abs_pos[nid] = (sx + self.allNodes[nid].x, sy + self.allNodes[nid].y)
+
+  def verify_routing(self) -> int:
+    """Run routing verification on this scope and all child scopes.
+
+    Returns total number of issues found.
+    """
+    from verification.verify import verify_routing as _verify
+    issues: int = 0
+    if not self._abs_pos:
+      self._rebuild_abs_pos()
+    if self._abs_pos:
+      issues += _verify(self.allNodes, self._abs_pos, self._all_comps or None)
+    for child in (self.scopes or []):
+      issues += child.verify_routing()
+    return issues
 
   @staticmethod
   def _ser_item(item: CompDict | CVSubCircuit) -> dict[str, Any]:
