@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 from common.constants import GRID_UNIT
-from common.types import AbsPos, CompDict, NodeDict
+from common.types import AbsPos, CVSubCircuit, CompDict, NodeDict
 from common.utils import _extract_comp_params
 
 # A net: (node_ids, cells, segments, junction_cells)
@@ -19,45 +19,66 @@ _log: logging.Logger = logging.getLogger(__name__)
 GRID: int = GRID_UNIT
 
 
-def _collect_comp_pin_nids(components: list[CompDict] | None) -> set[int]:
-    """Extract pin node IDs from component dicts.
+def _collect_comp_pin_nids(
+    components: list[CompDict] | None,
+    subcircuits: list[CVSubCircuit] | None = None,
+) -> set[int]:
+    """Extract pin node IDs from component dicts and subcircuits.
 
     Returns set[int] of all node IDs that belong to component pins.
     """
     pin_nids: set[int] = set()
-    if not components:
-        return pin_nids
-    for comp in components:
-        cd = comp.customData.nodes
-        for val in cd.values():
-            if isinstance(val, int):
-                pin_nids.add(val)
-            elif isinstance(val, list):
-                for nid in val:
-                    if isinstance(nid, int):
-                        pin_nids.add(nid)
+    if components:
+        for comp in components:
+            cd = comp.customData.nodes
+            for val in cd.values():
+                if isinstance(val, int):
+                    pin_nids.add(val)
+                elif isinstance(val, list):
+                    for nid in val:
+                        if isinstance(nid, int):
+                            pin_nids.add(nid)
+    if subcircuits:
+        for sc in subcircuits:
+            for nid in sc.get("inputNodes", []):
+                if isinstance(nid, int):
+                    pin_nids.add(nid)
+            for nid in sc.get("outputNodes", []):
+                if isinstance(nid, int):
+                    pin_nids.add(nid)
     return pin_nids
 
 
-def _build_node_to_comp(components: list[CompDict] | None) -> dict[int, tuple[str, str, str]]:
+def _build_node_to_comp(
+    components: list[CompDict] | None,
+    subcircuits: list[CVSubCircuit] | None = None,
+) -> dict[int, tuple[str, str, str]]:
     """Build reverse map: node ID -> (objectType, label, pin_name).
 
-    Returns empty dict when components is None.
+    Returns empty dict when components and subcircuits are both None.
     """
     mapping: dict[int, tuple[str, str, str]] = {}
-    if not components:
-        return mapping
-    for comp in components:
-        ct = comp.objectType or "SubCircuit"
-        lbl = comp.label or ""
-        cd = comp.customData.nodes
-        for pin_name, val in cd.items():
-            if isinstance(val, int):
-                mapping[val] = (ct, lbl, pin_name)
-            elif isinstance(val, list):
-                for nid in val:
-                    if isinstance(nid, int):
-                        mapping[nid] = (ct, lbl, pin_name)
+    if components:
+        for comp in components:
+            ct = comp.objectType or "SubCircuit"
+            lbl = comp.label or ""
+            cd = comp.customData.nodes
+            for pin_name, val in cd.items():
+                if isinstance(val, int):
+                    mapping[val] = (ct, lbl, pin_name)
+                elif isinstance(val, list):
+                    for nid in val:
+                        if isinstance(nid, int):
+                            mapping[nid] = (ct, lbl, pin_name)
+    if subcircuits:
+        for sc in subcircuits:
+            lbl = sc.get("label", "")
+            for i, nid in enumerate(sc.get("inputNodes", [])):
+                if isinstance(nid, int):
+                    mapping[nid] = ("SubCircuit", lbl, f"input[{i}]")
+            for i, nid in enumerate(sc.get("outputNodes", [])):
+                if isinstance(nid, int):
+                    mapping[nid] = ("SubCircuit", lbl, f"output[{i}]")
     return mapping
 
 
@@ -372,13 +393,17 @@ def _check_hanging_wires(
     return issues
 
 
-def verify_routing(nodes: list[NodeDict], abs_pos: AbsPos, components: list[CompDict] | None = None) -> int:
+def verify_routing(
+    nodes: list[NodeDict], abs_pos: AbsPos,
+    components: list[CompDict] | None = None,
+    subcircuits: list[CVSubCircuit] | None = None,
+) -> int:
     """Check for routing issues: diagonals, visual shorts, clearance, endpoints-on-wire, hanging wires.
 
     Prints warnings to stderr.  Returns number of issues found.
     """
-    comp_pin_nids: set[int] = _collect_comp_pin_nids(components)
-    node_to_comp: dict[int, tuple[str, str, str]] = _build_node_to_comp(components)
+    comp_pin_nids: set[int] = _collect_comp_pin_nids(components, subcircuits)
+    node_to_comp: dict[int, tuple[str, str, str]] = _build_node_to_comp(components, subcircuits)
     nets: list[Net]
     nets, issues = _collect_nets(nodes, abs_pos)
 

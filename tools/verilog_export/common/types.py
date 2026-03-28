@@ -294,7 +294,9 @@ class ScopeDict:
     if not self._abs_pos:
       self._rebuild_abs_pos()
     if self._abs_pos:
-      issues += _verify(self.allNodes, self._abs_pos, self._all_comps or None)
+      sc_list = self.components.get("SubCircuit", [])
+      subcircuits = [sc for sc in sc_list if isinstance(sc, dict)]
+      issues += _verify(self.allNodes, self._abs_pos, self._all_comps or None, subcircuits or None)
     for child in (self.scopes or []):
       issues += child.verify_routing()
     return issues
