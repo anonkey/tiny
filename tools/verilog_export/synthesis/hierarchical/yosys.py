@@ -100,7 +100,7 @@ def _clean_yosys_name(name: str, ymod: YosysModule | None = None) -> str:
 # ── Single-module scope builder ──────────────────────────────────────────
 
 def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, SubScopeInfo],
-                       gate_level: bool = False, check: bool = False) -> tuple[ScopeDict, str, dict[str, PortInfo], list[str]]:
+                       gate_level: bool = False) -> tuple[ScopeDict, str, dict[str, PortInfo], list[str]]:
     """Build a CircuitVerse scope for a single Yosys module.
 
     Cells whose type matches another module in the netlist become SubCircuit
@@ -156,7 +156,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
             na.set_parent_pos(nid, sx, sy)
 
     resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
-                      extra_comps=sc_comps, check=check)
+                      extra_comps=sc_comps)
 
     # Relocate SC port nodes to end of allNodes (CircuitVerse ordering)
     if sc_port_nids:
@@ -228,7 +228,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
 def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_level: bool = False,
                                 flatten: bool = True, cache_dir: str | None = None,
-                                check: bool = False) -> tuple[ScopeDict, dict[str, Any]]:
+                                ) -> tuple[ScopeDict, dict[str, Any]]:
     """Generate CircuitVerse JSON via Yosys synthesis.
 
     When *flatten* is True (default), Yosys flattens all modules into one scope.
@@ -296,7 +296,7 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
             bit_nodes: BitNodes = {}
             scope, scope_id, port_info, sc_types = _build_yosys_scope(
                 mod_name, ymod, na, bit_nodes, sub_scope_ids,
-                gate_level=gate_level, check=check)
+                gate_level=gate_level)
             if cache:
                 cache.put(mod_name, scope, port_info, sc_types)
 

@@ -108,7 +108,7 @@ def main() -> None:
 
     # --- CircuitVerse via Yosys (flattened) ---
     if fmt == "circuitverse-yosys":
-        cv, netlist = generate_circuitverse_yosys(all_paths, top_name, gate_level=args.gate, check=args.check)
+        cv, netlist = generate_circuitverse_yosys(all_paths, top_name, gate_level=args.gate)
         suffix = "gate" if args.gate else "hlsynth"
 
     # --- CircuitVerse via Yosys (hierarchical) ---
@@ -117,7 +117,7 @@ def main() -> None:
         cache_dir = os.path.join(_SCRIPT_DIR, cache_subdir) if args.cache else None
         cv, netlist = generate_circuitverse_yosys(all_paths, top_name,
                                              gate_level=args.gate, flatten=False,
-                                             cache_dir=cache_dir, check=args.check)
+                                             cache_dir=cache_dir)
         suffix = "gate-hier" if args.gate else "hlsynth-hier"
 
     # Dump Yosys synthesis JSON

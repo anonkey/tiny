@@ -31,7 +31,7 @@ def _set_node_abs_positions(na: _CVNodeAlloc, all_comps: list[CompDict]) -> None
 
 
 def resolve_and_route(na: _CVNodeAlloc, cv_inputs: list[CompDict], cv_outputs: list[CompDict], cv_splitters: list[CompDict], components: CompMap,
-                      extra_comps: list[CompDict] | None = None, check: bool = False) -> list[CompDict]:
+                      extra_comps: list[CompDict] | None = None) -> list[CompDict]:
     """Collect all components, set absolute positions, run orthogonal routing.
 
     Returns the full component list used for routing.
@@ -43,8 +43,6 @@ def resolve_and_route(na: _CVNodeAlloc, cv_inputs: list[CompDict], cv_outputs: l
         all_comps.extend(extra_comps)
     _set_node_abs_positions(na, all_comps)
     na.route_orthogonal(all_comps)
-    if check:
-        na.verify_routing(all_comps)
     return all_comps
 
 

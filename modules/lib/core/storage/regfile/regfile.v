@@ -1,5 +1,5 @@
 `default_nettype none
-
+// TODO: C'est de la merde ou je comprends rien ?
 module regfile(o_rd1, o_rd2, i_wd, i_raddr1, i_raddr2, i_waddr, i_we, i_clk, i_rst_n);
 
    parameter NREG = 8;
