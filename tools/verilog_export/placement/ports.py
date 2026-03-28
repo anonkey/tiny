@@ -89,6 +89,8 @@ def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysMod
 
 
 def _snap(x: int) -> int:
+    if x % GRID_UNIT != 0:
+        raise ValueError(f"Expected x to be multiple of GRID_UNIT={GRID_UNIT}, got {x}")
     return -((-x) // GRID_UNIT) * GRID_UNIT
 
 
@@ -99,6 +101,7 @@ def compute_bbox(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: 
     Returns (left, top, right, bottom) with padding for routing clearance.
     """
     from placement.layout import _col_extents
+    # TODO: raise
     if not col_x:
         # No cells — return a default box
         return (X_START, 0, X_START + 100, 100)
@@ -132,9 +135,17 @@ def compute_bbox(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: 
     return (left - pad, top, right + pad, bottom)
 
 
-def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: dict[int, int] | None = None,
-                cell_depth: dict[str, int] | None = None, cell_positions: dict[str, tuple[int, int]] | None = None, bbox: tuple[int, int, int, int] | None = None,
-                layout_w: int = 100) -> tuple[list[CompDict], list[CompDict], list[CompDict], int, int]:
+def place_ports(
+        ymod: YosysModule,
+        na: _CVNodeAlloc,
+        bit_nodes: BitNodes,
+        col_cells: dict[int, list[tuple[str, dict[str, Any]]]],
+        col_x: dict[int, int] | None = None,
+        cell_depth: dict[str, int] | None = None,
+        cell_positions: dict[str, tuple[int, int]] | None = None,
+        bbox: tuple[int, int, int, int] | None = None,
+        layout_w: int = 100
+    ) -> tuple[list[CompDict], list[CompDict], list[CompDict], int, int]:
     """Create Input/Output CV components with splitters for multi-bit ports.
 
     Ports are placed outside the bounding box, aligned with their target cell's y.
@@ -146,6 +157,7 @@ def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_ce
         cell_depth = {}
     if cell_positions is None:
         cell_positions = {}
+    # TODO: raise
     if bbox is None:
         bbox = (0, 0, X_START + 100, 100)
 
@@ -165,12 +177,15 @@ def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_ce
     inp_clearance: int = max_in_bw * 20 + 20
 
     inp_x: int = _snap(bbox_left - inp_clearance - inp_body_right)
-
     out_body_left: int = max_out_bw * 10
     out_clearance: int = max_out_bw * 20 + 20
 
+    _log.debug("snap: raw=(%d, %d, %d, %d) pad=%d",
+               bbox_right , out_clearance , out_body_left)
     out_x: int = _snap(bbox_right + out_clearance + out_body_left)
 
+    _log.debug("place_ports: max_in_bw=%d max_out_bw=%d inp_body_right=%d inp_clearance=%d out_body_left=%d out_clearance=%d",
+               max_in_bw, max_out_bw, inp_body_right, inp_clearance, out_body_left, out_clearance)
     _log.debug("place_ports: bbox=(%d,%d,%d,%d) inp_x=%d out_x=%d",
                bbox_left, bbox_top, bbox_right, bbox_bottom,
                inp_x, out_x)

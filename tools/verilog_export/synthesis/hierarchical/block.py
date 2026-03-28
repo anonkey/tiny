@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, CVCustomData, ScopeDict
+from common.types import CompDict, CVCustomData, ScopeDict, VerilogMetadata
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout, _build_cv_scope
 from common.emit import unique_pos, CTOR_PARAMS_KEY
 
@@ -13,7 +13,7 @@ import verilog_parser
 
 
 def generate_circuitverse(top_mod: verilog_parser.Module,
-                          sub_modules: list[verilog_parser.Module]) -> dict[str, Any]:
+                          sub_modules: list[verilog_parser.Module]) -> ScopeDict:
     """Generate a CircuitVerse-compatible JSON dict.
 
     Top-level ports become Input/Output components. Each unique submodule
@@ -271,24 +271,22 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         nid for ids in net_nodes.values() if len(ids) > 1 for nid in ids
     ))
 
-    _ser = CompDict.to_dict
-    result: dict[str, Any] = {
-        "layout": _cv_layout(len(top_mod.inputs), len(top_mod.outputs)),
-        "verilogMetadata": {
-            "isVerilogCircuit": False,
-            "isMainCircuit": True,
-            "code": "",
-            "subCircuitScopeIds": list(scope_ids.values()),
+    result: ScopeDict = ScopeDict(
+        layout=_cv_layout(len(top_mod.inputs), len(top_mod.outputs)),
+        verilogMetadata=VerilogMetadata(
+            isMainCircuit=True,
+            subCircuitScopeIds=list(scope_ids.values()),
+        ),
+        allNodes=na.nodes,
+        id=int(_cv_scope_id()),
+        name=top_mod.name,
+        nodes=wired_ids,
+        components={
+            "Input": list(cv_inputs),
+            "Output": list(cv_outputs),
+            "SubCircuit": cv_subcircuits,
         },
-        "allNodes": na.nodes_as_dicts(),
-        "id": int(_cv_scope_id()),
-        "name": top_mod.name,
-        "Input": [_ser(c) for c in cv_inputs],
-        "Output": [_ser(c) for c in cv_outputs],
-        "SubCircuit": cv_subcircuits,
-        "restrictedCircuitElementsUsed": [],
-        "nodes": wired_ids,
-        "scopes": scopes,
-        "logixClipBoardData": True,
-    }
+        scopes=scopes,
+        logixClipBoardData=True,
+    )
     return result

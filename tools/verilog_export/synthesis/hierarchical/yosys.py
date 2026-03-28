@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from synthesis.hierarchical.scope_cache import ScopeCache
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, BitNodes, ScopeDict, YosysModule
+from common.types import CompDict, BitNodes, ScopeDict, VerilogMetadata, YosysModule
 from common.constants import COL_GAP, GATE_COL_GAP
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
 from synthesis.hierarchical.yosys_runner import run_yosys, yosys_script, check_module_exists
@@ -108,9 +108,6 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     Returns (scope_dict, scope_id, port_info, subcircuit_types).
     port_info = {port_name: {"direction": dir, "width": bw, "x": pin_x, "y": pin_y}}
-
-    The scope dict includes private keys (_col_x, _y_in, _y_out, _col_cells)
-    that callers can pop to compute custom layouts.
     """
     scope_id: str = _cv_scope_id()
     LAYOUT_W: int = 100
@@ -163,7 +160,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     # Relocate SC port nodes to end of allNodes (CircuitVerse ordering)
     if sc_port_nids:
-        old_nodes: list[dict[str, Any]] = na.nodes
+        old_nodes = na.nodes
         n: int = len(old_nodes)
         non_sc: list[int] = [i for i in range(n) if i not in sc_port_nids]
         sc_list: list[int] = [i for i in range(n) if i in sc_port_nids]
@@ -201,33 +198,26 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
                mod_name, len(all_splitters), len(cv_splitters),
                len(all_splitters) - len(cv_splitters))
 
-    # Serialize dataclasses to plain dicts for JSON output
-    # TODO: consider keeping CompDict as a dataclass
-    _serialize = CompDict.to_dict
-    scope: ScopeDict = {
-        "layout": _cv_layout(len(cv_inputs), len(cv_outputs)),
-        "verilogMetadata": {
-            "isVerilogCircuit": False,
-            "isMainCircuit": False,
-            "code": "",
-            "subCircuitScopeIds": [],
-        },
-        "allNodes": na.nodes_as_dicts(),
-        "id": int(scope_id),
-        "name": _clean_yosys_name(mod_name, ymod),
-        "Input": [_serialize(c) for c in cv_inputs],
-        "Output": [_serialize(c) for c in cv_outputs],
-        **({"Splitter": [_serialize(c) for c in all_splitters]} if all_splitters else {}),
-        **({"SubCircuit": cv_subcircuits} if cv_subcircuits else {}),
-        **{k: [_serialize(c) for c in v] for k, v in components.items()},
-        "restrictedCircuitElementsUsed": [],
-        "nodes": wired_node_ids(na),
-        # Private keys for callers that need custom layout computation
-        "_col_x": col_x,
-        "_y_in": y_in,
-        "_y_out": y_out,
-        "_col_cells": col_cells,
-    }
+    # Build component dict (CompDict objects + SubCircuit plain dicts)
+    scope_components: dict[str, list[Any]] = {}
+    scope_components["Input"] = list(cv_inputs)
+    scope_components["Output"] = list(cv_outputs)
+    if all_splitters:
+        scope_components["Splitter"] = list(all_splitters)
+    if cv_subcircuits:
+        scope_components["SubCircuit"] = cv_subcircuits
+    for k, v in components.items():
+        scope_components[k] = list(v)
+
+    scope: ScopeDict = ScopeDict(
+        layout=_cv_layout(len(cv_inputs), len(cv_outputs)),
+        verilogMetadata=VerilogMetadata(),
+        allNodes=na.nodes,
+        id=int(scope_id),
+        name=_clean_yosys_name(mod_name, ymod),
+        nodes=wired_node_ids(na),
+        components=scope_components,
+    )
 
     return scope, scope_id, port_info, subcircuit_types
 
@@ -295,8 +285,8 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
             scope: ScopeDict = cached["scope"]
             port_info: dict[str, dict[str, Any]] = cached["port_info"]
             scope_id: str = _cv_scope_id()
-            scope["id"] = int(scope_id)
-            for i, sc in enumerate(scope.get("SubCircuit", [])):
+            scope.id = int(scope_id)
+            for i, sc in enumerate(scope.components.get("SubCircuit", [])):
                 child_type: str = cached["subcircuit_types"][i]
                 sc["id"] = sub_scope_ids[child_type]["scope_id"]
         else:
@@ -305,9 +295,6 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
             scope, scope_id, port_info, sc_types = _build_yosys_scope(
                 mod_name, ymod, na, bit_nodes, sub_scope_ids,
                 gate_level=gate_level, check=check)
-            # Strip private layout keys before caching
-            for key in ("_col_x", "_y_in", "_y_out", "_col_cells"):
-                scope.pop(key, None)
             if cache:
                 cache.put(mod_name, scope, port_info, sc_types)
 
@@ -322,12 +309,12 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
 
     # The top module scope is the main circuit
     top_scope: ScopeDict = scope  # last one built
-    top_scope["verilogMetadata"]["isMainCircuit"] = True
-    top_scope["verilogMetadata"]["subCircuitScopeIds"] = [
+    top_scope.verilogMetadata.isMainCircuit = True
+    top_scope.verilogMetadata.subCircuitScopeIds = [
         s["scope_id"] for mname, s in sub_scope_ids.items()
         if mname != top_name
     ]
-    top_scope["scopes"] = scopes
-    top_scope["logixClipBoardData"] = True
+    top_scope.scopes = scopes
+    top_scope.logixClipBoardData = True
 
     return top_scope, netlist

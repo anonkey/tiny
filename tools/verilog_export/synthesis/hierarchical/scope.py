@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from common.node_alloc import _CVNodeAlloc
 from common.emit import CTOR_PARAMS_KEY
-from common.types import CompDict, CVCustomData, ScopeDict
+from common.types import CompDict, CVCustomData, ScopeDict, VerilogMetadata
 
 
 class _CVScopeCounter:
@@ -102,24 +102,19 @@ def _build_cv_scope(
         ))
         pin_y += 20
 
-    _ser = CompDict.to_dict
-    scope: ScopeDict = {
-        "layout": layout,
-        "verilogMetadata": {
-            "isVerilogCircuit": False,
-            "isMainCircuit": False,
-            "code": "",
-            "subCircuitScopeIds": [],
-        },
-        "allNodes": sna.nodes_as_dicts(),
-        "id": scope_id,
-        "name": mod.name,
-        "Input": [_ser(c) for c in inputs],
-        "Output": [_ser(c) for c in outputs],
-        "restrictedCircuitElementsUsed": [],
-        "nodes": sorted(
+    scope: ScopeDict = ScopeDict(
+        layout=layout,
+        verilogMetadata=VerilogMetadata(),
+        allNodes=sna.nodes,
+        id=int(scope_id),
+        name=mod.name,
+        nodes=sorted(
             i for i, n in enumerate(sna.nodes)
             if n.type == 2 and n.connections
         ),
-    }
+        components={
+            "Input": list(inputs),
+            "Output": list(outputs),
+        },
+    )
     return scope, scope_id, pin_positions

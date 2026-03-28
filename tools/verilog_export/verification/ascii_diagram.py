@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Iterator
 
-from common.types import ScopeDict, AbsPos
+from common.types import NodeDict, ScopeDict, AbsPos
 
 
 # ── Canvas ────────────────────────────────────────────────────────────────
@@ -104,29 +104,26 @@ def _merge_wire(existing: str, new: str) -> str:
 
 # ── Coordinate helpers ────────────────────────────────────────────────────
 
-_COMP_KEYS_SKIP: frozenset[str] = frozenset([
-  'layout', 'verilogMetadata', 'allNodes', 'id', 'name',
-  'restrictedCircuitElementsUsed', 'nodes', 'scopes',
-  'logixClipBoardData',
-])
-
-
 def _iter_components(scope: ScopeDict) -> Iterator[tuple[str, dict[str, Any]]]:
   """Yield (comp_type, comp_dict) for every component in the scope."""
-  for key, val in scope.items():
-    if key in _COMP_KEYS_SKIP:
-      continue
-    if isinstance(val, list):
-      for comp in val:
-        if isinstance(comp, dict) and ('x' in comp or 'objectType' in comp):
-          yield key, comp
+  ser = ScopeDict._ser_item
+  for key, items in scope.components.items():
+    for comp in items:
+      d = ser(comp)
+      if isinstance(d, dict) and ('x' in d or 'objectType' in d):
+        yield key, d
 
 
 def _compute_abs_positions(scope: ScopeDict) -> AbsPos:
   """Compute absolute (x, y) for every node from the scope dict."""
-  nodes: list[dict[str, Any]] = scope.get('allNodes', [])
+  nodes: list[NodeDict] = scope.allNodes
   abs_pos: AbsPos = [(0, 0)] * len(nodes)
   assigned: set[int] = set()
+
+  def _assign(nid: int, cx: int, cy: int) -> None:
+    if 0 <= nid < len(nodes):
+      abs_pos[nid] = (cx + nodes[nid].x, cy + nodes[nid].y)
+      assigned.add(nid)
 
   for comp_type, comp in _iter_components(scope):
     cx: int = comp.get('x', 0)
@@ -134,25 +131,22 @@ def _compute_abs_positions(scope: ScopeDict) -> AbsPos:
     cd: dict[str, Any] = comp.get('customData', {})
     nd: dict[str, Any] = cd.get('nodes', {})
     for val in nd.values():
-      if isinstance(val, int) and 0 <= val < len(nodes):
-        abs_pos[val] = (cx + nodes[val]['x'], cy + nodes[val]['y'])
-        assigned.add(val)
+      if isinstance(val, int):
+        _assign(val, cx, cy)
       elif isinstance(val, list):
         for nid in val:
-          if isinstance(nid, int) and 0 <= nid < len(nodes):
-            abs_pos[nid] = (cx + nodes[nid]['x'], cy + nodes[nid]['y'])
-            assigned.add(nid)
+          if isinstance(nid, int):
+            _assign(nid, cx, cy)
     # SubCircuit inputNodes/outputNodes
     for key in ('inputNodes', 'outputNodes'):
       for nid in comp.get(key, []):
-        if isinstance(nid, int) and 0 <= nid < len(nodes):
-          abs_pos[nid] = (cx + nodes[nid]['x'], cy + nodes[nid]['y'])
-          assigned.add(nid)
+        if isinstance(nid, int):
+          _assign(nid, cx, cy)
 
   # Bend nodes (type 2) store absolute coords directly
   for i, n in enumerate(nodes):
-    if i not in assigned and n.get('type') == 2:
-      abs_pos[i] = (n['x'], n['y'])
+    if i not in assigned and n.type == 2:
+      abs_pos[i] = (n.x, n.y)
 
   return abs_pos
 
@@ -200,12 +194,12 @@ def _map(cv_x: int, cv_y: int, sx: float, sy: float, min_x: int, min_y: int) -> 
 
 def _draw_wires(canvas: _AsciiCanvas, scope: ScopeDict, sx: float, sy: float, min_x: int, min_y: int) -> None:
   """Draw all wire segments between connected nodes."""
-  nodes: list[dict[str, Any]] = scope.get('allNodes', [])
+  nodes: list[NodeDict] = scope.allNodes
   abs_pos: AbsPos = _compute_abs_positions(scope)
 
   seen: set[tuple[int, int]] = set()
   for i, n in enumerate(nodes):
-    for j in n.get('connections', []):
+    for j in n.connections:
       pair: tuple[int, int] = (min(i, j), max(i, j))
       if pair in seen:
         continue
@@ -217,7 +211,7 @@ def _draw_wires(canvas: _AsciiCanvas, scope: ScopeDict, sx: float, sy: float, mi
       bx: int
       by: int
       bx, by = abs_pos[j]
-      bw: int = n.get('bitWidth', 1)
+      bw: int = n.bitWidth
       h_char: str = '═' if bw > 1 else '─'
 
       c1: int
@@ -409,7 +403,7 @@ def _draw_components(canvas: _AsciiCanvas, scope: ScopeDict, sx: float, sy: floa
 
 def _draw_title(canvas: _AsciiCanvas, scope: ScopeDict) -> None:
   """Draw the circuit name at the top."""
-  name: str = scope.get('name', '')
+  name: str = scope.name
   if name:
     canvas.put_text(2, 0, f'[ {name} ]')
 
@@ -428,7 +422,7 @@ def generate_ascii_diagram(scope: ScopeDict, max_width: int = 120) -> str:
   # Check for empty circuit
   has_comps: bool = any(True for _ in _iter_components(scope))
   if not has_comps:
-    name: str = scope.get('name', 'circuit')
+    name: str = scope.name or 'circuit'
     return f'[ {name} ] (no components)\n'
 
   sx: float

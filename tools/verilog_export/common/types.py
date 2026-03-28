@@ -131,8 +131,96 @@ YosysModule = dict[str, Any]
 # Absolute positions list: index = node ID, value = (x, y)
 AbsPos = list[tuple[int, int]]
 
-# CircuitVerse scope dict (top-level JSON structure)
-ScopeDict = dict[str, Any]
+# ── Scope dataclass ──────────────────────────────────────────────────────
+
+@dataclass
+class VerilogMetadata:
+  """verilogMetadata block inside a CircuitVerse scope."""
+  isVerilogCircuit: bool = False
+  isMainCircuit: bool = False
+  code: str = ""
+  subCircuitScopeIds: list[str] = field(default_factory=list)
+
+  def to_dict(self) -> dict[str, Any]:
+    return asdict(self)
+
+
+@dataclass
+class ScopeDict:
+  """A single CircuitVerse scope (circuit/subcircuit)."""
+  layout: dict[str, Any]
+  verilogMetadata: VerilogMetadata
+  allNodes: list[NodeDict]
+  id: int
+  name: str
+  restrictedCircuitElementsUsed: list[Any] = field(default_factory=list)
+  nodes: list[int] = field(default_factory=list)
+  # Component lists keyed by objectType (Input, Output, Splitter, SubCircuit, ...)
+  components: dict[str, list[Any]] = field(default_factory=dict)
+  # Top-level only
+  scopes: list[ScopeDict] | None = None
+  logixClipBoardData: bool | None = None
+
+  @staticmethod
+  def _ser_item(item: Any) -> Any:
+    """Serialize a component item (CompDict -> dict, or passthrough)."""
+    return item.to_dict() if isinstance(item, CompDict) else item
+
+  def to_dict(self) -> dict[str, Any]:
+    """Serialize to plain dict for JSON output.
+
+    Flattens components into top-level keys (CircuitVerse format).
+    """
+    d: dict[str, Any] = {
+      "layout": self.layout,
+      "verilogMetadata": self.verilogMetadata.to_dict(),
+      "allNodes": [n.to_dict() for n in self.allNodes],
+      "id": self.id,
+      "name": self.name,
+    }
+    # Flatten component lists as top-level keys
+    ser = self._ser_item
+    for k, v in self.components.items():
+      if v:
+        d[k] = [ser(item) for item in v]
+    d["restrictedCircuitElementsUsed"] = self.restrictedCircuitElementsUsed
+    d["nodes"] = self.nodes
+    if self.scopes is not None:
+      d["scopes"] = [s.to_dict() for s in self.scopes]
+    if self.logixClipBoardData is not None:
+      d["logixClipBoardData"] = self.logixClipBoardData
+    return d
+
+  @classmethod
+  def from_dict(cls, d: dict[str, Any]) -> ScopeDict:
+    """Deserialize from a plain dict (for scope_cache JSON loads)."""
+    skip = {
+      "layout", "verilogMetadata", "allNodes", "id", "name",
+      "restrictedCircuitElementsUsed", "nodes", "scopes",
+      "logixClipBoardData",
+    }
+    vm = d.get("verilogMetadata", {})
+    components: dict[str, list[Any]] = {}
+    for k, v in d.items():
+      if k not in skip and isinstance(v, list):
+        components[k] = v
+    return cls(
+      layout=d.get("layout", {}),
+      verilogMetadata=VerilogMetadata(
+        isVerilogCircuit=vm.get("isVerilogCircuit", False),
+        isMainCircuit=vm.get("isMainCircuit", False),
+        code=vm.get("code", ""),
+        subCircuitScopeIds=vm.get("subCircuitScopeIds", []),
+      ),
+      allNodes=[NodeDict(**n) if isinstance(n, dict) else n for n in d.get("allNodes", [])],
+      id=d.get("id", 0),
+      name=d.get("name", ""),
+      restrictedCircuitElementsUsed=d.get("restrictedCircuitElementsUsed", []),
+      nodes=d.get("nodes", []),
+      components=components,
+      scopes=[cls.from_dict(s) for s in d.get("scopes", [])] if d.get("scopes") else None,
+      logixClipBoardData=d.get("logixClipBoardData"),
+    )
 
 # Entity key used in splitter_pass producers/consumers
 EntityKey = tuple[str, str]

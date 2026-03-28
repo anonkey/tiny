@@ -13,6 +13,8 @@ import os
 import shutil
 from typing import Any
 
+from common.types import ScopeDict
+
 _log: logging.Logger = logging.getLogger(__name__)
 
 
@@ -51,26 +53,31 @@ class ScopeCache:
         return hashlib.md5(mod_name.encode()).hexdigest()
 
     def get(self, mod_name: str) -> dict[str, Any] | None:
-        """Load a cached scope for *mod_name*, or return *None*."""
+        """Load a cached scope for *mod_name*, or return *None*.
+
+        Returns {"scope": ScopeDict, "port_info": ..., "subcircuit_types": ...}
+        or None on miss.
+        """
         path: str = os.path.join(self._dir, f"{self._mod_key(mod_name)}.json")
         if not os.path.exists(path):
             return None
         try:
             with open(path) as f:
                 data: dict[str, Any] = json.load(f)
+            data["scope"] = ScopeDict.from_dict(data["scope"])
             _log.info("cache HIT  %s", mod_name)
             return data
         except (json.JSONDecodeError, OSError) as exc:
             _log.warning("cache CORRUPT %s: %s — treating as miss", mod_name, exc)
             return None
 
-    def put(self, mod_name: str, scope: dict[str, Any],
+    def put(self, mod_name: str, scope: ScopeDict,
             port_info: dict[str, Any],
             subcircuit_types: list[str]) -> None:
         """Persist a routed scope to disk."""
         path: str = os.path.join(self._dir, f"{self._mod_key(mod_name)}.json")
         data: dict[str, Any] = {
-            "scope": scope,
+            "scope": scope.to_dict(),
             "port_info": port_info,
             "subcircuit_types": subcircuit_types,
         }

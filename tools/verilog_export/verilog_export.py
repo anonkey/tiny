@@ -104,7 +104,7 @@ def main() -> None:
     # Dump CircuitVerse JSON
     cv_path = os.path.join(out_dir, f"{args.module}.{suffix}.cv.json")
     with open(cv_path, "w") as f:
-        json.dump(cv, f, indent=2)
+        json.dump(cv.to_dict(), f, indent=2)
     print(f"  -> {os.path.relpath(cv_path, project_root)}")
 
 
