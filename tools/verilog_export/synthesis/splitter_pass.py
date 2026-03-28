@@ -149,21 +149,30 @@ def _compute_groups(
         while i + group_len < n:
             next_b = consumer_bits[i + group_len]
             if not isinstance(next_b, int):
+                _log.debug("  _compute_groups: break at pos %d, not int: %s", i + group_len, next_b)
                 break
             next_prod = producers.get(next_b)
             if next_prod is None:
+                _log.debug("  _compute_groups: break at pos %d, bit %d has no producer", i + group_len, next_b)
                 break
             next_ek, next_pn, next_pb = next_prod
             if next_ek != entity_key or next_pn != port_name:
+                _log.debug("  _compute_groups: break at pos %d, bit %d: entity %s.%s != %s.%s",
+                           i + group_len, next_b, next_ek, next_pn, entity_key, port_name)
                 break
             try:
                 next_pos = next_pb.index(next_b)
             except ValueError:
+                _log.debug("  _compute_groups: break at pos %d, bit %d not in prod_bits", i + group_len, next_b)
                 break
             if next_pos != prod_pos + group_len:
+                _log.debug("  _compute_groups: break at pos %d, bit %d: prod_pos %d != expected %d",
+                           i + group_len, next_b, next_pos, prod_pos + group_len)
                 break
             group_len += 1
 
+        _log.debug("  _compute_groups: group start=%d len=%d bits=%s prod=%s.%s prod_pos=%d",
+                   i, group_len, consumer_bits[i:i + group_len], entity_key, port_name, prod_pos)
         groups.append((group_len, consumer_bits[i:i + group_len]))
         i += group_len
 
@@ -214,21 +223,30 @@ def _compute_fanout_groups(
         while i + group_len < n:
             next_b = producer_bits[i + group_len]
             if not isinstance(next_b, int):
+                _log.debug("  _compute_fanout: break at pos %d, not int: %s", i + group_len, next_b)
                 break
             next_cons_list = consumers.get(next_b, [])
             if not next_cons_list:
+                _log.debug("  _compute_fanout: break at pos %d, bit %d has no consumer", i + group_len, next_b)
                 break
             next_ek, next_pn, next_cb = next_cons_list[0]
             if next_ek != entity_key or next_pn != port_name:
+                _log.debug("  _compute_fanout: break at pos %d, bit %d: entity %s.%s != %s.%s",
+                           i + group_len, next_b, next_ek, next_pn, entity_key, port_name)
                 break
             try:
                 next_pos = next_cb.index(next_b)
             except ValueError:
+                _log.debug("  _compute_fanout: break at pos %d, bit %d not in cons_bits", i + group_len, next_b)
                 break
             if next_pos != cons_pos + group_len:
+                _log.debug("  _compute_fanout: break at pos %d, bit %d: cons_pos %d != expected %d",
+                           i + group_len, next_b, next_pos, cons_pos + group_len)
                 break
             group_len += 1
 
+        _log.debug("  _compute_fanout: group start=%d len=%d bits=%s cons=%s.%s cons_pos=%d",
+                   i, group_len, producer_bits[i:i + group_len], entity_key, port_name, cons_pos)
         groups.append((group_len, producer_bits[i:i + group_len]))
         i += group_len
 
@@ -365,6 +383,19 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
     next_bit: int = _max_bit_id(ymod) + 1
     new_cells: dict[str, Any] = {}
 
+    # Debug: dump producer map for module ports
+    for pname, pinfo in ymod.get("ports", {}).items():
+        bits = pinfo["bits"]
+        _log.debug("PORT %s [%s] bits=%s", pname, pinfo["direction"], bits)
+        for b in bits:
+            if isinstance(b, int) and b in producers:
+                ek, pn, pb = producers[b]
+                _log.debug("  bit %d -> producer %s.%s (prod_bits=%s, pos=%s)",
+                           b, ek, pn, pb,
+                           pb.index(b) if b in pb else "?")
+            elif isinstance(b, int):
+                _log.debug("  bit %d -> NO PRODUCER", b)
+
     # ── Consumer-side: LEFT splitters (joiners) ──────────────────────────
 
     # Cell input ports
@@ -405,6 +436,8 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
             continue
 
         groups = _compute_groups(bits, producers)
+        _log.debug("LEFT port %s: bits=%s groups=%s total_bw=%d",
+                   pname, bits, [(gw, gb) for gw, gb in groups], len(bits))
         if not _needs_splitter(groups, len(bits)):
             _log.debug("LEFT skip port %s: single group, no mismatch", pname)
             continue
@@ -417,6 +450,11 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
                    spl_name, pname, [g[0] for g in groups])
 
     # ── Producer-side: RIGHT splitters (fan-out) ─────────────────────────
+
+    # Flush LEFT splitters into ymod so _build_consumers sees their input ports
+    if new_cells:
+        ymod.setdefault("cells", {}).update(new_cells)
+        new_cells = {}
 
     # Rebuild consumers after LEFT splitter rewrites may have changed connections
     consumers = _build_consumers(ymod)
@@ -445,6 +483,8 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
 
     for label, bits in producer_ports:
         groups = _compute_fanout_groups(bits, consumers)
+        _log.debug("RIGHT %s: bits=%s groups=%s total_bw=%d",
+                   label, bits, [(gw, gb) for gw, gb in groups], len(bits))
         if not _needs_splitter(groups, len(bits)):
             _log.debug("RIGHT skip %s: single group, no mismatch", label)
             continue
@@ -499,5 +539,10 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
 
     if new_cells:
         _log.info("inserted %d splitter(s)", len(new_cells))
+        for sname, sc in new_cells.items():
+            p = sc["parameters"]
+            _log.info("  %s: dir=%s bw=%d groups=%s", sname, p["DIRECTION"], p["BW"], p["GROUPS"])
+    else:
+        _log.debug("no splitters needed")
 
     return ymod

@@ -7,7 +7,10 @@ Supports two axes (combinable):
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, TYPE_CHECKING
+
+_log: logging.Logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from synthesis.hierarchical.scope_cache import ScopeCache
@@ -192,8 +195,15 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
             port_info[pname] = {"direction": "output", "width": bw, "x": LAYOUT_W, "y": pin_y}
             pin_y += 20
 
+    # Merge splitters from port placement and $cv_splitter cells
+    all_splitters: list[CompDict] = cv_splitters + components.pop("Splitter", [])
+    _log.debug("scope %s: %d splitter(s) (port=%d, cell=%d)",
+               mod_name, len(all_splitters), len(cv_splitters),
+               len(all_splitters) - len(cv_splitters))
+
     # Serialize dataclasses to plain dicts for JSON output
-    _ser = CompDict.to_dict
+    # TODO: consider keeping CompDict as a dataclass
+    _serialize = CompDict.to_dict
     scope: ScopeDict = {
         "layout": _cv_layout(len(cv_inputs), len(cv_outputs)),
         "verilogMetadata": {
@@ -205,11 +215,11 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
         "allNodes": na.nodes_as_dicts(),
         "id": int(scope_id),
         "name": _clean_yosys_name(mod_name, ymod),
-        "Input": [_ser(c) for c in cv_inputs],
-        "Output": [_ser(c) for c in cv_outputs],
-        **({"Splitter": [_ser(c) for c in cv_splitters]} if cv_splitters else {}),
+        "Input": [_serialize(c) for c in cv_inputs],
+        "Output": [_serialize(c) for c in cv_outputs],
+        **({"Splitter": [_serialize(c) for c in all_splitters]} if all_splitters else {}),
         **({"SubCircuit": cv_subcircuits} if cv_subcircuits else {}),
-        **{k: [_ser(c) for c in v] for k, v in components.items()},
+        **{k: [_serialize(c) for c in v] for k, v in components.items()},
         "restrictedCircuitElementsUsed": [],
         "nodes": wired_node_ids(na),
         # Private keys for callers that need custom layout computation
