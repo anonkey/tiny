@@ -87,12 +87,12 @@ _CELL_REGISTRY: dict[str, CellInfo] = {
   "$reduce_xnor": CellInfo(place_reduce,     "XnorGate",      60,  60,  1, 1, V_CELL_PAD),
   "$reduce_bool": CellInfo(place_reduce,     "OrGate",        60,  60,  1, 1, V_CELL_PAD),
   # ── DFFs ──
-  "$dff":         CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
-  "$dffe":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
-  "$adff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
-  "$adffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
-  "$sdff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
-  "$sdffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   0, 2, V_CELL_PAD),
+  "$dff":         CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
+  "$dffe":        CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
+  "$adff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
+  "$adffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
+  "$sdff":        CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
+  "$sdffe":       CellInfo(place_dff,        "DflipFlop",     80,  0,   2, 2, V_CELL_PAD),
   # ── Bus ops ──
   "$slice":       CellInfo(place_slice,      "Splitter",      0,   0,   1, None, V_CELL_PAD),
   "$concat":      CellInfo(place_concat,     "Splitter",      0,   0,   2, 1, V_CELL_PAD),
