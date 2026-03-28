@@ -29,7 +29,8 @@ def place_dff(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: B
   d_node = _new_bus_pin(na, bit_nodes, conns["D"], 0, bw, rx=dx, ry=dy)
 
   # Clock — possibly inverted
-  clk_raw = _new_bus_pin(na, bit_nodes, conns["CLK"], 0, 1, rx=cx, ry=cy)
+  clk_raw = na.create_bend(x + cx, y + cy, 1)
+  register_bits(na, bit_nodes, conns["CLK"], clk_raw, 1)
   clk_node = na.alloc(cx, cy, 0, 1)
   _maybe_invert(na, bit_nodes, components, clk_raw, clk_node,
                 clk_pol, x - 60, y + 10)
@@ -42,12 +43,14 @@ def place_dff(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: B
   rst_node = na.alloc(rx_, ry_, 0, 1)
   if "ARST" in conns:
     arst_pol = _param_int(cell, "ARST_POLARITY", 1)
-    arst_raw = _new_bus_pin(na, bit_nodes, conns["ARST"], 0, 1, rx=rx_, ry=ry_)
+    arst_raw = na.create_bend(x + rx_, y + ry_, 1)
+    register_bits(na, bit_nodes, conns["ARST"], arst_raw, 1)
     _maybe_invert(na, bit_nodes, components, arst_raw, rst_node,
                   arst_pol, x - 60, y + 20)
   elif "SRST" in conns:
     srst_pol = _param_int(cell, "SRST_POLARITY", 1)
-    srst_raw = _new_bus_pin(na, bit_nodes, conns["SRST"], 0, 1, rx=rx_, ry=ry_)
+    srst_raw = na.create_bend(x + rx_, y + ry_, 1)
+    register_bits(na, bit_nodes, conns["SRST"], srst_raw, 1)
     _maybe_invert(na, bit_nodes, components, srst_raw, rst_node,
                   srst_pol, x - 60, y + 20)
 
@@ -68,7 +71,8 @@ def place_dff(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: B
   en_node = na.alloc(ex, ey, 0, 1)
   if "EN" in conns:
     en_pol = _param_int(cell, "EN_POLARITY", 1)
-    en_raw = _new_bus_pin(na, bit_nodes, conns["EN"], 0, 1, rx=ex, ry=ey)
+    en_raw = na.create_bend(x + ex, y + ey, 1)
+    register_bits(na, bit_nodes, conns["EN"], en_raw, 1)
     _maybe_invert(na, bit_nodes, components, en_raw, en_node,
                   en_pol, x - 60, y + 30)
 

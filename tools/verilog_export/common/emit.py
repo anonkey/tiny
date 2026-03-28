@@ -157,12 +157,14 @@ def emit_split_reduce(na: _CVNodeAlloc, bit_nodes: BitNodes,
     Emits a Splitter + gate, appends both to components.
     Returns the 1-bit output node ID.
     """
+    from common.constants import splitter_pin
+    irx, iry, _ = splitter_pin("RIGHT", "inp1", bw)
+    na.nodes[inp_node].x = irx
+    na.nodes[inp_node].y = iry
     spl_comp: CompDict
-    spl_inp: int
     spl_outputs: list[int]
-    spl_comp, spl_inp, spl_outputs = emit_splitter(
-        na, bw, [1] * bw, "RIGHT", spl_x, spl_y)
-    na.connect(inp_node, spl_inp)
+    spl_comp, _, spl_outputs = emit_splitter(
+        na, bw, [1] * bw, "RIGHT", spl_x, spl_y, inp_node=inp_node)
     components.setdefault("Splitter", []).append(spl_comp)
 
     from synthesis.gates.registry import pin_pos, gate_output_pos

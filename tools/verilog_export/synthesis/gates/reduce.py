@@ -51,7 +51,9 @@ def place_logic_and_or(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit
 
   def _reduce_to_bool(bits: list[int | str], bw: int, x_off: int, y_off: int) -> int:
     if bw == 1:
-      return _new_bus_pin(na, bit_nodes, bits, 0, 1, rx=-20, ry=0)
+      nid = na.create_bend(x + x_off - 20, y + y_off, 1)
+      register_bits(na, bit_nodes, bits, nid, 1)
+      return nid
     spl_inp = _new_bus_pin(na, bit_nodes, bits, 0, bw, rx=-10, ry=0)
     return emit_split_reduce(
       na, bit_nodes, components, bw, spl_inp,
