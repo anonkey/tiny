@@ -93,7 +93,49 @@ def _collect_pairs(nodes: list[NodeDict], num_original: int) -> set[tuple[int, i
     return pairs
 
 
-def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[NetInfo], list[tuple[int, int, int, int, int]]]:
+def _straight_path_obstructed(
+    min_x: int, min_y: int, max_x: int, max_y: int,
+    components: list[CompDict] | None,
+    net_node_ids: set[int],
+) -> bool:
+    """Check if any component body (+ clearance) lies on a straight wire path."""
+    if not components:
+        return False
+    from synthesis.gates.registry import dimensions as _ref_dimensions
+    clearance: int = GRID_UNIT
+    for comp in components:
+        cx, cy = comp.x, comp.y
+        ct: str = comp.objectType
+        if not ct:
+            continue
+        # Skip components that own pins in this net
+        own_nids: set[int] = set()
+        for val in comp.customData.nodes.values():
+            if isinstance(val, int):
+                own_nids.add(val)
+            elif isinstance(val, list):
+                own_nids.update(v for v in val if isinstance(v, int))
+        if own_nids & net_node_ids:
+            continue
+        params: dict[str, int | list[int]] = _extract_comp_params(ct, comp)
+        try:
+            dim: dict[str, int] = _ref_dimensions(ct, **params)
+        except KeyError:
+            dim = {"left": 20, "right": 20, "up": 20, "down": 20}
+        bx0: int = cx - dim["left"] - clearance
+        bx1: int = cx + dim["right"] + clearance
+        by0: int = cy - dim["up"] - clearance
+        by1: int = cy + dim["down"] + clearance
+        if min_x == max_x:  # vertical wire
+            if bx0 <= min_x <= bx1 and by0 < max_y and by1 > min_y:
+                return True
+        else:  # horizontal wire
+            if by0 <= min_y <= by1 and bx0 < max_x and bx1 > min_x:
+                return True
+    return False
+
+
+def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], abs_pos: AbsPos, components: list[CompDict] | None = None) -> tuple[list[NetInfo], list[tuple[int, int, int, int, int]]]:
     """Phase 3: classify nets as point / straight / needs-routing.
 
     Returns (nets_to_route, straight_nets).
@@ -111,8 +153,9 @@ def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], ab
         if min_x == max_x and min_y == max_y:
             continue
         if min_x == max_x or min_y == max_y:
-            straight_nets.append((root, min_x, min_y, max_x, max_y))
-            continue
+            if not _straight_path_obstructed(min_x, min_y, max_x, max_y, components, node_ids):
+                straight_nets.append((root, min_x, min_y, max_x, max_y))
+                continue
 
         area: int = (max_x - min_x) * (max_y - min_y)
         nets.append({
@@ -722,7 +765,7 @@ def route_orthogonal(nodes: list[NodeDict], abs_pos: AbsPos, components: list[Co
     # Phase 3: characterize nets
     nets: list[NetInfo]
     straight_nets: list[tuple[int, int, int, int, int]]
-    nets, straight_nets = _characterize_nets(net_nodes, nodes, abs_pos)
+    nets, straight_nets = _characterize_nets(net_nodes, nodes, abs_pos, components)
     if not nets:
         return
 
