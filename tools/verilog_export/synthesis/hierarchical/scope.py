@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from common.node_alloc import _CVNodeAlloc
 from common.emit import CTOR_PARAMS_KEY
-from common.types import ScopeDict
+from common.types import CompDict, CVCustomData, ScopeDict
 
 
 class _CVScopeCounter:
@@ -57,8 +57,8 @@ def _build_cv_scope(
     layout = _cv_layout(len(mod.inputs), len(mod.outputs))
     layout_w = layout["width"]
 
-    inputs: list[dict[str, Any]] = []
-    outputs: list[dict[str, Any]] = []
+    inputs: list[CompDict] = []
+    outputs: list[CompDict] = []
     pin_positions: dict[str, dict[str, Any]] = {}  # port_name -> {x, y} on the SubCircuit box
 
     pin_y: int = 40
@@ -66,22 +66,20 @@ def _build_cv_scope(
         out_node = sna.alloc(10, 0, 1, p.width)
         bw = str(p.width) if p.width > 1 else 1
         pin_positions[p.name] = {"x": 0, "y": pin_y}
-        inputs.append({
-            "x": -20, "y": pin_y - 20,
-            "objectType": "Input",
-            "label": p.name,
-            "direction": "RIGHT",
-            "labelDirection": "LEFT",
-            "propagationDelay": 0,
-            "customData": {
-                "nodes": {"output1": out_node},
-                "values": {"state": 0},
-                CTOR_PARAMS_KEY: [
+        inputs.append(CompDict(
+            x=-20, y=pin_y - 20,
+            objectType="Input", label=p.name,
+            direction="RIGHT", labelDirection="LEFT",
+            propagationDelay=0,
+            customData=CVCustomData(
+                constructorParamaters=[
                     "RIGHT", bw,
                     {"x": 0, "y": pin_y, "id": f"sc_{mod.name}_{p.name}"},
                 ],
-            },
-        })
+                nodes={"output1": out_node},
+                values={"state": 0},
+            ),
+        ))
         pin_y += 20
 
     pin_y = 40
@@ -89,23 +87,22 @@ def _build_cv_scope(
         inp_node = sna.alloc(-10, 0, 0, p.width)
         bw = str(p.width) if p.width > 1 else 1
         pin_positions[p.name] = {"x": layout_w, "y": pin_y}
-        outputs.append({
-            "x": layout_w + 20, "y": pin_y - 20,
-            "objectType": "Output",
-            "label": p.name,
-            "direction": "LEFT",
-            "labelDirection": "RIGHT",
-            "propagationDelay": 0,
-            "customData": {
-                "nodes": {"inp1": inp_node},
-                CTOR_PARAMS_KEY: [
+        outputs.append(CompDict(
+            x=layout_w + 20, y=pin_y - 20,
+            objectType="Output", label=p.name,
+            direction="LEFT", labelDirection="RIGHT",
+            propagationDelay=0,
+            customData=CVCustomData(
+                constructorParamaters=[
                     "LEFT", bw,
                     {"x": layout_w, "y": pin_y, "id": f"sc_{mod.name}_{p.name}"},
                 ],
-            },
-        })
+                nodes={"inp1": inp_node},
+            ),
+        ))
         pin_y += 20
 
+    _ser = CompDict.to_dict
     scope: ScopeDict = {
         "layout": layout,
         "verilogMetadata": {
@@ -114,15 +111,15 @@ def _build_cv_scope(
             "code": "",
             "subCircuitScopeIds": [],
         },
-        "allNodes": sna.nodes,
+        "allNodes": sna.nodes_as_dicts(),
         "id": scope_id,
         "name": mod.name,
-        "Input": inputs,
-        "Output": outputs,
+        "Input": [_ser(c) for c in inputs],
+        "Output": [_ser(c) for c in outputs],
         "restrictedCircuitElementsUsed": [],
         "nodes": sorted(
             i for i, n in enumerate(sna.nodes)
-            if n["type"] == 2 and n["connections"]
+            if n.type == 2 and n.connections
         ),
     }
     return scope, scope_id, pin_positions

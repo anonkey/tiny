@@ -6,11 +6,15 @@ from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
 from common.types import BitNodes, CompDict, CompMap
+from common.types import CompDict as _CompDict
 from common.emit import (
-  CTOR_PARAMS_KEY, _make_comp, _append_comp,
+  CTOR_PARAMS_KEY, _append_comp,
   emit_constant, emit_not_gate, emit_zero_extend,
   register_bits, emit_splitter, emit_split_reduce,
 )
+
+# Backwards-compatible alias — callers use CompDict.create() directly
+_make_comp = _CompDict.create
 
 # ── Gate-level mapping ────────────────────────────────────────────────────
 
@@ -104,7 +108,7 @@ def _adapt_single(na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap,
     na, bit_nodes, port_bw, target_bw, x - 80, y)
   register_bits(na, bit_nodes, bits, narrow, port_bw)
   for c in ext_comps:
-    components.setdefault(c["objectType"], []).append(c)
+    components.setdefault(c.objectType, []).append(c)
   return wide, 40
 
 

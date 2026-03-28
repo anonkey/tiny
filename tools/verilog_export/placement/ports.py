@@ -17,11 +17,11 @@ import logging
 from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, BitNodes, YosysModule
+from common.types import CompDict, CVCustomData, BitNodes, YosysModule
 
 _log: logging.Logger = logging.getLogger(__name__)
 
-from common.constants import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START, pin_clearance, CTOR_PARAMS_KEY, GRID_UNIT
+from common.constants import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START, pin_clearance, GRID_UNIT
 from synthesis.gates.registry import pin_pos, dimensions
 
 
@@ -117,11 +117,11 @@ def compute_bbox(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: 
 
     # Also account for subcircuit body extents
     for sc in sc_comps:
-        sx: int = sc["x"]
-        sy: int = sc["y"]
-        dims: dict[str, Any] = sc["customData"].get("_sc_dimensions", {})
-        sc_right: int = sx + dims.get("right", 100)
-        sc_bottom: int = sy + dims.get("down", 60)
+        sx: int = sc.x
+        sy: int = sc.y
+        dims: dict[str, int] | None = sc.customData._sc_dimensions
+        sc_right: int = sx + (dims.get("right", 100) if dims else 100)
+        sc_bottom: int = sy + (dims.get("down", 60) if dims else 60)
         right = max(right, sc_right)
         bottom = max(bottom, sc_bottom)
 
@@ -222,21 +222,18 @@ def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_ce
         node: int = (_new_pin    (na, bit_nodes, bits[0], side.node_is_output, 1,  rx=px, ry=py) if bw == 1
                 else  _new_bus_pin(na, bit_nodes, bits,   side.node_is_output, bw, rx=px, ry=py))
 
-        entry: CompDict = {
-            "x": side.x, "y": port_y,
-            "objectType": side.obj_type,
-            "label": port_name,
-            "direction": side.cv_dir,
-            "labelDirection": side.label_dir,
-            "propagationDelay": 0,
-            "customData": {
-                "nodes": {side.pin_name: node},
-                CTOR_PARAMS_KEY: [side.cv_dir, str(bw) if bw > 1 else 1,
+        entry: CompDict = CompDict(
+            x=side.x, y=port_y,
+            objectType=side.obj_type, label=port_name,
+            direction=side.cv_dir, labelDirection=side.label_dir,
+            propagationDelay=0,
+            customData=CVCustomData(
+                constructorParamaters=[side.cv_dir, str(bw) if bw > 1 else 1,
                     {"x": side.layout_pin_x, "y": side.layout_pin_y, "id": f"p_{port_name}"}],
-            },
-        }
-        if direction == "input":
-            entry["customData"]["values"] = {"state": 0}
+                nodes={side.pin_name: node},
+                values={"state": 0} if direction == "input" else None,
+            ),
+        )
 
         side.cv_list.append(entry)
         _log.debug("place_ports: %s '%s' at (%d, %d) target=%s",
@@ -247,7 +244,7 @@ def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_ce
             layout_pin_y_out += 20
 
     # Compute overall y extents for layout height calculation
-    y_in: int = max((c["y"] + CELL_GAP for c in cv_inputs), default=0)
-    y_out: int = max((c["y"] + CELL_GAP for c in cv_outputs), default=0)
+    y_in: int = max((c.y + CELL_GAP for c in cv_inputs), default=0)
+    y_out: int = max((c.y + CELL_GAP for c in cv_outputs), default=0)
 
     return cv_inputs, cv_outputs, cv_splitters, y_in, y_out

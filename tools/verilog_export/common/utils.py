@@ -14,7 +14,7 @@ from common.types import CompDict
 
 def _extract_comp_params(comp_type: str, comp: CompDict) -> dict[str, Any]:
     """Extract dimension-relevant params from a component's constructorParamaters."""
-    ctor: list[Any] = comp.get("customData", {}).get(CTOR_PARAMS_KEY, [])
+    ctor: list[Any] = comp.customData.constructorParamaters
     params: dict[str, Any] = {}
     if comp_type in ("Input", "Output", "ConstantVal"):
         if len(ctor) >= 2:

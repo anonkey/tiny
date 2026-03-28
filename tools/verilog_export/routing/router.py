@@ -39,31 +39,21 @@ def _make_bend(nodes: list[NodeDict], abs_pos: AbsPos, x: int, y: int, bw: int, 
     """Create a type-2 bend node.  Returns the new node ID."""
     x, y = _snap(x, grid), _snap(y, grid)
     nid: int = len(nodes)
-    nodes.append({
-        "x": x, "y": y,
-        "type": 2,
-        "bitWidth": bw,
-        "label": "",
-        "connections": [],
-    })
+    nodes.append(NodeDict(x=x, y=y, type=2, bitWidth=bw))
     abs_pos.append((x, y))
     return nid
 
 
 def _disconnect(nodes: list[NodeDict], a: int, b: int) -> None:
     """Remove the edge between nodes *a* and *b*."""
-    if b in nodes[a]["connections"]:
-        nodes[a]["connections"].remove(b)
-    if a in nodes[b]["connections"]:
-        nodes[b]["connections"].remove(a)
+    nodes[a].disconnect(b)
+    nodes[b].disconnect(a)
 
 
 def _wire(nodes: list[NodeDict], a: int, b: int) -> None:
     """Add an edge between nodes *a* and *b*."""
-    if b not in nodes[a]["connections"]:
-        nodes[a]["connections"].append(b)
-    if a not in nodes[b]["connections"]:
-        nodes[b]["connections"].append(a)
+    nodes[a].connect(b)
+    nodes[b].connect(a)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +88,7 @@ def _collect_pairs(nodes: list[NodeDict], num_original: int) -> set[tuple[int, i
     """Phase 1: collect unique connection pairs among original nodes."""
     pairs: set[tuple[int, int]] = set()
     for i in range(num_original):
-        for j in nodes[i]["connections"]:
+        for j in nodes[i].connections:
             if j < num_original:
                 pairs.add((min(i, j), max(i, j)))
     return pairs
@@ -117,7 +107,7 @@ def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], ab
         ys: list[int] = [p[1] for p in positions]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
-        bw: int = nodes[next(iter(node_ids))]["bitWidth"]
+        bw: int = nodes[next(iter(node_ids))].bitWidth
 
         if min_x == max_x and min_y == max_y:
             continue
@@ -314,10 +304,10 @@ class _OccupancyGrid:
         from synthesis.gates.registry import dimensions as _ref_dimensions
 
         for comp in components:
-            cx: int = comp.get("x", 0)
-            cy: int = comp.get("y", 0)
-            ct: str = comp.get("objectType", "")
-            cd: dict[str, Any] = comp.get("customData", {}).get("nodes", {})
+            cx: int = comp.x
+            cy: int = comp.y
+            ct: str = comp.objectType
+            cd: dict[str, Any] = comp.customData.nodes
             comp_nids: list[int] = []
             for val in cd.values():
                 if isinstance(val, int) and val < num_original:
@@ -330,7 +320,7 @@ class _OccupancyGrid:
                 continue
 
             # Body size from reference dimensions (or inline for subcircuits)
-            sc_dim: dict[str, int] | None = comp.get("customData", {}).get("_sc_dimensions")
+            sc_dim: dict[str, int] | None = comp.customData._sc_dimensions
             dim: dict[str, int]
             if sc_dim:
                 dim = sc_dim
@@ -525,7 +515,7 @@ def _route_net(net: dict[str, Any], nodes: list[NodeDict], abs_pos: AbsPos, grid
     # Remove existing direct connections within this net
     existing_pairs: set[tuple[int, int]] = set()
     for nid in node_ids:
-        for conn in list(nodes[nid]["connections"]):
+        for conn in list(nodes[nid].connections):
             if conn in node_ids:
                 existing_pairs.add((min(nid, conn), max(nid, conn)))
     for a, b in existing_pairs:
@@ -748,7 +738,7 @@ def route_orthogonal(nodes: list[NodeDict], abs_pos: AbsPos, components: list[Co
     def _pin_departure(nid: int) -> tuple[int, int]:
         if nid in grid.pin_depart:
             return grid.pin_depart[nid]
-        nt: int = nodes[nid]["type"]
+        nt: int = nodes[nid].type
         if nt == 1:
             return (1, 0)
         elif nt == 0:

@@ -10,22 +10,20 @@ from common.types import CompDict, CompMap, BitNodes
 def remap_comp_nodes(comps: list[CompDict], remap: dict[int, int]) -> None:
     """Remap node IDs in component customData.nodes dicts."""
     for comp in comps:
-        cd = comp["customData"]
-        for k, v in cd["nodes"].items():
+        cd = comp.customData
+        for k, v in cd.nodes.items():
             if isinstance(v, int):
-                cd["nodes"][k] = remap[v]
+                cd.nodes[k] = remap[v]
             elif isinstance(v, list):
-                cd["nodes"][k] = [remap[x] for x in v]
+                cd.nodes[k] = [remap[x] for x in v]
 
 
 def _set_node_abs_positions(na: _CVNodeAlloc, all_comps: list[CompDict]) -> None:
     """Scan placed components and set absolute positions for their nodes."""
     for comp in all_comps:
-        cx, cy = comp["x"], comp["y"]
-        direction = comp.get("direction", "RIGHT")
-        cd = comp.get("customData", {})
-        nodes = cd.get("nodes", {})
-        for val in nodes.values():
+        cx, cy = comp.x, comp.y
+        direction = comp.direction
+        for val in comp.customData.nodes.values():
             if isinstance(val, int):
                 na.set_parent_pos(val, cx, cy, direction)
             elif isinstance(val, list):
@@ -63,5 +61,5 @@ def wired_node_ids(na: _CVNodeAlloc) -> list[int]:
     """Return sorted IDs of wired (type-2, connected) nodes."""
     return sorted(
         i for i, n in enumerate(na.nodes)
-        if n["type"] == 2 and n["connections"]
+        if n.type == 2 and n.connections
     )

@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import ScopeDict
+from common.types import CompDict, CVCustomData, ScopeDict
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout, _build_cv_scope
 from common.emit import unique_pos, CTOR_PARAMS_KEY
 
@@ -135,7 +135,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
             col_y += h + ROW_GAP + jitter
 
     # --- Place top-level Inputs ---
-    cv_inputs: list[dict[str, Any]] = []
+    cv_inputs: list[CompDict] = []
     IO_MARGIN: int = 80
 
     for p in top_mod.inputs:
@@ -169,24 +169,22 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         ix, iy = unique_pos(ix, iy, used_positions)
 
         out_node: int = na.alloc(10, 0, 1, p.width)
-        cv_inputs.append({
-            "x": ix, "y": iy,
-            "objectType": "Input",
-            "label": p.name,
-            "direction": "RIGHT",
-            "labelDirection": "LEFT",
-            "propagationDelay": 0,
-            "customData": {
-                "nodes": {"output1": out_node},
-                "values": {"state": 0},
-                CTOR_PARAMS_KEY: ["RIGHT", bw,
+        cv_inputs.append(CompDict(
+            x=ix, y=iy,
+            objectType="Input", label=p.name,
+            direction="RIGHT", labelDirection="LEFT",
+            propagationDelay=0,
+            customData=CVCustomData(
+                constructorParamaters=["RIGHT", bw,
                     {"x": 0, "y": 20, "id": f"main_{p.name}"}],
-            },
-        })
+                nodes={"output1": out_node},
+                values={"state": 0},
+            ),
+        ))
         _register_net(p.name, out_node)
 
     # --- Place top-level Outputs ---
-    cv_outputs: list[dict[str, Any]] = []
+    cv_outputs: list[CompDict] = []
 
     for p in top_mod.outputs:
         net = p.name
@@ -213,19 +211,17 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         ox, oy = unique_pos(ox, oy, used_positions)
 
         inp_node: int = na.alloc(-10, 0, 0, p.width)
-        cv_outputs.append({
-            "x": ox, "y": oy,
-            "objectType": "Output",
-            "label": p.name,
-            "direction": "LEFT",
-            "labelDirection": "RIGHT",
-            "propagationDelay": 0,
-            "customData": {
-                "nodes": {"inp1": inp_node},
-                CTOR_PARAMS_KEY: ["LEFT", bw,
+        cv_outputs.append(CompDict(
+            x=ox, y=oy,
+            objectType="Output", label=p.name,
+            direction="LEFT", labelDirection="RIGHT",
+            propagationDelay=0,
+            customData=CVCustomData(
+                constructorParamaters=["LEFT", bw,
                     {"x": 0, "y": 20, "id": f"main_{p.name}"}],
-            },
-        })
+                nodes={"inp1": inp_node},
+            ),
+        ))
         _register_net(p.name, inp_node)
 
     # --- Place SubCircuit instances ---
@@ -275,6 +271,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         nid for ids in net_nodes.values() if len(ids) > 1 for nid in ids
     ))
 
+    _ser = CompDict.to_dict
     result: dict[str, Any] = {
         "layout": _cv_layout(len(top_mod.inputs), len(top_mod.outputs)),
         "verilogMetadata": {
@@ -283,11 +280,11 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
             "code": "",
             "subCircuitScopeIds": list(scope_ids.values()),
         },
-        "allNodes": na.nodes,
+        "allNodes": na.nodes_as_dicts(),
         "id": int(_cv_scope_id()),
         "name": top_mod.name,
-        "Input": cv_inputs,
-        "Output": cv_outputs,
+        "Input": [_ser(c) for c in cv_inputs],
+        "Output": [_ser(c) for c in cv_outputs],
         "SubCircuit": cv_subcircuits,
         "restrictedCircuitElementsUsed": [],
         "nodes": wired_ids,

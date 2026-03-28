@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from common.types import NodeDict, AbsPos, CompDict
 
 
@@ -12,20 +14,16 @@ class _CVNodeAlloc:
     abs_pos: AbsPos
 
     def __init__(self) -> None:
-        self.nodes = []  # list of node dicts
-        self.abs_pos = []  # (abs_x, abs_y) for each node
+        self.nodes = []
+        self.abs_pos = []
 
     def alloc(self, x: int, y: int, ntype: int, bit_width: int,
               label: str = "", parent_id: int | None = None) -> int:
         nid: int = len(self.nodes)
-        node: NodeDict = {
-            "x": x, "y": y,
-            "type": ntype,  # 0=input, 1=output, 2=bidir
-            "bitWidth": bit_width,
-            "label": label,
-            "connections": [],
-        }
-        self.nodes.append(node)
+        self.nodes.append(NodeDict(
+            x=x, y=y, type=ntype, bitWidth=bit_width,
+            label=label,
+        ))
         self.abs_pos.append((0, 0))  # set later via set_parent_pos
         return nid
 
@@ -38,14 +36,32 @@ class _CVNodeAlloc:
         the *visual* position used by the router.
         """
         n: NodeDict = self.nodes[nid]
-        nx: int = -n["x"] if direction == "LEFT" else n["x"]
-        self.abs_pos[nid] = (parent_x + nx, parent_y + n["y"])
+        nx: int = -n.x if direction == "LEFT" else n.x
+        self.abs_pos[nid] = (parent_x + nx, parent_y + n.y)
 
     def connect(self, a: int, b: int) -> None:
-        if b not in self.nodes[a]["connections"]:
-            self.nodes[a]["connections"].append(b)
-        if a not in self.nodes[b]["connections"]:
-            self.nodes[b]["connections"].append(a)
+        self.nodes[a].connect(b)
+        self.nodes[b].connect(a)
+
+    def disconnect(self, a: int, b: int) -> None:
+        """Remove the edge between nodes *a* and *b*."""
+        self.nodes[a].disconnect(b)
+        self.nodes[b].disconnect(a)
+
+    def create_bend(self, x: int, y: int, bw: int, grid: int = 10) -> int:
+        """Create a type-2 bend node. Returns the new node ID."""
+        from common.constants import GRID_UNIT
+        g: int = grid or GRID_UNIT
+        x = round(x / g) * g
+        y = round(y / g) * g
+        nid: int = len(self.nodes)
+        self.nodes.append(NodeDict(x=x, y=y, type=2, bitWidth=bw))
+        self.abs_pos.append((x, y))
+        return nid
+
+    def nodes_as_dicts(self) -> list[dict[str, Any]]:
+        """Serialize all nodes to plain dicts for JSON output."""
+        return [n.to_dict() for n in self.nodes]
 
     def verify_routing(self, components: list[CompDict] | None = None) -> int:
         """Check for routing issues: diagonals, visual shorts, clearance, endpoints-on-wire.

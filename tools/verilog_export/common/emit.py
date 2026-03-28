@@ -19,37 +19,14 @@ CTOR_PARAMS_KEY: str = "constructorParamaters"
 
 
 # ---------------------------------------------------------------------------
-# Component dict builder
+# Component helpers
 # ---------------------------------------------------------------------------
-
-_LABEL_DIR: dict[str, str] = {"RIGHT": "LEFT", "LEFT": "RIGHT",
-              "UP": "DOWN", "DOWN": "UP"}
-
-
-def _make_comp(cv_type: str, x: int, y: int, ctor_params: list[Any],
-               nodes: dict[str, Any],
-               propagation_delay: int = 100, direction: str = "RIGHT",
-               label: str = "") -> CompDict:
-    """Build a CircuitVerse component dict."""
-    return {
-        "x": x, "y": y,
-        "objectType": cv_type,
-        "label": label,
-        "direction": direction,
-        "labelDirection": _LABEL_DIR.get(direction, "LEFT"),
-        "propagationDelay": propagation_delay,
-        "customData": {
-            CTOR_PARAMS_KEY: ctor_params,
-            "nodes": nodes,
-        },
-    }
-
 
 def _append_comp(components: CompMap, cv_type: str, x: int, y: int,
                  ctor_params: list[Any], nodes: dict[str, Any],
                  **kwargs: Any) -> CompDict:
     """Build a component and append it to the components dict. Returns the component."""
-    comp: CompDict = _make_comp(cv_type, x, y, ctor_params, nodes, **kwargs)
+    comp: CompDict = CompDict.create(cv_type, x, y, ctor_params, nodes, **kwargs)
     components.setdefault(cv_type, []).append(comp)
     return comp
 
@@ -66,7 +43,7 @@ def emit_constant(na: _CVNodeAlloc, bit_nodes: BitNodes, value_str: str,
     Returns (component_dict, output_node_id).
     """
     out_node: int = na.alloc(bw * 10, 0, 1, bw)
-    comp: CompDict = _make_comp("ConstantVal", x, y,
+    comp: CompDict = CompDict.create("ConstantVal", x, y,
         ["RIGHT", bw, value_str], {"output1": out_node},
         propagation_delay=10)
     return comp, out_node
@@ -80,7 +57,7 @@ def emit_not_gate(na: _CVNodeAlloc, bit_nodes: BitNodes, bw: int,
     """
     inp: int = na.alloc(-10, 0, 0, bw)
     out: int = na.alloc(20, 0, 1, bw)
-    comp: CompDict = _make_comp("NotGate", x, y,
+    comp: CompDict = CompDict.create("NotGate", x, y,
         ["RIGHT", bw], {"inp1": inp, "output1": out})
     return comp, inp, out
 
@@ -100,7 +77,7 @@ def emit_zero_extend(na: _CVNodeAlloc, bit_nodes: BitNodes, in_bw: int,
     spl_inp: int = na.alloc(20, (1) * 10, 1, out_bw)  # wide output
     spl_out0: int = na.alloc(-10, -10 * 0, 0, in_bw)  # narrow input
     spl_out1: int = na.alloc(-10, -10 * 0 + 20, 0, extra)  # zero padding
-    comps.append(_make_comp("Splitter", x, y,
+    comps.append(CompDict.create("Splitter", x, y,
         ["LEFT", out_bw, [in_bw, extra]],
         {"outputs": [spl_out0, spl_out1], "inp1": spl_inp},
         direction="LEFT", propagation_delay=10))
@@ -169,7 +146,7 @@ def emit_splitter(na: _CVNodeAlloc, bw: int, groups: list[int],
         if inp_node is None:
             inp_node = na.alloc(-10, 10 + y_offset, 1, bw)
 
-    comp: CompDict = _make_comp("Splitter", x, y,
+    comp: CompDict = CompDict.create("Splitter", x, y,
         [direction, bw, groups],
         {"outputs": out_nodes, "inp1": inp_node},
         direction=direction, propagation_delay=10)
@@ -292,6 +269,6 @@ def emit_component(na: _CVNodeAlloc, component_type: str, x: int, y: int,
         elif "default" in cp and cp["default"] is not None:
             ctor_params.append(cp["default"])
 
-    comp: CompDict = _make_comp(component_type, x, y, ctor_params, nodes_dict,
+    comp: CompDict = CompDict.create(component_type, x, y, ctor_params, nodes_dict,
         propagation_delay=propagation_delay, direction=direction, label=label)
     return comp, pin_nodes

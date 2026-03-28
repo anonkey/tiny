@@ -169,7 +169,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
         na.nodes = [old_nodes[i] for i in new_order]
         na.abs_pos = [na.abs_pos[i] for i in new_order]
         for node in na.nodes:
-            node["connections"] = [remap[c] for c in node["connections"]]
+            node.connections = [remap[c] for c in node.connections]
         remap_comp_nodes(cv_inputs + cv_outputs + cv_splitters, remap)
         for comp_list in components.values():
             remap_comp_nodes(comp_list, remap)
@@ -192,6 +192,8 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
             port_info[pname] = {"direction": "output", "width": bw, "x": LAYOUT_W, "y": pin_y}
             pin_y += 20
 
+    # Serialize dataclasses to plain dicts for JSON output
+    _ser = CompDict.to_dict
     scope: ScopeDict = {
         "layout": _cv_layout(len(cv_inputs), len(cv_outputs)),
         "verilogMetadata": {
@@ -200,14 +202,14 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
             "code": "",
             "subCircuitScopeIds": [],
         },
-        "allNodes": na.nodes,
+        "allNodes": na.nodes_as_dicts(),
         "id": int(scope_id),
         "name": _clean_yosys_name(mod_name, ymod),
-        "Input": cv_inputs,
-        "Output": cv_outputs,
-        **({"Splitter": cv_splitters} if cv_splitters else {}),
+        "Input": [_ser(c) for c in cv_inputs],
+        "Output": [_ser(c) for c in cv_outputs],
+        **({"Splitter": [_ser(c) for c in cv_splitters]} if cv_splitters else {}),
         **({"SubCircuit": cv_subcircuits} if cv_subcircuits else {}),
-        **{k: v for k, v in components.items()},
+        **{k: [_ser(c) for c in v] for k, v in components.items()},
         "restrictedCircuitElementsUsed": [],
         "nodes": wired_node_ids(na),
         # Private keys for callers that need custom layout computation

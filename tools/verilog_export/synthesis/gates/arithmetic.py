@@ -6,7 +6,7 @@ from typing import Any
 
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _adapt_width, _adapt_single,
-  _append_comp, _make_comp,
+  _append_comp,
 )
 from common.emit import emit_alu, register_bits
 from common.node_alloc import _CVNodeAlloc

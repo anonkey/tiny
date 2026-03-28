@@ -28,7 +28,7 @@ def _collect_comp_pin_nids(components: list[CompDict] | None) -> set[int]:
     if not components:
         return pin_nids
     for comp in components:
-        cd = comp.get("customData", {}).get("nodes", {})
+        cd = comp.customData.nodes
         for val in cd.values():
             if isinstance(val, int):
                 pin_nids.add(val)
@@ -50,7 +50,7 @@ def _collect_nets(nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[Net], in
     nets: list[Net] = []
 
     for start in range(len(nodes)):
-        if start in visited or not nodes[start]["connections"]:
+        if start in visited or not nodes[start].connections:
             continue
         net_nids: set[int] = set()
         queue: list[int] = [start]
@@ -59,7 +59,7 @@ def _collect_nets(nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[Net], in
             if nid in net_nids:
                 continue
             net_nids.add(nid)
-            for cid in nodes[nid]["connections"]:
+            for cid in nodes[nid].connections:
                 if cid not in net_nids:
                     queue.append(cid)
         visited |= net_nids
@@ -68,7 +68,7 @@ def _collect_nets(nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[Net], in
         net_segments: set[tuple[str, int, int, int]] = set()
         for nid in net_nids:
             ax, ay = abs_pos[nid]
-            for cid in nodes[nid]["connections"]:
+            for cid in nodes[nid].connections:
                 if cid > nid:
                     bx, by = abs_pos[cid]
                     if ax == bx:
@@ -86,7 +86,7 @@ def _collect_nets(nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[Net], in
 
         junction_cells: set[tuple[int, int]] = set()
         for nid in net_nids:
-            if len(nodes[nid]["connections"]) >= 3:
+            if len(nodes[nid].connections) >= 3:
                 junction_cells.add(abs_pos[nid])
         nets.append((net_nids, net_cells, net_segments, junction_cells))
 
@@ -192,11 +192,11 @@ def _check_clearance_violations(nets: list[Net], abs_pos: AbsPos, components: li
 
     issues: int = 0
     for comp in components:
-        cx, cy = comp.get("x", 0), comp.get("y", 0)
-        ct = comp.get("objectType", "")
+        cx, cy = comp.x, comp.y
+        ct = comp.objectType
         # Support both base components (registry lookup) and subcircuits
         # (inline _sc_dimensions) — same clearance rules for both.
-        sc_dim = comp.get("customData", {}).get("_sc_dimensions")
+        sc_dim = comp.customData._sc_dimensions
         if sc_dim:
             dim = sc_dim
         elif ct:
@@ -214,7 +214,7 @@ def _check_clearance_violations(nets: list[Net], abs_pos: AbsPos, components: li
         by1 = cy + dim["down"] - 1
 
         own_nids: set[int] = set()
-        cd = comp.get("customData", {}).get("nodes", {})
+        cd = comp.customData.nodes
         for val in cd.values():
             if isinstance(val, int):
                 own_nids.add(val)
@@ -265,7 +265,7 @@ def _check_bitwidth_mismatches(nets: list[Net], nodes: list[NodeDict]) -> int:
     for net_nids, _, _, _ in nets:
         bws: dict[int, list[int]] = {}
         for nid in net_nids:
-            bw = nodes[nid].get("bitWidth", 1)
+            bw = nodes[nid].bitWidth
             bws.setdefault(bw, []).append(nid)
         if len(bws) > 1:
             issues += 1
@@ -286,7 +286,7 @@ def _check_hanging_wires(nets: list[Net], abs_pos: AbsPos, comp_pin_nids: set[in
     issues: int = 0
     for net_nids, _, _, _ in nets:
         for nid in net_nids:
-            if len(nodes[nid]["connections"]) == 1 and nid not in comp_pin_nids:
+            if len(nodes[nid].connections) == 1 and nid not in comp_pin_nids:
                 ax, ay = abs_pos[nid]
                 issues += 1
                 _log.warning("HANGING: node %d(%d,%d) has 1 connection "

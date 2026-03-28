@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, NamedTuple
 
-from common.types import CompDict, CompMap, BitNodes, YosysModule
+from common.types import CompDict, CVCustomData, CompMap, BitNodes, YosysModule
 from common.node_alloc import _CVNodeAlloc
 
 _log: logging.Logger = logging.getLogger(__name__)
@@ -350,17 +350,17 @@ def _place_subcircuit(cell_name: str, cell: dict[str, Any], na: _CVNodeAlloc, bi
 
   # Synthetic component dict so the router can block the body
   all_nids = input_nodes + output_nodes
-  sc_comps.append({
-    "x": sc_x, "y": y_cell,
-    "objectType": "",
-    "customData": {
-      "nodes": {"pins": all_nids},
-      "_sc_dimensions": {
+  sc_comps.append(CompDict(
+    x=sc_x, y=y_cell,
+    objectType="",
+    customData=CVCustomData(
+      nodes={"pins": all_nids},
+      _sc_dimensions={
         "left": 0, "right": layout_w,
         "up": 0, "down": h,
       },
-    },
-  })
+    ),
+  ))
 
   return h, n_max
 
