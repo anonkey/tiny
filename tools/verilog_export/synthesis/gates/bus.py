@@ -7,6 +7,20 @@ from common.constants import pin_clearance, splitter_pin, _new_bus_pin, _param_i
 from common.emit import emit_splitter, register_bits
 from common.node_alloc import _CVNodeAlloc
 from common.types import BitNodes, CompMap, YosysCell, YosysConns
+from synthesis.gates.registry import dimensions as _dimensions
+
+
+def _splitter_y_offset(groups: list[int]) -> int:
+  """Extra downward offset so a large Splitter doesn't overlap the previous cell.
+
+  The placement loop passes y as the component center.  Small components
+  (up <= 30) fit inside the default clearance, but Splitters with many
+  output groups extend further above the anchor.  Return the extra pixels
+  the anchor must be pushed down.
+  """
+  up = _dimensions("Splitter", bitWidthSplit=groups)["up"]
+  # 30 is the implicit half-height the old hardcoded '60' assumed
+  return max(0, up - 30)
 
 
 def place_slice(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
@@ -15,27 +29,33 @@ def place_slice(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes:
   y_bw = _param_int(cell, "Y_WIDTH", len(conns["Y"]))
   offset = _param_int(cell, "OFFSET", 0)
 
-  spl_inp = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=-10, ry=0)
-
   groups = []
-  out_nodes = []
   if offset > 0:
     groups.append(offset)
-    out_nodes.append(na.alloc(20, -10, 1, offset))
   groups.append(y_bw)
-  result_out = na.alloc(20, 0, 1, y_bw)
-  register_bits(na, bit_nodes, conns["Y"], result_out, y_bw)
-  out_nodes.append(result_out)
   remaining = a_bw - offset - y_bw
   if remaining > 0:
     groups.append(remaining)
+
+  dy = _splitter_y_offset(groups)
+  y += dy
+
+  spl_inp = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=-10, ry=0)
+
+  out_nodes = []
+  if offset > 0:
+    out_nodes.append(na.alloc(20, -10, 1, offset))
+  result_out = na.alloc(20, 0, 1, y_bw)
+  register_bits(na, bit_nodes, conns["Y"], result_out, y_bw)
+  out_nodes.append(result_out)
+  if remaining > 0:
     out_nodes.append(na.alloc(20, 10, 1, remaining))
 
   spl_comp, _, _ = emit_splitter(
     na, a_bw, groups, "RIGHT", x, y,
     inp_node=spl_inp, out_nodes=out_nodes)
   components.setdefault("Splitter", []).append(spl_comp)
-  return 60 + pin_clearance(max(1, len(groups)))
+  return dy + 60 + pin_clearance(max(1, len(groups)))
 
 
 def place_concat(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
@@ -43,6 +63,9 @@ def place_concat(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   b_bw = _param_int(cell, "B_WIDTH", len(conns.get("B", [])))
   y_bw = a_bw + b_bw
+
+  dy = _splitter_y_offset([a_bw, b_bw])
+  y += dy
 
   # LEFT splitter: x mirrored, so multi-pin side uses rx=20, bus side uses rx=-10
   rx_a, ry_a, nt_a = splitter_pin("LEFT", "outputs", 2, 0)
@@ -57,7 +80,7 @@ def place_concat(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes
     na, y_bw, [a_bw, b_bw], "LEFT", x, y,
     inp_node=spl_inp, out_nodes=[spl_out_a, spl_out_b])
   components.setdefault("Splitter", []).append(spl_comp)
-  return 60 + pin_clearance(2)
+  return dy + 60 + pin_clearance(2)
 
 
 def place_cv_splitter(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
@@ -67,6 +90,9 @@ def place_cv_splitter(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_
   direction = params["DIRECTION"]
   groups = params["GROUPS"]
   n = len(groups)
+
+  dy = _splitter_y_offset(groups)
+  y += dy
 
   if direction == "LEFT":
     # Joiner: N narrow inputs -> 1 wide output
@@ -99,4 +125,4 @@ def place_cv_splitter(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_
     na, bw, groups, direction, x, y,
     inp_node=inp_node, out_nodes=out_nodes)
   components.setdefault("Splitter", []).append(spl_comp)
-  return 60 + pin_clearance(n)
+  return dy + 60 + pin_clearance(n)
