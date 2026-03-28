@@ -140,7 +140,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
         ymod, na, bit_nodes, col_cells, col_x,
         cell_depth=cell_depth, cell_positions=cell_positions,
-        bbox=bbox, layout_w=LAYOUT_W)
+        bbox=bbox, layout_w=LAYOUT_W, components=components)
 
     # ── Wiring + routing ─────────────────────────────────────────────────
 

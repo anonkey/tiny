@@ -142,11 +142,14 @@ def place_ports(
         cell_depth: dict[str, int] | None = None,
         cell_positions: dict[str, tuple[int, int]] | None = None,
         bbox: tuple[int, int, int, int] | None = None,
-        layout_w: int = 100
+        layout_w: int = 100,
+        components: dict[str, list[CompDict]] | None = None,
     ) -> tuple[list[CompDict], list[CompDict], list[CompDict], int, int]:
     """Create Input/Output CV components with splitters for multi-bit ports.
 
     Ports are placed outside the bounding box, aligned with their target cell's y.
+    When *components* is provided, ConstantVal entries are relocated to the
+    same x column as inputs so they line up visually.
     Returns (cv_inputs, cv_outputs, cv_splitters, y_in, y_out).
     """
     if col_x is None:
@@ -253,6 +256,44 @@ def place_ports(
             layout_pin_y_in  += 20
         else:
             layout_pin_y_out += 20
+
+    # ── Relocate ConstantVal components to the input column ────────────
+    if components is not None:
+        # Build a reverse map: node_id -> cell (x, y) for consumer lookup
+        _node_to_cell_y: dict[int, int] = {}
+        if cell_positions:
+            for _depth_cells in col_cells.values():
+                for cname, cell in _depth_cells:
+                    if cname not in cell_positions:
+                        continue
+                    _, cy_cell = cell_positions[cname]
+                    for pname, d in cell.get("port_directions", {}).items():
+                        if d != "input":
+                            continue
+                        for b in cell.get("connections", {}).get(pname, []):
+                            if not isinstance(b, str):
+                                for nid in bit_nodes.get(b, []):
+                                    _node_to_cell_y[nid] = cy_cell
+
+        for cv in components.get("ConstantVal", []):
+            out_nid: int | None = cv.customData.nodes.get("output1")
+            desired_cv_y: int = cv.y
+            if out_nid is not None:
+                # Find consumer cell y through connections
+                for conn_nid in na.nodes[out_nid].connections:
+                    if conn_nid in _node_to_cell_y:
+                        desired_cv_y = _node_to_cell_y[conn_nid]
+                        break
+            cv_bw: int = 1
+            ctor = cv.customData.constructorParamaters
+            if len(ctor) >= 2 and isinstance(ctor[1], int):
+                cv_bw = ctor[1]
+            cv_height: int = max(cv_bw * 20 + 20, CELL_GAP)
+            cv_y: int = _find_free_y(desired_cv_y, cv_height, used_left)
+            used_left.append((cv_y, cv_y + cv_height))
+            cv.x = inp_x
+            cv.y = cv_y
+            _log.debug("relocate ConstantVal to (%d, %d)", inp_x, cv_y)
 
     # Compute overall y extents for layout height calculation
     y_in: int = max((c.y + CELL_GAP for c in cv_inputs), default=0)
