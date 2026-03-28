@@ -3,7 +3,89 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from typing import Any
+from typing import Any, TypedDict
+
+
+# ── Concrete type aliases ─────────────────────────────────────────────────
+
+# CVCustomData.nodes values: single pin (int) or multi-pin array (list[int])
+NodeValue = int | list[int]
+
+# CVCustomData.constructorParamaters elements
+CtorParam = str | int | list[int] | dict[str, int | bool | str]
+
+# Yosys cell connections: port_name -> list of bit indices or constants
+YosysConns = dict[str, list[int | str]]
+
+
+# ── TypedDicts for structured dicts ──────────────────────────────────────
+
+class YosysCell(TypedDict, total=False):
+  """A single Yosys netlist cell."""
+  type: str
+  parameters: dict[str, str | int]
+  port_directions: dict[str, str]
+  connections: YosysConns
+  attributes: dict[str, str | int]
+
+
+class PortInfo(TypedDict):
+  """Subcircuit port position and metadata."""
+  direction: str
+  width: int
+  x: int
+  y: int
+
+
+class PinPos(TypedDict):
+  """Minimal pin position on a subcircuit box."""
+  x: int
+  y: int
+
+
+class SubScopeInfo(TypedDict):
+  """Entry in sub_scope_ids dict."""
+  scope_id: str
+  port_info: dict[str, PortInfo]
+  layout_w: int
+
+
+class LayoutDict(TypedDict):
+  """Return type of _cv_layout."""
+  width: int
+  height: int
+  title_x: int
+  title_y: int
+  titleEnabled: bool
+
+
+class NetInfo(TypedDict):
+  """Router net descriptor."""
+  root: int
+  node_ids: set[int]
+  min_x: int
+  max_x: int
+  min_y: int
+  max_y: int
+  bw: int
+  area: int
+
+
+class CVSubCircuit(TypedDict):
+  """A SubCircuit entry in the CircuitVerse scope components dict."""
+  x: int
+  y: int
+  id: str
+  label: str
+  labelDirection: str
+  inputNodes: list[int]
+  outputNodes: list[int]
+  version: str
+
+
+# Convenience aliases for col_cells repetition
+CellEntry = tuple[str, YosysCell]
+ColCells = dict[int, list[CellEntry]]
 
 
 # ── Label direction mirror (used by CompDict.create) ─────────────────────
@@ -45,9 +127,9 @@ class NodeDict:
 class CVCustomData:
   """customData block inside a CircuitVerse component."""
   # Key is intentionally misspelled — matches upstream CircuitVerse API.
-  constructorParamaters: list[Any] = field(default_factory=list)
-  nodes: dict[str, Any] = field(default_factory=dict)
-  values: dict[str, Any] | None = None
+  constructorParamaters: list[CtorParam] = field(default_factory=list)
+  nodes: dict[str, NodeValue] = field(default_factory=dict)
+  values: dict[str, str | int] | None = None
   _sc_dimensions: dict[str, int] | None = None
 
   def to_dict(self) -> dict[str, Any]:
@@ -76,7 +158,7 @@ class CompDict:
 
   @classmethod
   def create(cls, cv_type: str, x: int, y: int,
-             ctor_params: list[Any], nodes: dict[str, Any],
+             ctor_params: list[CtorParam], nodes: dict[str, NodeValue],
              propagation_delay: int = 100, direction: str = "RIGHT",
              label: str = "") -> CompDict:
     """Factory — replaces _make_comp() from emit.py."""
@@ -148,23 +230,23 @@ class VerilogMetadata:
 @dataclass
 class ScopeDict:
   """A single CircuitVerse scope (circuit/subcircuit)."""
-  layout: dict[str, Any]
+  layout: LayoutDict
   verilogMetadata: VerilogMetadata
   allNodes: list[NodeDict]
   id: int
   name: str
-  restrictedCircuitElementsUsed: list[Any] = field(default_factory=list)
+  restrictedCircuitElementsUsed: list[str] = field(default_factory=list)
   nodes: list[int] = field(default_factory=list)
   # Component lists keyed by objectType (Input, Output, Splitter, SubCircuit, ...)
-  components: dict[str, list[Any]] = field(default_factory=dict)
+  components: dict[str, list[CompDict | CVSubCircuit]] = field(default_factory=dict)
   # Top-level only
   scopes: list[ScopeDict] | None = None
   logixClipBoardData: bool | None = None
 
   @staticmethod
-  def _ser_item(item: Any) -> Any:
-    """Serialize a component item (CompDict -> dict, or passthrough)."""
-    return item.to_dict() if isinstance(item, CompDict) else item
+  def _ser_item(item: CompDict | CVSubCircuit) -> dict[str, Any]:
+    """Serialize a component item (CompDict -> dict, or CVSubCircuit passthrough)."""
+    return item.to_dict() if isinstance(item, CompDict) else dict(item)
 
   def to_dict(self) -> dict[str, Any]:
     """Serialize to plain dict for JSON output.
@@ -200,10 +282,13 @@ class ScopeDict:
       "logixClipBoardData",
     }
     vm = d.get("verilogMetadata", {})
-    components: dict[str, list[Any]] = {}
+    components: dict[str, list[CompDict | CVSubCircuit]] = {}
     for k, v in d.items():
       if k not in skip and isinstance(v, list):
-        components[k] = v
+        if k == "SubCircuit":
+          components[k] = v  # type: ignore[assignment]  # CVSubCircuit dicts
+        else:
+          components[k] = [CompDict.from_dict(item) if isinstance(item, dict) else item for item in v]
     return cls(
       layout=d.get("layout", {}),
       verilogMetadata=VerilogMetadata(

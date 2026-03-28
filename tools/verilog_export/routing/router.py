@@ -9,10 +9,9 @@ from __future__ import annotations
 import heapq
 import logging
 from collections.abc import Callable
-from typing import Any
 
 from common.constants import GRID_UNIT
-from common.types import NodeDict, AbsPos, CompDict
+from common.types import NodeDict, NetInfo, AbsPos, CompDict
 from common.utils import _extract_comp_params
 
 _log: logging.Logger = logging.getLogger(__name__)
@@ -94,12 +93,12 @@ def _collect_pairs(nodes: list[NodeDict], num_original: int) -> set[tuple[int, i
     return pairs
 
 
-def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[dict[str, Any]], list[tuple[int, int, int, int, int]]]:
+def _characterize_nets(net_nodes: dict[int, set[int]], nodes: list[NodeDict], abs_pos: AbsPos) -> tuple[list[NetInfo], list[tuple[int, int, int, int, int]]]:
     """Phase 3: classify nets as point / straight / needs-routing.
 
     Returns (nets_to_route, straight_nets).
     """
-    nets: list[dict[str, Any]] = []
+    nets: list[NetInfo] = []
     straight_nets: list[tuple[int, int, int, int, int]] = []
     for root, node_ids in net_nodes.items():
         positions: list[tuple[int, int]] = [abs_pos[n] for n in node_ids]
@@ -307,7 +306,7 @@ class _OccupancyGrid:
             cx: int = comp.x
             cy: int = comp.y
             ct: str = comp.objectType
-            cd: dict[str, Any] = comp.customData.nodes
+            cd = comp.customData.nodes
             comp_nids: list[int] = []
             for val in cd.values():
                 if isinstance(val, int) and val < num_original:
@@ -325,7 +324,7 @@ class _OccupancyGrid:
             if sc_dim:
                 dim = sc_dim
             elif ct:
-                params: dict[str, Any] = _extract_comp_params(ct, comp)
+                params: dict[str, int | list[int]] = _extract_comp_params(ct, comp)
                 try:
                     dim = _ref_dimensions(ct, **params)
                 except KeyError:
@@ -502,7 +501,7 @@ def astar_route(grid: _OccupancyGrid, net_root: int, connected_nets: dict[int, s
 # Single-net router (nearest-sink decomposition)
 # ---------------------------------------------------------------------------
 
-def _route_net(net: dict[str, Any], nodes: list[NodeDict], abs_pos: AbsPos, grid: _OccupancyGrid, connected_nets: dict[int, set[int]], pin_departure_fn: Callable[[int], tuple[int, int]]) -> None:
+def _route_net(net: NetInfo, nodes: list[NodeDict], abs_pos: AbsPos, grid: _OccupancyGrid, connected_nets: dict[int, set[int]], pin_departure_fn: Callable[[int], tuple[int, int]]) -> None:
     """Route a single multi-pin net using nearest-sink decomposition.
 
     Modifies *nodes* (adds bend nodes, wires connections) and *abs_pos*
@@ -721,7 +720,7 @@ def route_orthogonal(nodes: list[NodeDict], abs_pos: AbsPos, components: list[Co
         net_nodes.setdefault(root, set()).update([a, b])
 
     # Phase 3: characterize nets
-    nets: list[dict[str, Any]]
+    nets: list[NetInfo]
     straight_nets: list[tuple[int, int, int, int, int]]
     nets, straight_nets = _characterize_nets(net_nodes, nodes, abs_pos)
     if not nets:

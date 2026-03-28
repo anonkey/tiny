@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from common.types import CompDict, CompMap, BitNodes
+from common.types import CompDict, CompMap, BitNodes, CtorParam, NodeValue
 from common.node_alloc import _CVNodeAlloc  # noqa: TC001 — used in type annotations
 
 _log: logging.Logger = logging.getLogger(__name__)
@@ -23,8 +23,8 @@ CTOR_PARAMS_KEY: str = "constructorParamaters"
 # ---------------------------------------------------------------------------
 
 def _append_comp(components: CompMap, cv_type: str, x: int, y: int,
-                 ctor_params: list[Any], nodes: dict[str, Any],
-                 **kwargs: Any) -> CompDict:
+                 ctor_params: list[CtorParam], nodes: dict[str, NodeValue],
+                 **kwargs: int | str) -> CompDict:
     """Build a component and append it to the components dict. Returns the component."""
     comp: CompDict = CompDict.create(cv_type, x, y, ctor_params, nodes, **kwargs)
     components.setdefault(cv_type, []).append(comp)
@@ -223,7 +223,7 @@ def emit_alu(na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap,
 def emit_component(na: _CVNodeAlloc, component_type: str, x: int, y: int,
                    direction: str = "RIGHT", label: str = "",
                    propagation_delay: int = 100, bitWidth: int = 1,
-                   **extra_params: Any) -> tuple[CompDict, dict[str, int]]:
+                   **extra_params: int | list[int]) -> tuple[CompDict, dict[str, int]]:
     """Emit any simple component using the registry for pin positions.
 
     Handles components with static pins (fixed x/y in the reference).
@@ -238,7 +238,7 @@ def emit_component(na: _CVNodeAlloc, component_type: str, x: int, y: int,
     if comp_ref is None:
         raise KeyError(f"Unknown component: {component_type}")
 
-    params: dict[str, Any] = {"bitWidth": bitWidth, **extra_params}
+    params: dict[str, int | list[int]] = {"bitWidth": bitWidth, **extra_params}
     pin_nodes: dict[str, int] = {}
     nodes_dict: dict[str, int] = {}
 
@@ -259,7 +259,7 @@ def emit_component(na: _CVNodeAlloc, component_type: str, x: int, y: int,
         nodes_dict[pname] = nid
 
     # Build constructor params from reference
-    ctor_params: list[Any] = [direction]
+    ctor_params: list[CtorParam] = [direction]
     for cp in comp_ref.get("constructor_params", []):
         cpname: str = cp["name"]
         if cpname == "direction":

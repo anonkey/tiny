@@ -1,14 +1,14 @@
 """CircuitVerse scope ID allocator, layout, and scope builder."""
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import verilog_parser
 
 from common.node_alloc import _CVNodeAlloc
 from common.emit import CTOR_PARAMS_KEY
-from common.types import CompDict, CVCustomData, ScopeDict, VerilogMetadata
+from common.types import CompDict, CVCustomData, ScopeDict, VerilogMetadata, LayoutDict, PinPos
 
 
 class _CVScopeCounter:
@@ -31,7 +31,7 @@ class _CVScopeCounter:
 _cv_scope_id: _CVScopeCounter = _CVScopeCounter()
 
 
-def _cv_layout(n_inputs: int, n_outputs: int) -> dict[str, Any]:
+def _cv_layout(n_inputs: int, n_outputs: int) -> LayoutDict:
     """Compute subcircuit layout block size."""
     n_max = max(n_inputs, n_outputs, 1)
     return {
@@ -45,7 +45,7 @@ def _cv_layout(n_inputs: int, n_outputs: int) -> dict[str, Any]:
 
 def _build_cv_scope(
     mod: verilog_parser.Module, na: _CVNodeAlloc
-) -> tuple[ScopeDict, str, dict[str, dict[str, Any]]]:
+) -> tuple[ScopeDict, str, dict[str, PinPos]]:
     """Build a CircuitVerse scope dict for a Module (subcircuit definition).
 
     Returns (scope_dict, scope_id, pin_positions).
@@ -59,7 +59,7 @@ def _build_cv_scope(
 
     inputs: list[CompDict] = []
     outputs: list[CompDict] = []
-    pin_positions: dict[str, dict[str, Any]] = {}  # port_name -> {x, y} on the SubCircuit box
+    pin_positions: dict[str, PinPos] = {}  # port_name -> {x, y} on the SubCircuit box
 
     pin_y: int = 40
     for p in mod.inputs:

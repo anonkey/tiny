@@ -6,9 +6,9 @@ Cell handlers live in synthesis/gates/ — this module provides topo sort and di
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, NamedTuple
+from typing import Callable, NamedTuple
 
-from common.types import CompDict, CVCustomData, CompMap, BitNodes, YosysModule
+from common.types import CompDict, CVCustomData, CVSubCircuit, CompMap, BitNodes, YosysModule, YosysCell, YosysConns, SubScopeInfo, PortInfo, CellEntry, ColCells
 from common.node_alloc import _CVNodeAlloc
 
 _log: logging.Logger = logging.getLogger(__name__)
@@ -123,13 +123,13 @@ def _lookup_cell_info(ctype: str) -> CellInfo | None:
 
 # ── Topological sort ───────────────────────────────────────────────────────
 
-def topo_sort_cells(ymod: YosysModule) -> tuple[list[tuple[str, dict[str, Any]]], dict[int, list[tuple[str, dict[str, Any]]]], dict[str, int]]:
+def topo_sort_cells(ymod: YosysModule) -> tuple[list[CellEntry], ColCells, dict[str, int]]:
   """Extract cells, compute depth, return (sorted_cells, col_cells).
 
   Uses port_directions from Yosys JSON to automatically determine
   input/output ports for any cell type.
   """
-  cells: list[tuple[str, dict[str, Any]]] = [(n, c) for n, c in ymod.get("cells", {}).items()
+  cells: list[CellEntry] = [(n, c) for n, c in ymod.get("cells", {}).items()
            if c["type"] != "$scopeinfo"]
 
   bit_producer: dict[int, str] = {}
@@ -142,7 +142,7 @@ def topo_sort_cells(ymod: YosysModule) -> tuple[list[tuple[str, dict[str, Any]]]
             bit_producer[b] = cell_name
 
   cell_depth: dict[str, int] = {}
-  cell_by_name: dict[str, dict[str, Any]] = {n: c for n, c in cells}
+  cell_by_name: dict[str, YosysCell] = {n: c for n, c in cells}
 
   def _depth(cname: str, visiting: set[str] | None = None) -> int:
     if cname in cell_depth:
@@ -175,9 +175,9 @@ def topo_sort_cells(ymod: YosysModule) -> tuple[list[tuple[str, dict[str, Any]]]
   for cname, _ in cells:
     _depth(cname)
 
-  sorted_cells: list[tuple[str, dict[str, Any]]] = sorted(cells, key=lambda nc: (cell_depth[nc[0]],
+  sorted_cells: list[CellEntry] = sorted(cells, key=lambda nc: (cell_depth[nc[0]],
                                                  cells.index(nc)))
-  col_cells: dict[int, list[tuple[str, dict[str, Any]]]] = {}
+  col_cells: ColCells = {}
   for cname, cell in sorted_cells:
     d = cell_depth[cname]
     col_cells.setdefault(d, []).append((cname, cell))
@@ -187,7 +187,7 @@ def topo_sort_cells(ymod: YosysModule) -> tuple[list[tuple[str, dict[str, Any]]]
 
 # ── Horizontal extent per Yosys cell type ────────────────────────────────
 
-def _cell_h_extent(ctype: str, cell: dict[str, Any], sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> tuple[int, int]:
+def _cell_h_extent(ctype: str, cell: YosysCell, sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> tuple[int, int]:
   """Return (left, right) reach from column center for a Yosys cell."""
   from synthesis.gates.registry import dimensions
   # Subcircuit types — extent is half layout width on each side
@@ -214,7 +214,7 @@ def _cell_h_extent(ctype: str, cell: dict[str, Any], sub_scope_ids: dict[str, di
   return (left, right)
 
 
-def _cell_outward_pins(ctype: str, cell: dict[str, Any], sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> tuple[int, int]:
+def _cell_outward_pins(ctype: str, cell: YosysCell, sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> tuple[int, int]:
   """Return (left_pins, right_pins) outward-facing horizontal pin counts.
 
   'Outward' means: leftmost sub-component's left side pin count,
@@ -246,7 +246,7 @@ def _cell_outward_pins(ctype: str, cell: dict[str, Any], sub_scope_ids: dict[str
   return (lp, rp)
 
 
-def _col_extents(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> dict[int, tuple[int, int, int, int]]:
+def _col_extents(col_cells: ColCells, sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> dict[int, tuple[int, int, int, int]]:
   """Compute max (left, right) extent and outward pin counts per column."""
   extents: dict[int, tuple[int, int, int, int]] = {}
   for depth, cells in col_cells.items():
@@ -265,7 +265,7 @@ def _col_extents(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], sub_sco
   return extents
 
 
-def compute_col_x(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], min_col_gap: int = COL_GAP, sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> dict[int, int]:
+def compute_col_x(col_cells: ColCells, min_col_gap: int = COL_GAP, sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> dict[int, int]:
   """Compute x position for each column depth using pin-count-based clearance."""
   extents: dict[int, tuple[int, int, int, int]] = _col_extents(col_cells, sub_scope_ids)
   depths: list[int] = sorted(col_cells.keys())
@@ -291,12 +291,12 @@ def compute_col_x(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], min_co
 
 
 
-def _place_subcircuit(cell_name: str, cell: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, dict[str, Any]],
-                      x_center: int, y_cell: int, cv_subcircuits: list[dict[str, Any]], sc_comps: list[CompDict]) -> tuple[int, int]:
+def _place_subcircuit(cell_name: str, cell: YosysCell, na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, SubScopeInfo],
+                      x_center: int, y_cell: int, cv_subcircuits: list[CVSubCircuit], sc_comps: list[CompDict]) -> tuple[int, int]:
   """Place a single subcircuit instance. Returns (height, n_max)."""
   ctype: str = cell["type"]
-  sid: dict[str, Any] = sub_scope_ids[ctype]
-  port_info: dict[str, Any] = sid["port_info"]
+  sid: SubScopeInfo = sub_scope_ids[ctype]
+  port_info: dict[str, PortInfo] = sid["port_info"]
   layout_w: int = sid.get("layout_w", 100)
   dirs: dict[str, str] = cell.get("port_directions", {})
   conns: dict[str, list[int | str]] = cell["connections"]
@@ -365,13 +365,13 @@ def _place_subcircuit(cell_name: str, cell: dict[str, Any], na: _CVNodeAlloc, bi
   return h, n_max
 
 
-def _place_cells_impl(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], na: _CVNodeAlloc, bit_nodes: BitNodes, col_x: dict[int, int] | None = None, sub_scope_ids: dict[str, dict[str, Any]] | None = None,
-                      default_v_pad: int = V_CELL_PAD) -> tuple[CompMap, dict[str, tuple[int, int]], list[dict[str, Any]], list[CompDict]]:
+def _place_cells_impl(col_cells: ColCells, na: _CVNodeAlloc, bit_nodes: BitNodes, col_x: dict[int, int] | None = None, sub_scope_ids: dict[str, SubScopeInfo] | None = None,
+                      default_v_pad: int = V_CELL_PAD) -> tuple[CompMap, dict[str, tuple[int, int]], list[CVSubCircuit], list[CompDict]]:
   """Place cells (gate-level or high-level). Returns (components, cell_positions,
   cv_subcircuits, sc_comps)."""
   components: CompMap = {}
   cell_positions: dict[str, tuple[int, int]] = {}
-  cv_subcircuits: list[dict[str, Any]] = []
+  cv_subcircuits: list[CVSubCircuit] = []
   sc_comps: list[CompDict] = []
 
   # Use pre-computed column x positions, or compute them now
@@ -410,8 +410,8 @@ def _place_cells_impl(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], na
 
 # ── Public entry point ────────────────────────────────────────────────────
 
-def place_cells(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], na: _CVNodeAlloc, bit_nodes: BitNodes, gate_level: bool = False, col_x: dict[int, int] | None = None,
-                sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> tuple[CompMap, dict[str, tuple[int, int]], list[dict[str, Any]], list[CompDict]]:
+def place_cells(col_cells: ColCells, na: _CVNodeAlloc, bit_nodes: BitNodes, gate_level: bool = False, col_x: dict[int, int] | None = None,
+                sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> tuple[CompMap, dict[str, tuple[int, int]], list[CVSubCircuit], list[CompDict]]:
   """Map Yosys cells to CircuitVerse components, placed by column.
 
   Returns (components, cell_positions, cv_subcircuits, sc_comps).

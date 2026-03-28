@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _adapt_width, _append_comp,
 )
 from common.emit import emit_zero_extend, register_bits
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompMap
+from common.types import BitNodes, CompMap, YosysCell, YosysConns
 from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_logic(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_logic(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a multi-bit logic gate. Returns y-advance."""
   ctype = cell["type"]
 

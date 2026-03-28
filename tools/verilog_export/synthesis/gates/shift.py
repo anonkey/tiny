@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from common.constants import pin_clearance, _new_bus_pin, _param_int, _append_comp
 from common.emit import register_bits
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompMap
+from common.types import BitNodes, CompMap, YosysCell, YosysConns
 from synthesis.gates.registry import pin_pos, component_height
 
 
-def place_shift(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_shift(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a shift-left or shift-right. Returns y-advance."""
   ctype = cell["type"]
   cv_type = "verilogShiftLeft" if ctype in ("$shl", "$sshl") else "verilogShiftRight"

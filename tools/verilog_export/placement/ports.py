@@ -14,10 +14,10 @@ All positions snap to 10×10 grid.
 from __future__ import annotations
 
 import logging
-from typing import Any
+
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, CVCustomData, BitNodes, YosysModule
+from common.types import CompDict, CVCustomData, BitNodes, YosysModule, YosysCell, SubScopeInfo, CellEntry, ColCells
 
 _log: logging.Logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysMod
     For outputs: returns cell_name of rightmost (max depth) producer.
     Returns None if no connected cell found.
     """
-    cells: dict[str, Any] = ymod.get("cells", {})
+    cells: dict[str, YosysCell] = ymod.get("cells", {})
     port_bits_set: set[int] = set(b for b in port_bits if not isinstance(b, str))
     if not port_bits_set:
         return None
@@ -59,7 +59,7 @@ def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysMod
     best_cell: str | None = None
     best_depth: int | None = None
 
-    for cell_name, cell in cells.items():  # type: str, dict[str, Any]
+    for cell_name, cell in cells.items():
         if cell.get("type") == "$scopeinfo":
             continue
         if cell_name not in cell_depth:
@@ -89,13 +89,11 @@ def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysMod
 
 
 def _snap(x: int) -> int:
-    if x % GRID_UNIT != 0:
-        raise ValueError(f"Expected x to be multiple of GRID_UNIT={GRID_UNIT}, got {x}")
     return -((-x) // GRID_UNIT) * GRID_UNIT
 
 
-def compute_bbox(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: dict[int, int], cell_positions: dict[str, tuple[int, int]], sc_comps: list[CompDict],
-                 sub_scope_ids: dict[str, dict[str, Any]] | None = None) -> tuple[int, int, int, int]:
+def compute_bbox(col_cells: ColCells, col_x: dict[int, int], cell_positions: dict[str, tuple[int, int]], sc_comps: list[CompDict],
+                 sub_scope_ids: dict[str, SubScopeInfo] | None = None) -> tuple[int, int, int, int]:
     """Compute bounding box of all placed non-port components.
 
     Returns (left, top, right, bottom) with padding for routing clearance.
@@ -139,7 +137,7 @@ def place_ports(
         ymod: YosysModule,
         na: _CVNodeAlloc,
         bit_nodes: BitNodes,
-        col_cells: dict[int, list[tuple[str, dict[str, Any]]]],
+        col_cells: ColCells,
         col_x: dict[int, int] | None = None,
         cell_depth: dict[str, int] | None = None,
         cell_positions: dict[str, tuple[int, int]] | None = None,
@@ -180,8 +178,6 @@ def place_ports(
     out_body_left: int = max_out_bw * 10
     out_clearance: int = max_out_bw * 20 + 20
 
-    _log.debug("snap: raw=(%d, %d, %d, %d) pad=%d",
-               bbox_right , out_clearance , out_body_left)
     out_x: int = _snap(bbox_right + out_clearance + out_body_left)
 
     _log.debug("place_ports: max_in_bw=%d max_out_bw=%d inp_body_right=%d inp_clearance=%d out_body_left=%d out_clearance=%d",
@@ -212,7 +208,7 @@ def place_ports(
             y = _snap(ye)
         return y
 
-    for port_name, port_info in ymod.get("ports", {}).items():  # type: str, dict[str, Any]
+    for port_name, port_info in ymod.get("ports", {}).items():
         direction: str = port_info["direction"]
         bits: list[int | str] = port_info["bits"]
         bw: int = len(bits)

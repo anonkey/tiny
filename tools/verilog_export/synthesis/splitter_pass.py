@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Any
 
-from common.types import YosysModule, ProducerEntry
+from common.types import YosysModule, YosysCell, ProducerEntry
 
 _log: logging.Logger = logging.getLogger(__name__)
 _counter: int = 0
@@ -265,7 +264,7 @@ def _needs_splitter(groups: list[tuple[int, list[int | str]]], total_bw: int) ->
 def _insert_left(
     bits: list[int | str],
     groups: list[tuple[int, list[int | str]]],
-    new_cells: dict[str, Any],
+    new_cells: dict[str, YosysCell],
     producers: dict[int, ProducerEntry],
     next_bit: int,
 ) -> tuple[str, list[int], int]:
@@ -312,7 +311,7 @@ def _insert_left(
 def _insert_right(
     bits: list[int | str],
     groups: list[tuple[int, list[int | str]]],
-    new_cells: dict[str, Any],
+    new_cells: dict[str, YosysCell],
     producers: dict[int, ProducerEntry],
     next_bit: int,
 ) -> tuple[str, dict[int, int], int]:
@@ -381,7 +380,7 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
     producers: dict[int, ProducerEntry] = _build_producers(ymod)
     consumers: dict[int, list[ProducerEntry]] = _build_consumers(ymod)
     next_bit: int = _max_bit_id(ymod) + 1
-    new_cells: dict[str, Any] = {}
+    new_cells: dict[str, YosysCell] = {}
 
     # Debug: dump producer map for module ports
     for pname, pinfo in ymod.get("ports", {}).items():

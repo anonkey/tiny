@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from common.constants import pin_clearance, _new_bus_pin, _param_int, CTOR_PARAMS_KEY
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompMap
+from common.types import BitNodes, CompMap, YosysCell, YosysConns
 
 
-def place_mem_v2(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_mem_v2(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Map Yosys $mem_v2 to CircuitVerse verilogRAM. Returns y-advance."""
   params = cell.get("parameters", {})
   data_bw = _param_int(cell, "WIDTH", 8)

@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _append_comp,
 )
 from common.emit import emit_split_reduce, register_bits
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompMap
+from common.types import BitNodes, CompMap, YosysCell, YosysConns
 from synthesis.gates.registry import pin_pos, gate_output_pos, component_height
 
 
-def place_reduce(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_reduce(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a reduction op ($reduce_and/or/xor/xnor/bool). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   reduce_map = {
@@ -33,7 +32,7 @@ def place_reduce(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, 
   return component_height(gate_type, inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_not(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_logic_not(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place $logic_not (NOR reduction). Returns y-advance."""
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))
   spl_inp = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=-10, ry=0)
@@ -44,7 +43,7 @@ def place_logic_not(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAllo
   return component_height("NorGate", inputLength=a_bw) + pin_clearance(1)
 
 
-def place_logic_and_or(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_logic_and_or(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place $logic_and or $logic_or. Returns y-advance."""
   ctype = cell["type"]
   a_bw = _param_int(cell, "A_WIDTH", len(conns.get("A", [])))

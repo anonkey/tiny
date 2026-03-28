@@ -24,7 +24,7 @@ for _cat_key, _cat_val in _REF.items():
 _INVERTED_GATES: set[str] = {"NandGate", "NorGate", "XnorGate"}
 
 
-def _resolve_bw(bw_spec: int | str, params: dict[str, Any]) -> int:
+def _resolve_bw(bw_spec: int | str, params: dict[str, int | list[int]]) -> int:
   """Resolve a bitWidth spec like 'param:bitWidth' or int."""
   if isinstance(bw_spec, int):
     return bw_spec
@@ -36,7 +36,7 @@ def _resolve_bw(bw_spec: int | str, params: dict[str, Any]) -> int:
 
 # ── Pin position lookup ─────────────────────────────────────────────────
 
-def pin_pos(component_type: str, pin_name: str, index: int | None = None, **params: Any) -> tuple[int, int]:
+def pin_pos(component_type: str, pin_name: str, index: int | None = None, **params: int | list[int]) -> tuple[int, int]:
   """Return (x, y) for a pin on a component.
 
   Pin positions are always in RIGHT orientation; the node allocator
@@ -93,7 +93,7 @@ def pin_pos(component_type: str, pin_name: str, index: int | None = None, **para
   return (pin.get("x", 0), pin.get("y", 0))
 
 
-def _gate_input_pos(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
+def _gate_input_pos(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Gate input distribution: inputs at x=-10, vertically centered."""
   if pin_name == "output1":
     return (20, 0)  # overridden below for inverted gates
@@ -111,7 +111,7 @@ def gate_output_pos(component_type: str) -> tuple[int, int]:
   return (20, 0)
 
 
-def _mux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
+def _mux_pin(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Multiplexer pin positions from shared formula."""
   css = params.get("controlSignalSize", 1)
   input_size = 2 ** css
@@ -128,7 +128,7 @@ def _mux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]
   return (0, 0)
 
 
-def _demux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
+def _demux_pin(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Demultiplexer pin positions from shared formula."""
   css = params.get("controlSignalSize", 1)
   output_size = 2 ** css
@@ -145,7 +145,7 @@ def _demux_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, in
   return (0, 0)
 
 
-def _decoder_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
+def _decoder_pin(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Decoder pin positions from shared formula."""
   bw = params.get("bitWidth", 1)
   output_size = 2 ** bw
@@ -160,7 +160,7 @@ def _decoder_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, 
   return (0, 0)
 
 
-def _splitter_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int, int]:
+def _splitter_pin(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Splitter pin positions based on bitWidthSplit."""
   bws = params.get("bitWidthSplit", [1])
   bw = params.get("bitWidth", sum(bws))
@@ -177,7 +177,7 @@ def _splitter_pin(pin_name: str, index: int | None, **params: Any) -> tuple[int,
 
 # ── Dimensions lookup ────────────────────────────────────────────────────
 
-def dimensions(component_type: str, **params: Any) -> dict[str, int]:
+def dimensions(component_type: str, **params: int | list[int]) -> dict[str, int]:
   """Return {left, right, up, down} for a component."""
   comp = _COMPONENTS.get(component_type)
   if comp is None:
@@ -194,7 +194,7 @@ def dimensions(component_type: str, **params: Any) -> dict[str, int]:
   raise ValueError(f"No dimensions found for component type '{component_type}'")
 
 
-def _eval_dimensions(component_type: str, formula: dict[str, Any], **params: Any) -> dict[str, int]:
+def _eval_dimensions(component_type: str, formula: dict[str, Any], **params: int | list[int]) -> dict[str, int]:
   """Evaluate dynamic dimension formulas."""
   # TODO: check if multigate hlsynth
   # Gates: height scales with inputLength
@@ -245,13 +245,13 @@ def _eval_dimensions(component_type: str, formula: dict[str, Any], **params: Any
   return {"left": 20, "right": 20, "up": 20, "down": 20}
 
 
-def component_height(component_type: str, **params: Any) -> int:
+def component_height(component_type: str, **params: int | list[int]) -> int:
   """Total component height = up + down."""
   d = dimensions(component_type, **params)
   return d["up"] + d["down"]
 
 
-def component_width(component_type: str, **params: Any) -> int:
+def component_width(component_type: str, **params: int | list[int]) -> int:
   """Total component width = left + right."""
   d = dimensions(component_type, **params)
   return d["left"] + d["right"]

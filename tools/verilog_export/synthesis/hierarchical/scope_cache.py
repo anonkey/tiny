@@ -13,7 +13,7 @@ import os
 import shutil
 from typing import Any
 
-from common.types import ScopeDict
+from common.types import PortInfo, ScopeDict
 
 _log: logging.Logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ class ScopeCache:
             return None
 
     def put(self, mod_name: str, scope: ScopeDict,
-            port_info: dict[str, Any],
+            port_info: dict[str, PortInfo],
             subcircuit_types: list[str]) -> None:
         """Persist a routed scope to disk."""
         path: str = os.path.join(self._dir, f"{self._mod_key(mod_name)}.json")

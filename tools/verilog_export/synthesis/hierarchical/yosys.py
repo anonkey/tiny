@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from synthesis.hierarchical.scope_cache import ScopeCache
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, BitNodes, ScopeDict, VerilogMetadata, YosysModule
+from common.types import CompDict, CVSubCircuit, BitNodes, PortInfo, SubScopeInfo, ScopeDict, VerilogMetadata, YosysModule
 from common.constants import COL_GAP, GATE_COL_GAP
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
 from synthesis.hierarchical.yosys_runner import run_yosys, yosys_script, check_module_exists
@@ -99,8 +99,8 @@ def _clean_yosys_name(name: str, ymod: YosysModule | None = None) -> str:
 
 # ── Single-module scope builder ──────────────────────────────────────────
 
-def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, dict[str, Any]],
-                       gate_level: bool = False, check: bool = False) -> tuple[ScopeDict, str, dict[str, dict[str, Any]], list[str]]:
+def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, SubScopeInfo],
+                       gate_level: bool = False, check: bool = False) -> tuple[ScopeDict, str, dict[str, PortInfo], list[str]]:
     """Build a CircuitVerse scope for a single Yosys module.
 
     Cells whose type matches another module in the netlist become SubCircuit
@@ -178,7 +178,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
             sc["outputNodes"] = [remap[x] for x in sc["outputNodes"]]
 
     # Build port_info for parent scopes to use when placing this as SubCircuit
-    port_info: dict[str, dict[str, Any]] = {}
+    port_info: dict[str, PortInfo] = {}
     pin_y: int = 40
     for pname, pdata in ymod.get("ports", {}).items():
         bw: int = len(pdata["bits"])
@@ -199,7 +199,7 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
                len(all_splitters) - len(cv_splitters))
 
     # Build component dict (CompDict objects + SubCircuit plain dicts)
-    scope_components: dict[str, list[Any]] = {}
+    scope_components: dict[str, list[CompDict | CVSubCircuit]] = {}
     scope_components["Input"] = list(cv_inputs)
     scope_components["Output"] = list(cv_outputs)
     if all_splitters:
@@ -272,7 +272,7 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
         cache = ScopeCache(cache_dir, verilog_paths)
 
     # Build scopes bottom-up
-    sub_scope_ids: dict[str, dict[str, Any]] = {}
+    sub_scope_ids: dict[str, SubScopeInfo] = {}
     scopes: list[ScopeDict] = []
 
     for mod_name in ordered:
@@ -283,7 +283,7 @@ def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_le
 
         if cached is not None:
             scope: ScopeDict = cached["scope"]
-            port_info: dict[str, dict[str, Any]] = cached["port_info"]
+            port_info: dict[str, PortInfo] = cached["port_info"]
             scope_id: str = _cv_scope_id()
             scope.id = int(scope_id)
             for i, sc in enumerate(scope.components.get("SubCircuit", [])):

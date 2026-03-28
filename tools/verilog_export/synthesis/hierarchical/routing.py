@@ -1,8 +1,6 @@
 """Node remapping, wiring, and routing helpers for CircuitVerse generation."""
 from __future__ import annotations
 
-from typing import Any
-
 from common.node_alloc import _CVNodeAlloc
 from common.types import CompDict, CompMap, BitNodes
 

@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
 
 from common.constants import (
   pin_clearance, _new_bus_pin, _param_int, _maybe_invert, _append_comp,
 )
 from common.emit import emit_constant, register_bits
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompMap
+from common.types import BitNodes, CompMap, YosysCell, YosysConns
 from synthesis.gates.registry import pin_pos, component_height
 
 
-def place_dff(cell: dict[str, Any], conns: dict[str, Any], na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+def place_dff(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
   """Place a high-level DFF variant. Returns y-advance."""
   bw = _param_int(cell, "WIDTH", len(conns.get("D", [])))
   clk_pol = _param_int(cell, "CLK_POLARITY", 1)

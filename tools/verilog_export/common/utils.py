@@ -6,16 +6,13 @@ JSON format.  See ``CTOR_PARAMS_KEY`` in ``common/constants.py``.
 
 from __future__ import annotations
 
-from typing import Any
-
-from common.emit import CTOR_PARAMS_KEY
-from common.types import CompDict
+from common.types import CompDict, CtorParam
 
 
-def _extract_comp_params(comp_type: str, comp: CompDict) -> dict[str, Any]:
+def _extract_comp_params(comp_type: str, comp: CompDict) -> dict[str, int | list[int]]:
     """Extract dimension-relevant params from a component's constructorParamaters."""
-    ctor: list[Any] = comp.customData.constructorParamaters
-    params: dict[str, Any] = {}
+    ctor: list[CtorParam] = comp.customData.constructorParamaters
+    params: dict[str, int | list[int]] = {}
     if comp_type in ("Input", "Output", "ConstantVal"):
         if len(ctor) >= 2:
             bw = ctor[1]

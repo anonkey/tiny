@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from common.node_alloc import _CVNodeAlloc
-from common.types import BitNodes, CompDict, CompMap
+from common.types import BitNodes, CompDict, CompMap, YosysCell, YosysConns
 from common.types import CompDict as _CompDict
 from common.emit import (
   CTOR_PARAMS_KEY, _append_comp,
@@ -76,17 +74,17 @@ def _new_bus_pin(na: _CVNodeAlloc, bit_nodes: BitNodes,
 
 # ── Parameter extraction ─────────────────────────────────────────────────
 
-def _param_int(cell: dict[str, Any], name: str, default: int = 1) -> int:
+def _param_int(cell: YosysCell, name: str, default: int = 1) -> int:
   """Get an integer parameter from a Yosys cell."""
-  val: Any = cell.get("parameters", {}).get(name, default)
+  val: str | int = cell.get("parameters", {}).get(name, default)
   if isinstance(val, str):
     return int(val, 2) if all(c in "01" for c in val) else int(val)
   return int(val)
 
 
-def _param_bits(cell: dict[str, Any], name: str) -> str:
+def _param_bits(cell: YosysCell, name: str) -> str:
   """Get a parameter as a binary string (MSB first)."""
-  val: Any = cell.get("parameters", {}).get(name, "0")
+  val: str | int = cell.get("parameters", {}).get(name, "0")
   if isinstance(val, int):
     return bin(val)[2:]
   return val
@@ -113,7 +111,7 @@ def _adapt_single(na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap,
 
 
 def _adapt_width(na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap,
-                  cell: dict[str, Any], target_bw: int, x: int, y: int,
+                  cell: YosysCell, target_bw: int, x: int, y: int,
                   a_rx: int = -20, a_ry: int = -10,
                   b_rx: int = -20, b_ry: int = 10) -> tuple[int, int, int]:
   """Create zero-extended inputs A and B matched to target_bw.

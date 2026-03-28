@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, CVCustomData, ScopeDict, VerilogMetadata
+from common.types import CompDict, CVCustomData, CVSubCircuit, ScopeDict, VerilogMetadata, PinPos
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout, _build_cv_scope
 from common.emit import unique_pos, CTOR_PARAMS_KEY
 
@@ -26,7 +26,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
 
     # --- Build subcircuit scopes ---
     scope_ids: dict[str, str] = {}    # module_name -> scope_id
-    scope_pins: dict[str, dict[str, dict[str, Any]]] = {}   # module_name -> {port_name: {x, y}}
+    scope_pins: dict[str, dict[str, PinPos]] = {}   # module_name -> {port_name: {x, y}}
     scopes: list[ScopeDict] = []
     seen: set[str] = set()
     for inst in top_mod.instances:
@@ -36,7 +36,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         sub: verilog_parser.Module = mod_map[inst.module_name]
         scope: ScopeDict
         sid: str
-        pins: dict[str, dict[str, Any]]
+        pins: dict[str, PinPos]
         scope, sid, pins = _build_cv_scope(sub, na)
         scope_ids[inst.module_name] = sid
         scope_pins[inst.module_name] = pins
@@ -150,7 +150,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
                 if c not in inst_positions:
                     continue
                 ci: verilog_parser.Instance = inst_by_name[c]
-                pins: dict[str, dict[str, Any]] = scope_pins[ci.module_name]
+                pins: dict[str, PinPos] = scope_pins[ci.module_name]
                 for port_name, net_expr in ci.connections.items():
                     n: str = re.sub(r'\[.*?\]', '', net_expr).strip()
                     if n == net and port_name in pins:
@@ -192,7 +192,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         producer_name: str | None = net_producer.get(net)
         if producer_name and producer_name in inst_positions:
             pi: verilog_parser.Instance = inst_by_name[producer_name]
-            pins_o: dict[str, dict[str, Any]] = scope_pins[pi.module_name]
+            pins_o: dict[str, PinPos] = scope_pins[pi.module_name]
             px: int
             py: int
             px, py = inst_positions[producer_name]
@@ -225,12 +225,12 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         _register_net(p.name, inp_node)
 
     # --- Place SubCircuit instances ---
-    cv_subcircuits: list[dict[str, Any]] = []
+    cv_subcircuits: list[CVSubCircuit] = []
 
     for inst in sorted_insts:
         sub_sc: verilog_parser.Module = mod_map[inst.module_name]
         sid_sc: str = scope_ids[inst.module_name]
-        pins_sc: dict[str, dict[str, Any]] = scope_pins[inst.module_name]
+        pins_sc: dict[str, PinPos] = scope_pins[inst.module_name]
         sx: int
         sy: int
         sx, sy = inst_positions[inst.inst_name]
@@ -239,7 +239,7 @@ def generate_circuitverse(top_mod: verilog_parser.Module,
         output_nodes: list[int] = []
 
         for p in sub_sc.inputs:
-            pin: dict[str, Any] = pins_sc.get(p.name, {"x": 0, "y": 20})
+            pin: PinPos = pins_sc.get(p.name, {"x": 0, "y": 20})
             nid: int = na.alloc(pin["x"], pin["y"], 0, p.width)
             input_nodes.append(nid)
             net_expr_i: str = inst.connections.get(p.name, "")
