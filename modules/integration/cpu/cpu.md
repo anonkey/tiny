@@ -64,7 +64,7 @@ A single-cycle CPU executing 16-bit instructions from a 256-entry ROM. Each cloc
 | `1001` | ADDI | I | `rd = rs1 + imm6` |
 | `1010` | LDI | L | `rd = imm8` |
 | `1011` | JMP | L | `PC = imm8` |
-| `1100` | BEQ | L | `if (zero) PC = imm8` |
+| `1100` | BEZ | L | `if (rs1 == 0) PC = imm8` |
 | `1101` | LOAD | I | reserved |
 | `1110` | STORE | I | reserved |
 | `1111` | NOP | - | no operation |
@@ -94,7 +94,7 @@ L-type:  [opcode:4][rd:3][imm8:8][0:1]
 | `kogge_stone` | `src/kogge-stone.v` | Parameterized parallel prefix adder |
 | `pc` | `src/pc.v` | Program counter with load/increment |
 | `alu_operand_mux` | `src/alu_operand_mux.v` | ALU operand B selector (rs2 or sign-ext imm6) |
-| `zero_flag` | `src/zero_flag.v` | All-zero detector for BEQ |
+| `zero_flag` | `src/zero_flag.v` | All-zero detector for BEZ |
 | `mux` | `src/mux.v` | Parameterized multiplexer/demultiplexer |
 | `register` | `src/register.v` | Parameterized N-bit register |
 | `dff` | `src/dff.v` | D flip-flop with async reset |

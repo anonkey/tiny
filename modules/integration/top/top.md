@@ -22,7 +22,7 @@ flowchart TB
 
         subgraph OUTPUTS
             UO["uo_out[7:0]\nALU result"]
-            UIO["uio_out[7:0]\nProgram counter"]
+            UIO["uio_out[7:0]\nUnused (tied low)"]
         end
     end
 
@@ -43,11 +43,11 @@ flowchart TB
 
 ### Outputs
 - **`uo_out[7:0]`** : ALU result (current instruction's computation)
-- **`uio_out[7:0]`** : Program counter (current instruction address)
-- **`uio_oe[7:0]`** : All set to output (`8'hFF`)
+- **`uio_out[7:0]`** : Unused (tied to `8'h00`)
+- **`uio_oe[7:0]`** : All set to input (`8'h00`)
 
 ## File Location
-- **Source**: `src/top.v`
+- **Source**: `modules/integration/top/top.v`
 - **Dependencies**: `cpu.v`
 
 ---

@@ -2,7 +2,7 @@
 
 # PC - Program Counter
 
-> **8-bit program counter with increment (Kogge-Stone) and jump load**
+> **8-bit program counter with increment (half-adder chain) and jump load**
 
 ## Interface
 
@@ -24,13 +24,13 @@ load ──┘         ↑
                 clk, rst_n
 ```
 
-- **Increment**: Kogge-Stone adder computes `pc_out + 1`
+- **Increment**: `pc_inc` half-adder chain computes `pc_out + 1`
 - **Jump**: 2:1 mux selects between `pc_out + 1` and `load_addr`
 - **Storage**: 8-bit register (8 DFFs) holds current PC, resets to 0
 
 ## Dependencies
 
-`kogge-stone.v`, `mux.v`, `register.v`
+`pc_inc`, `mux`, `register` (+ `dff` transitively)
 
 ---
 [Back to Main](../README.md)

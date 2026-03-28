@@ -26,7 +26,7 @@ flowchart LR
     CLK --> CPU
     RST --> CPU
     CPU --> UO["uo_out[7:0]\nALU result"]
-    CPU --> UIO["uio_out[7:0]\nProgram counter"]
+    CPU --> UIO["uio_out[7:0]\nUnused (tied low)"]
 ```
 
 ### Multi-cycle CPU (half_cpu)
@@ -58,7 +58,7 @@ flowchart LR
 
 ```
 ADD  SUB  AND  OR   XOR  NOT
-ADDI LDI  JMP  BEQ  LOAD STORE NOP
+ADDI LDI  JMP  BEZ  LOAD STORE NOP
 ```
 
 See [cpu.md](modules/integration/cpu/cpu.md) for full ISA reference.
@@ -96,6 +96,7 @@ Each module is a self-contained package with source, docs, tests, and a `manager
 | pipeline_reg | Latches on condition, holds otherwise | [pipeline_reg.md](modules/lib/core/storage/pipeline_reg/pipeline_reg.md) |
 | kogge-stone | O(log N) parallel prefix adder | [kogge-stone.md](modules/lib/core/kogge-stone/kogge-stone.md) |
 | pc | 8-bit program counter with jump load | [pc.md](modules/lib/core/pc/pc.md) |
+| pc_inc | Half-adder chain incrementer (PC+1) | [pc_inc.md](modules/lib/core/pc_inc/pc_inc.md) |
 | rom | Parameterized ROM from hex file | [rom.md](modules/lib/core/storage/rom/rom.md) |
 
 ### Lib — Cells
@@ -124,14 +125,14 @@ Each module is a self-contained package with source, docs, tests, and a `manager
 ## Pin Usage
 
 - **`uo_out[7:0]`** : ALU result
-- **`uio_out[7:0]`** : Program counter
+- **`uio_out[7:0]`** : Unused (tied to `0x00`)
 - **`clk`** : System clock
 - **`rst_n`** : Active-low reset
 
 ## Project Structure
 
 ```
-modules/                        # 24 Verilog modules (monorepo packages)
+modules/                        # 25 Verilog modules (monorepo packages)
   lib/cells/                    #   primitives: dff, mux, zero_flag
   lib/core/                     #   datapath: alu, decoder, regfile, pc, ...
   lib/spi/                      #   SPI: cdc_sync, shift registers, byte counter

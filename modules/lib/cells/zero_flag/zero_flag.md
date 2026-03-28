@@ -17,7 +17,7 @@
 
 ## Usage
 
-Used for BEQ (branch-if-equal) instruction: branch is taken when ALU result is zero.
+Used for BEZ (branch-if-zero) instruction: branch is taken when rs1 is zero.
 
 Shared by both `cpu.v` and `half_cpu.v`.
 

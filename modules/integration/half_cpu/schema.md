@@ -361,9 +361,10 @@ half_cpu
 ```
   R-type:     [15:12 opcode] [11:9 rd] [8:6 rs1] [5:3 rs2] [2:0 unused]
   I-type:     [15:12 opcode] [11:9 rd] [8:6 rs1] [5:0 imm6]
-  LDI:        [  1011      ] [11:9 rd] [8:1 imm8          ] [0 unused]
+  LDI:        [  1010      ] [11:9 rd] [8:1 imm8          ] [0 unused]
   LOAD:       [  1101      ] [11:9 rd] [8:6 rs1] [5:0 imm6]     addr = rs1 + sext(imm6)
   STORE:      [  1110      ] [11:9 rs2][8:6 rs1] [5:0 imm6]     addr = rs1 + sext(imm6)
-  BEQ:        [  1100      ] [11:9 rs1][8:6 rs2] [5:0 unused]   branch if rs1 == rs2
-  JMP:        [  1111      ] [  unused ] [8:1 imm8]              PC = imm8
+  BEZ:        [  1100      ] [11:9 rs1][8:1 imm8          ] [0 unused]   branch if rs1 == 0
+  JMP:        [  1011      ] [11:9 rd] [8:1 imm8          ] [0 unused]   PC = imm8
+  NOP:        [  1111      ] [11:0 unused                        ]
 ```

@@ -22,7 +22,7 @@ MNEMONICS = {
     0b0000: "ADD",  0b0001: "SUB",  0b0010: "AND",  0b0011: "OR",
     0b0100: "XOR",  0b0101: "NOT",
     0b1001: "ADDI", 0b1010: "LDI",  0b1011: "JMP",
-    0b1100: "BEQ",  0b1101: "LOAD", 0b1110: "STORE", 0b1111: "NOP",
+    0b1100: "BEZ",  0b1101: "LOAD", 0b1110: "STORE", 0b1111: "NOP",
 }
 
 R_TYPE = {0,1,2,3,4}

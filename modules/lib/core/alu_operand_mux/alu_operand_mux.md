@@ -12,8 +12,6 @@
 | `rs2_data` | in | 8 | Register source 2 data |
 | `imm6` | in | 6 | 6-bit immediate (sign-extended to 8 bits) |
 | `sel` | in | 1 | 0 = rs2_data, 1 = sign-extended imm6 |
-| `clk` | in | 1 | System clock (unused, for interface consistency) |
-| `rst_n` | in | 1 | Reset (unused, for interface consistency) |
 
 ## Sign Extension
 

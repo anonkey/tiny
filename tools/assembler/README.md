@@ -33,7 +33,7 @@ LDI  r0, 42         ; r0 = 42 (0..255)
 ; Control flow
 JMP  label           ; jump to label
 JMP  20              ; jump to address 20
-BEQ  label           ; branch if zero flag set
+BEZ  r1, label       ; branch to label if r1 == 0
 NOP                  ; no operation
 ```
 
