@@ -38,6 +38,7 @@ COL_GAP: int = 300    # horizontal gap between columns (room for routing)
 X_START: int = 400    # x of first gate column (leaves room for input + splitter)
 
 # Gate-level overrides — wider channels for dense 1-bit netlists
+# TODO: unify
 GATE_COL_GAP: int = 450       # 1.5x wider horizontal routing channels
 GATE_V_CELL_PAD: int = 60     # 3x more vertical gap between gates
 

@@ -23,14 +23,15 @@ if _MANAGER_DIR not in sys.path:
 if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
-from manager_utils import discover_modules, find_project_root, resolve_deps
+from manager_utils import discover_modules, get_module_info, find_project_root, resolve_deps  # noqa: E402
 
-from synthesis.hierarchical import generate_circuitverse_yosys, generate_circuitverse_yosys_hier
+from synthesis.hierarchical import generate_circuitverse_yosys  # noqa: E402
+
 
 _FORMATS: list[str] = ["circuitverse-yosys", "circuitverse-yosys-hier"]
 
 
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Export Verilog modules to CircuitVerse JSON via Yosys."
     )
@@ -56,7 +57,11 @@ def main() -> None:
         "--cache", action="store_true",
         help="Cache routed module scopes for faster repeated hier exports",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+def main() -> None:
+
+    args = parse_args()
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
@@ -67,23 +72,11 @@ def main() -> None:
     modules_dir = os.path.join(project_root, "modules")
     registry = discover_modules(modules_dir)
 
-    if args.module not in registry:
-        # Fuzzy match
-        matches = [n for n in registry if args.module.lower() in n.lower()]
-        if len(matches) == 1:
-            args.module = matches[0]
-        elif matches:
-            print(f"Ambiguous: {', '.join(matches)}", file=sys.stderr)
-            sys.exit(1)
-        else:
-            print(f"Unknown module: {args.module}", file=sys.stderr)
-            sys.exit(1)
-
-    info = registry[args.module]
-    out_dir = args.output or os.path.join(info["path"], "export")
+    module_info = get_module_info(registry, args.module)
+    out_dir = args.output or os.path.join(module_info.path, "export")
     os.makedirs(out_dir, exist_ok=True)
 
-    all_paths = list(dict.fromkeys(resolve_deps(args.module, registry) + [info["verilog"]]))
+    all_paths = list(dict.fromkeys(resolve_deps(args.module, registry) + [module_info.verilog]))
     top_name = args.module.replace("-", "_")
 
     fmt = args.format
@@ -97,9 +90,9 @@ def main() -> None:
     elif fmt == "circuitverse-yosys-hier":
         cache_subdir = ".scope_cache_gate" if args.gate else ".scope_cache"
         cache_dir = os.path.join(_SCRIPT_DIR, cache_subdir) if args.cache else None
-        cv, netlist = generate_circuitverse_yosys_hier(all_paths, top_name,
-                                             cache_dir=cache_dir,
-                                             gate_level=args.gate)
+        cv, netlist = generate_circuitverse_yosys(all_paths, top_name,
+                                             gate_level=args.gate, flatten=False,
+                                             cache_dir=cache_dir, check=args.check)
         suffix = "gate-hier" if args.gate else "hlsynth-hier"
 
     # Dump Yosys synthesis JSON

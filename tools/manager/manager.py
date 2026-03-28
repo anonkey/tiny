@@ -53,7 +53,7 @@ def main():
     # --- CLI flags ---
     if args and args[0] == "--run-all":
         fst = "--fst" in args
-        testable = sorted(n for n, info in registry.items() if info["has_test"])
+        testable = sorted(n for n, info in registry.items() if info.has_test)
         failed = []
         for mod in testable:
             ret = run_tests(console, mod, registry, PROJECT_ROOT, MAKEFILE_SIM, fst=fst)

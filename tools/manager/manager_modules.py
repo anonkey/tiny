@@ -1,12 +1,16 @@
 """Package (module) helpers: deps tree, test runner, interactive module menu."""
 
+from __future__ import annotations
+
 import os
 import subprocess
 
 from manager_utils import (
     Console,
     Markdown,
+    ModuleInfo,
     Prompt,
+    Registry,
     arrow_select,
     extract_summary,
     fallback_select,
@@ -14,13 +18,14 @@ from manager_utils import (
 )
 
 
-def show_deps_tree(console, name, registry, modules_dir, indent=0):
+def show_deps_tree(console: Console, name: str, registry: Registry,
+                   modules_dir: str, indent: int = 0) -> None:
     """Print a dependency tree recursively."""
-    prefix = "  " * indent + ("├─ " if indent else "")
-    info = registry[name]
-    rel = os.path.relpath(info["path"], modules_dir)
+    prefix: str = "  " * indent + ("├─ " if indent else "")
+    info: ModuleInfo = registry[name]
+    rel: str = os.path.relpath(info.path, modules_dir)
     console.print(f"{prefix}[bold]{name}[/bold] [dim]({rel})[/dim]")
-    for dep in info["deps"]:
+    for dep in info.deps:
         show_deps_tree(console, dep, registry, modules_dir, indent + 1)
 
 
@@ -32,21 +37,22 @@ def make_env(project_root):
     return env
 
 
-def run_tests(console, name, registry, project_root, makefile_sim, fst=False):
+def run_tests(console: Console, name: str, registry: Registry,
+              project_root: str, makefile_sim: str, fst: bool = False) -> int:
     """Run tests for a module via the shared Makefile."""
-    info = registry[name]
-    if not info["has_test"]:
+    info: ModuleInfo = registry[name]
+    if not info.has_test:
         console.print(f"[red]No tests for '{name}'[/red]")
         return 1
 
     # Test files use underscores (e.g. tb_kogge_stone.v for module kogge-stone)
-    test_name = name.replace("-", "_")
+    test_name: str = name.replace("-", "_")
 
-    sources = resolve_deps(name, registry)
-    tb_file = os.path.join(info["path"], "test", f"tb_{test_name}.v")
+    sources: list[str] = resolve_deps(name, registry)
+    tb_file: str = os.path.join(info.path, "test", f"tb_{test_name}.v")
     sources.append(tb_file)
 
-    test_dir = os.path.join(info["path"], "test")
+    test_dir: str = os.path.join(info.path, "test")
     artifacts_dir = os.path.join(project_root, "artifacts", test_name)
     os.makedirs(artifacts_dir, exist_ok=True)
 
@@ -71,15 +77,17 @@ def run_tests(console, name, registry, project_root, makefile_sim, fst=False):
     return ret
 
 
-def interactive_module(console, name, registry, modules_dir, project_root, makefile_sim):
+def interactive_module(console: Console, name: str, registry: Registry,
+                      modules_dir: str, project_root: str,
+                      makefile_sim: str) -> None:
     """Show actions for a module: deps, tests, doc."""
-    info = registry[name]
+    info: ModuleInfo = registry[name]
 
-    actions = []
-    if info["doc"]:
+    actions: list[str] = []
+    if info.doc:
         actions.append("Show doc")
     actions.append("Show deps")
-    if info["has_test"]:
+    if info.has_test:
         actions.extend(["Run tests", "Run tests (FST)"])
     actions.append("Back")
 
@@ -104,7 +112,7 @@ def interactive_module(console, name, registry, modules_dir, project_root, makef
         if action == "Back":
             return
         elif action == "Show doc":
-            with open(info["doc"]) as f:
+            with open(info.doc) as f:
                 console.print(Markdown(f.read()))
         elif action == "Show deps":
             show_deps_tree(console, name, registry, modules_dir)
@@ -115,14 +123,14 @@ def interactive_module(console, name, registry, modules_dir, project_root, makef
         console.print()
 
 
-def select_module(console, registry):
+def select_module(console: Console, registry: Registry) -> str:
     """Arrow-key selection of a module, with text fallback."""
-    modules = sorted(registry.keys())
-    entries = []
+    modules: list[str] = sorted(registry.keys())
+    entries: list[str] = []
     for name in modules:
-        info = registry[name]
-        test_mark = "✓" if info["has_test"] else " "
-        summary = extract_summary(info["doc"]) if info["doc"] else ""
+        info: ModuleInfo = registry[name]
+        test_mark: str = "✓" if info.has_test else " "
+        summary: str = extract_summary(info.doc) if info.doc else ""
         entries.append(f"[{test_mark}] {name:20s} {summary}")
 
     idx = arrow_select("Select module:", entries)

@@ -25,6 +25,24 @@ from common.constants import _new_pin, _new_bus_pin, CELL_GAP, COL_GAP, X_START,
 from synthesis.gates.registry import pin_pos, dimensions
 
 
+class _PortSide:
+    def __init__(self, direction: str, inp_x: int, out_x: int, layout_w: int,
+                 cv_inputs: list[CompDict], cv_outputs: list[CompDict],
+                 used_left: list[tuple[int, int]], used_right: list[tuple[int, int]],
+                 layout_pin_y_in: int, layout_pin_y_out: int) -> None:
+        is_input           = direction == "input"
+        self.obj_type      = "Input"   if is_input else "Output"
+        self.cv_list       = cv_inputs if is_input else cv_outputs
+        self.used          = used_left if is_input else used_right
+        self.x             = inp_x     if is_input else out_x
+        self.cv_dir        = "RIGHT"   if is_input else "LEFT"
+        self.label_dir     = "LEFT"    if is_input else "RIGHT"
+        self.pin_name      = "output1" if is_input else "inp1"
+        self.node_is_output= 1         if is_input else 0
+        self.layout_pin_x  = 0         if is_input else layout_w
+        self.layout_pin_y  = layout_pin_y_in if is_input else layout_pin_y_out
+
+
 def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysModule, cell_depth: dict[str, int]) -> str | None:
     """Find the target cell for proximity placement.
 
@@ -71,8 +89,7 @@ def _find_port_target(port_bits: list[int | str], direction: str, ymod: YosysMod
 
 
 def _snap(x: int) -> int:
-    """Snap x to 10-unit grid (round up)."""
-    return ((x + GRID_UNIT - 1) // GRID_UNIT) * GRID_UNIT
+    return -((-x) // GRID_UNIT) * GRID_UNIT
 
 
 def compute_bbox(col_cells: dict[int, list[tuple[str, dict[str, Any]]]], col_x: dict[int, int], cell_positions: dict[str, tuple[int, int]], sc_comps: list[CompDict],
@@ -186,79 +203,47 @@ def place_ports(ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, col_ce
         bw: int = len(bits)
         port_height: int = max(bw * 20 + 20, CELL_GAP)
 
-        # Find target cell for proximity placement
+        # TODO: Collisions check Find target cell for proximity placement
         target_cell: str | None = _find_port_target(bits, direction, ymod, cell_depth)
 
+        side = _PortSide(direction, inp_x, out_x, layout_w,
+                         cv_inputs, cv_outputs, used_left, used_right,
+                         layout_pin_y_in, layout_pin_y_out)
+
+        desired_y: int = (cell_positions[target_cell][1]
+                          if target_cell and target_cell in cell_positions
+                          else (side.used[-1][1] if side.used else 0))
+        port_y: int = _find_free_y(desired_y, port_height, side.used)
+        side.used.append((port_y, port_y + port_height))
+
+        px: int
+        py: int
+        px, py = pin_pos(side.obj_type, side.pin_name, bitWidth=bw)
+        node: int = (_new_pin    (na, bit_nodes, bits[0], side.node_is_output, 1,  rx=px, ry=py) if bw == 1
+                else  _new_bus_pin(na, bit_nodes, bits,   side.node_is_output, bw, rx=px, ry=py))
+
+        entry: CompDict = {
+            "x": side.x, "y": port_y,
+            "objectType": side.obj_type,
+            "label": port_name,
+            "direction": side.cv_dir,
+            "labelDirection": side.label_dir,
+            "propagationDelay": 0,
+            "customData": {
+                "nodes": {side.pin_name: node},
+                CTOR_PARAMS_KEY: [side.cv_dir, str(bw) if bw > 1 else 1,
+                    {"x": side.layout_pin_x, "y": side.layout_pin_y, "id": f"p_{port_name}"}],
+            },
+        }
         if direction == "input":
-            # Compute y position — align with target cell, avoid overlaps
-            desired_y: int
-            if target_cell and target_cell in cell_positions:
-                _, desired_y = cell_positions[target_cell]
-            else:
-                desired_y = used_left[-1][1] if used_left else 0
-            port_y: int = _find_free_y(desired_y, port_height, used_left)
-            used_left.append((port_y, port_y + port_height))
+            entry["customData"]["values"] = {"state": 0}
 
-            inp_px: int
-            inp_py: int
-            inp_px, inp_py = pin_pos("Input", "output1", bitWidth=bw)
-            out_node: int
-            if bw == 1:
-                out_node = _new_pin(na, bit_nodes, bits[0], 1, 1, rx=inp_px, ry=inp_py)
-            else:
-                out_node = _new_bus_pin(na, bit_nodes, bits, 1, bw, rx=inp_px, ry=inp_py)
-
-            cv_inputs.append({
-                "x": inp_x, "y": port_y,
-                "objectType": "Input",
-                "label": port_name,
-                "direction": "RIGHT",
-                "labelDirection": "LEFT",
-                "propagationDelay": 0,
-                "customData": {
-                    "nodes": {"output1": out_node},
-                    "values": {"state": 0},
-                    CTOR_PARAMS_KEY: ["RIGHT", str(bw) if bw > 1 else 1,
-                        {"x": 0, "y": layout_pin_y_in, "id": f"p_{port_name}"}],
-                },
-            })
-            _log.debug("place_ports: input '%s' at (%d, %d) target=%s",
-                        port_name, inp_x, port_y, target_cell)
-            layout_pin_y_in += 20
-
+        side.cv_list.append(entry)
+        _log.debug("place_ports: %s '%s' at (%d, %d) target=%s",
+                   direction, port_name, side.x, port_y, target_cell)
+        if direction == "input":
+            layout_pin_y_in  += 20
         else:
-            # Compute y position — align with target cell, avoid overlaps
-            if target_cell and target_cell in cell_positions:
-                _, desired_y = cell_positions[target_cell]
-            else:
-                desired_y = used_right[-1][1] if used_right else 0
-            port_y = _find_free_y(desired_y, port_height, used_right)
-            used_right.append((port_y, port_y + port_height))
-
-            out_px: int
-            out_py: int
-            out_px, out_py = pin_pos("Output", "inp1", bitWidth=bw)
-            inp_node: int
-            if bw == 1:
-                inp_node = _new_pin(na, bit_nodes, bits[0], 0, 1, rx=out_px, ry=out_py)
-            else:
-                inp_node = _new_bus_pin(na, bit_nodes, bits, 0, bw, rx=out_px, ry=out_py)
-
-            cv_outputs.append({
-                "x": out_x, "y": port_y,
-                "objectType": "Output",
-                "label": port_name,
-                "direction": "LEFT",
-                "labelDirection": "RIGHT",
-                "propagationDelay": 0,
-                "customData": {
-                    "nodes": {"inp1": inp_node},
-                    CTOR_PARAMS_KEY: ["LEFT", str(bw) if bw > 1 else 1,
-                        {"x": layout_w, "y": layout_pin_y_out, "id": f"p_{port_name}"}],
-                },
-            })
-            _log.debug("place_ports: output '%s' at (%d, %d) target=%s",
-                        port_name, out_x, port_y, target_cell)
             layout_pin_y_out += 20
 
     # Compute overall y extents for layout height calculation

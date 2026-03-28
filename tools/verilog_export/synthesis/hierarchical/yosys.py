@@ -1,205 +1,31 @@
 """CircuitVerse generation via Yosys synthesis.
 
-Supports three modes:
-  gate_level=True   — decompose to 1-bit primitives (AND/OR/NOT/DFF/MUX)
-  gate_level=False  — preserve high-level Yosys cells, flattened (adders, comparators, etc.)
-  hierarchical      — preserve high-level cells AND module hierarchy (SubCircuit scopes)
+Supports two axes (combinable):
+  flatten=True    — single flattened scope (default)
+  flatten=False   — preserve module hierarchy (SubCircuit scopes)
+  gate_level=True — decompose to 1-bit primitives (AND/OR/NOT/DFF/MUX)
 """
 from __future__ import annotations
 
-import json
-import os
-import subprocess
-import tempfile
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from synthesis.hierarchical.scope_cache import ScopeCache
 
 from common.node_alloc import _CVNodeAlloc
-from common.types import CompDict, CompMap, BitNodes, ScopeDict, YosysModule
+from common.types import CompDict, BitNodes, ScopeDict, YosysModule
+from common.constants import COL_GAP, GATE_COL_GAP
 from synthesis.hierarchical.scope import _cv_scope_id, _cv_layout
-from common.constants import CELL_GAP, COL_GAP, GATE_COL_GAP
+from synthesis.hierarchical.yosys_runner import run_yosys, yosys_script, check_module_exists
+from synthesis.hierarchical.routing import (
+    remap_comp_nodes, resolve_and_route, wire_nets, wired_node_ids,
+)
 from placement.layout import topo_sort_cells, place_cells, compute_col_x
-from placement.ports import place_ports
+from placement.ports import place_ports, compute_bbox
 from synthesis.splitter_pass import insert_splitters
 
 
-def _run_yosys(script: str) -> dict[str, Any]:
-    """Run a Yosys script, return parsed JSON output.
-
-    Raises RuntimeError if Yosys exits with a non-zero status.
-    """
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        tmp_path = tmp.name
-    try:
-        cmd = ["yosys", "-p", script.format(out=tmp_path)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"Yosys failed:\n{result.stderr}")
-        with open(tmp_path) as f:
-            return json.load(f)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
-
-def _yosys_script(verilog_paths: list[str], top_name: str, gate_level: bool = False, flatten: bool = True) -> str:
-    """Build a Yosys synthesis script string."""
-    read_cmds = "; ".join(f"read_verilog {p}" for p in verilog_paths)
-    if gate_level:
-        synth_steps = (
-            "techmap; opt; "
-            "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX; opt; "
-        )
-    else:
-        synth_steps = "memory -nomap; pmuxtree; opt; "
-    flatten_cmd = "flatten; opt; " if flatten else ""
-    return (
-        f"{read_cmds}; "
-        f"hierarchy -top {top_name}; "
-        f"proc; opt; {flatten_cmd}"
-        f"{synth_steps}"
-        f"clean -purge; "
-        f"write_json {{out}}"
-    )
-
-
-def _yosys_synth(verilog_paths: list[str], top_name: str, gate_level: bool = False) -> dict[str, Any]:
-    """Run Yosys synthesis (flattened) and return the JSON netlist dict."""
-    return _run_yosys(_yosys_script(verilog_paths, top_name, gate_level, flatten=True))
-
-
-def _remap_comp_nodes(comps: list[CompDict], remap: dict[int, int]) -> None:
-    """Remap node IDs in component customData.nodes dicts."""
-    for comp in comps:
-        cd = comp["customData"]
-        for k, v in cd["nodes"].items():
-            if isinstance(v, int):
-                cd["nodes"][k] = remap[v]
-            elif isinstance(v, list):
-                cd["nodes"][k] = [remap[x] for x in v]
-
-
-def _set_node_abs_positions(na: _CVNodeAlloc, all_comps: list[CompDict]) -> None:
-    """Scan placed components and set absolute positions for their nodes."""
-    for comp in all_comps:
-        cx, cy = comp["x"], comp["y"]
-        direction = comp.get("direction", "RIGHT")
-        cd = comp.get("customData", {})
-        nodes = cd.get("nodes", {})
-        for val in nodes.values():
-            if isinstance(val, int):
-                na.set_parent_pos(val, cx, cy, direction)
-            elif isinstance(val, list):
-                for nid in val:
-                    if isinstance(nid, int):
-                        na.set_parent_pos(nid, cx, cy, direction)
-
-
-def _resolve_and_route(na: _CVNodeAlloc, cv_inputs: list[CompDict], cv_outputs: list[CompDict], cv_splitters: list[CompDict], components: CompMap,
-                       extra_comps: list[CompDict] | None = None, check: bool = False) -> list[CompDict]:
-    """Collect all components, set absolute positions, run orthogonal routing.
-
-    Returns the full component list used for routing.
-    """
-    all_comps = cv_inputs + cv_outputs + cv_splitters
-    for comp_list in components.values():
-        all_comps.extend(comp_list)
-    if extra_comps:
-        all_comps.extend(extra_comps)
-    _set_node_abs_positions(na, all_comps)
-    na.route_orthogonal(all_comps)
-    if check:
-        na.verify_routing(all_comps)
-    return all_comps
-
-
-def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_level: bool = False, check: bool = False) -> tuple[ScopeDict, dict[str, Any]]:
-    """Generate CircuitVerse JSON via Yosys synthesis.
-
-    When gate_level=True, decomposes to 1-bit primitives.
-    When gate_level=False, preserves high-level cells (adders, comparators, etc.).
-    """
-    _cv_scope_id.reset()
-    netlist: dict[str, Any] = _yosys_synth(verilog_paths, top_name, gate_level=gate_level)
-
-    if top_name not in netlist.get("modules", {}):
-        avail: list[str] = list(netlist.get("modules", {}).keys())
-        raise RuntimeError(
-            f"Module '{top_name}' not in Yosys output. Available: {avail}")
-
-    ymod: YosysModule = netlist["modules"][top_name]
-    insert_splitters(ymod)
-    na: _CVNodeAlloc = _CVNodeAlloc()
-    bit_nodes: BitNodes = {}
-
-    _, col_cells, cell_depth = topo_sort_cells(ymod)
-    min_gap: int = GATE_COL_GAP if gate_level else COL_GAP
-    col_x: dict[int, int] = compute_col_x(col_cells, min_col_gap=min_gap)
-    components, cell_positions, _, _ = place_cells(
-        col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x)
-    from placement.ports import compute_bbox
-    bbox = compute_bbox(col_cells, col_x, cell_positions, [])
-    cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
-        ymod, na, bit_nodes, col_cells, col_x,
-        cell_depth=cell_depth, cell_positions=cell_positions, bbox=bbox)
-
-    # Wire nodes sharing the same Yosys net — chain topology
-    # (each node connects to the next, not full mesh)
-    for _, node_ids in bit_nodes.items():
-        for i in range(len(node_ids) - 1):
-            na.connect(node_ids[i], node_ids[i + 1])
-
-    _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
-                       check=check)
-
-    wired_ids: list[int] = sorted(
-        i for i, n in enumerate(na.nodes)
-        if n["type"] == 2 and n["connections"]
-    )
-
-    rightmost_col: int = max(col_x.values()) if col_x else 0
-    rightmost_port: int = max((c["x"] for c in cv_outputs), default=0)
-    total_w: int = max(rightmost_col + 400, rightmost_port + 200) if (rightmost_col or rightmost_port) else 600
-
-    return {
-        "layout": {
-            "width": total_w,
-            "height": max(y_in, y_out, max(
-                sum(1 for _ in cc) * CELL_GAP
-                for cc in col_cells.values()
-            ) if col_cells else 0) + 40,
-            "title_x": 50,
-            "title_y": 13,
-            "titleEnabled": True,
-        },
-        "verilogMetadata": {
-            "isVerilogCircuit": False,
-            "isMainCircuit": True,
-            "code": "",
-            "subCircuitScopeIds": [],
-        },
-        "allNodes": na.nodes,
-        "id": int(_cv_scope_id()),
-        "name": top_name,
-        "Input": cv_inputs,
-        "Output": cv_outputs,
-        **({"Splitter": cv_splitters} if cv_splitters else {}),
-        **{k: v for k, v in components.items()},
-        "restrictedCircuitElementsUsed": [],
-        "nodes": wired_ids,
-        "scopes": [],
-        "logixClipBoardData": True,
-    }, netlist
-
-
-# ── Hierarchical (non-flattened) mode ─────────────────────────────────────
-
-def _yosys_elaborate(verilog_paths: list[str], top_name: str, gate_level: bool = False) -> dict[str, Any]:
-    """Run Yosys elaboration without flatten — preserves module hierarchy."""
-    return _run_yosys(_yosys_script(verilog_paths, top_name, gate_level, flatten=False))
-
+# ── Yosys param parsing / name cleaning ──────────────────────────────────
 
 def _parse_yosys_param(val: str) -> int:
     """Convert a Yosys parameter value string to a decimal integer.
@@ -209,7 +35,6 @@ def _parse_yosys_param(val: str) -> int:
       32'00000000000000000000000000001000   -> 8   (unsigned binary)
       plain binary digits                   -> int(val, 2)
     """
-    # Strip signedness prefix and bit-width (e.g. "s32'" or "32'")
     raw: str = val
     signed: bool = raw.startswith("s")
     if signed:
@@ -237,9 +62,7 @@ def _clean_yosys_name(name: str, ymod: YosysModule | None = None) -> str:
     if not name.startswith("$paramod"):
         return name
 
-    # Split on backslash to extract parts
     parts: list[str] = name.split("\\")
-    # Find the base module name and inline params
     base: str | None = None
     params: list[str] = []
     for part in parts:
@@ -256,7 +79,6 @@ def _clean_yosys_name(name: str, ymod: YosysModule | None = None) -> str:
     if base is None:
         base = name.rsplit("\\", 1)[-1]
 
-    # If no params found in name, extract from Yosys module data
     if not params and ymod:
         for val in ymod.get("parameter_default_values", {}).values():
             if isinstance(val, str):
@@ -272,8 +94,10 @@ def _clean_yosys_name(name: str, ymod: YosysModule | None = None) -> str:
     return base
 
 
+# ── Single-module scope builder ──────────────────────────────────────────
+
 def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_nodes: BitNodes, sub_scope_ids: dict[str, dict[str, Any]],
-                       gate_level: bool = False) -> tuple[ScopeDict, str, dict[str, dict[str, Any]], list[str]]:
+                       gate_level: bool = False, check: bool = False) -> tuple[ScopeDict, str, dict[str, dict[str, Any]], list[str]]:
     """Build a CircuitVerse scope for a single Yosys module.
 
     Cells whose type matches another module in the netlist become SubCircuit
@@ -281,6 +105,9 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     Returns (scope_dict, scope_id, port_info, subcircuit_types).
     port_info = {port_name: {"direction": dir, "width": bw, "x": pin_x, "y": pin_y}}
+
+    The scope dict includes private keys (_col_x, _y_in, _y_out, _col_cells)
+    that callers can pop to compute custom layouts.
     """
     scope_id: str = _cv_scope_id()
     LAYOUT_W: int = 100
@@ -291,13 +118,10 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     # ── Phase A: place all cells (native + subcircuit) in one pass ────────
 
-    # Unified topo-sort over all non-scopeinfo cells
     _, col_cells, cell_depth = topo_sort_cells(ymod)
     col_x: dict[int, int] = compute_col_x(col_cells, min_col_gap=min_gap,
                            sub_scope_ids=sub_scope_ids)
 
-    # Unified placement — native cells dispatch to handlers, subcircuit
-    # cells dispatch to _place_subcircuit, all in the same column loop.
     components, cell_positions, cv_subcircuits, sc_comps = place_cells(
         col_cells, na, bit_nodes, gate_level=gate_level, col_x=col_x,
         sub_scope_ids=sub_scope_ids)
@@ -311,7 +135,6 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     # ── Phase B: place ports outside the bounding box ──────────────────
 
-    from placement.ports import compute_bbox
     bbox = compute_bbox(col_cells, col_x, cell_positions, sc_comps,
                         sub_scope_ids=sub_scope_ids)
     cv_inputs, cv_outputs, cv_splitters, y_in, y_out = place_ports(
@@ -321,25 +144,19 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
 
     # ── Wiring + routing ─────────────────────────────────────────────────
 
-    # Collect SC input port node IDs (to relocate after routing)
     sc_port_nids: set[int] = set()
     for sc in cv_subcircuits:
         sc_port_nids.update(sc["inputNodes"])
 
-    # Wire all nodes sharing the same Yosys net — chain topology
-    for _, node_ids in bit_nodes.items():
-        for i in range(len(node_ids) - 1):
-            na.connect(node_ids[i], node_ids[i + 1])
+    wire_nets(na, bit_nodes)
 
-    # Set positions for subcircuit nodes before routing
     for sc in cv_subcircuits:
         sx, sy = sc["x"], sc["y"]
         for nid in sc["inputNodes"] + sc["outputNodes"]:
             na.set_parent_pos(nid, sx, sy)
 
-    # Route with subcircuit body-blocking pseudo-components included
-    _resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
-                       extra_comps=sc_comps)
+    resolve_and_route(na, cv_inputs, cv_outputs, cv_splitters, components,
+                      extra_comps=sc_comps, check=check)
 
     # Relocate SC port nodes to end of allNodes (CircuitVerse ordering)
     if sc_port_nids:
@@ -353,24 +170,12 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
         na.abs_pos = [na.abs_pos[i] for i in new_order]
         for node in na.nodes:
             node["connections"] = [remap[c] for c in node["connections"]]
-        _remap_comp_nodes(cv_inputs + cv_outputs + cv_splitters, remap)
+        remap_comp_nodes(cv_inputs + cv_outputs + cv_splitters, remap)
         for comp_list in components.values():
-            _remap_comp_nodes(comp_list, remap)
+            remap_comp_nodes(comp_list, remap)
         for sc in cv_subcircuits:
             sc["inputNodes"] = [remap[x] for x in sc["inputNodes"]]
             sc["outputNodes"] = [remap[x] for x in sc["outputNodes"]]
-
-    wired_ids: list[int] = sorted(
-        i for i, n in enumerate(na.nodes)
-        if n["type"] == 2 and n["connections"]
-    )
-
-    # ── Layout dimensions ────────────────────────────────────────────────
-
-    # Account for both cell columns and output port positions
-    rightmost_x: int = max(col_x.values()) if col_x else 0
-    rightmost_port: int = max((c["x"] for c in cv_outputs), default=0)
-    total_w: int = max(rightmost_x + 400, rightmost_port + 200) if (rightmost_x or rightmost_port) else 600
 
     # Build port_info for parent scopes to use when placing this as SubCircuit
     port_info: dict[str, dict[str, Any]] = {}
@@ -404,35 +209,38 @@ def _build_yosys_scope(mod_name: str, ymod: YosysModule, na: _CVNodeAlloc, bit_n
         **({"SubCircuit": cv_subcircuits} if cv_subcircuits else {}),
         **{k: v for k, v in components.items()},
         "restrictedCircuitElementsUsed": [],
-        "nodes": wired_ids,
+        "nodes": wired_node_ids(na),
+        # Private keys for callers that need custom layout computation
+        "_col_x": col_x,
+        "_y_in": y_in,
+        "_y_out": y_out,
+        "_col_cells": col_cells,
     }
 
     return scope, scope_id, port_info, subcircuit_types
 
 
-def generate_circuitverse_yosys_hier(verilog_paths: list[str], top_name: str, cache_dir: str | None = None,
-                                     gate_level: bool = False) -> tuple[ScopeDict, dict[str, Any]]:
-    """Generate CircuitVerse JSON via Yosys — hierarchical (non-flattened).
+# ── Public API ───────────────────────────────────────────────────────────
 
-    Each Yosys-elaborated module becomes its own CircuitVerse scope.
-    Sub-module instantiations appear as SubCircuit components.
+def generate_circuitverse_yosys(verilog_paths: list[str], top_name: str, gate_level: bool = False,
+                                flatten: bool = True, cache_dir: str | None = None,
+                                check: bool = False) -> tuple[ScopeDict, dict[str, Any]]:
+    """Generate CircuitVerse JSON via Yosys synthesis.
 
-    When *cache_dir* is provided, routed scopes are cached to disk so that
-    repeated exports skip placement + routing for unchanged modules.
-    When *gate_level* is True, each module is decomposed to 1-bit primitives.
+    When *flatten* is True (default), Yosys flattens all modules into one scope.
+    When *flatten* is False, each module becomes its own CircuitVerse scope with
+    sub-module instantiations as SubCircuit components.
+
+    When *gate_level* is True, decomposes to 1-bit primitives.
+    When *cache_dir* is provided, routed scopes are cached to disk (hier mode).
     """
     _cv_scope_id.reset()
-    netlist: dict[str, Any] = _yosys_elaborate(verilog_paths, top_name, gate_level=gate_level)
-
-    if top_name not in netlist.get("modules", {}):
-        avail: list[str] = list(netlist.get("modules", {}).keys())
-        raise RuntimeError(
-            f"Module '{top_name}' not in Yosys output. Available: {avail}")
+    netlist: dict[str, Any] = run_yosys(yosys_script(verilog_paths, top_name, gate_level, flatten=flatten))
+    check_module_exists(netlist, top_name)
 
     modules: dict[str, YosysModule] = netlist["modules"]
 
     # Build dependency order: leaf modules first
-    # A module depends on another if it has cells whose type is that module
     mod_deps: dict[str, set[str]] = {}
     for mname, mdata in modules.items():
         deps: set[str] = set()
@@ -462,7 +270,6 @@ def generate_circuitverse_yosys_hier(verilog_paths: list[str], top_name: str, ca
         cache = ScopeCache(cache_dir, verilog_paths)
 
     # Build scopes bottom-up
-    # sub_scope_ids maps yosys_module_name -> {"scope_id": str, "port_info": dict}
     sub_scope_ids: dict[str, dict[str, Any]] = {}
     scopes: list[ScopeDict] = []
 
@@ -475,10 +282,8 @@ def generate_circuitverse_yosys_hier(verilog_paths: list[str], top_name: str, ca
         if cached is not None:
             scope: ScopeDict = cached["scope"]
             port_info: dict[str, dict[str, Any]] = cached["port_info"]
-            # Assign fresh scope ID
             scope_id: str = _cv_scope_id()
             scope["id"] = int(scope_id)
-            # Remap SubCircuit child IDs to current run's scope IDs
             for i, sc in enumerate(scope.get("SubCircuit", [])):
                 child_type: str = cached["subcircuit_types"][i]
                 sc["id"] = sub_scope_ids[child_type]["scope_id"]
@@ -487,7 +292,10 @@ def generate_circuitverse_yosys_hier(verilog_paths: list[str], top_name: str, ca
             bit_nodes: BitNodes = {}
             scope, scope_id, port_info, sc_types = _build_yosys_scope(
                 mod_name, ymod, na, bit_nodes, sub_scope_ids,
-                gate_level=gate_level)
+                gate_level=gate_level, check=check)
+            # Strip private layout keys before caching
+            for key in ("_col_x", "_y_in", "_y_out", "_col_cells"):
+                scope.pop(key, None)
             if cache:
                 cache.put(mod_name, scope, port_info, sc_types)
 

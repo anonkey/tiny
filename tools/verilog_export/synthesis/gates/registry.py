@@ -191,11 +191,12 @@ def dimensions(component_type: str, **params: Any) -> dict[str, int]:
   if "dimensions_formula" in comp:
     return _eval_dimensions(component_type, comp["dimensions_formula"], **params)
 
-  return {"left": 20, "right": 20, "up": 20, "down": 20}
+  raise ValueError(f"No dimensions found for component type '{component_type}'")
 
 
 def _eval_dimensions(component_type: str, formula: dict[str, Any], **params: Any) -> dict[str, int]:
   """Evaluate dynamic dimension formulas."""
+  # TODO: check if multigate hlsynth
   # Gates: height scales with inputLength
   if component_type in ("AndGate", "OrGate", "NandGate", "NorGate",
                         "XorGate", "XnorGate"):

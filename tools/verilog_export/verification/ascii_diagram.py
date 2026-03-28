@@ -1,7 +1,7 @@
 """ASCII diagram generator for CircuitVerse circuit data.
 
 Reads a CircuitVerse scope dict (the same JSON structure produced by
-generate_circuitverse_yosys / generate_circuitverse / generate_circuitverse_yosys_hier)
+generate_circuitverse_yosys / generate_circuitverse)
 and renders a best-effort ASCII approximation using Unicode box-drawing characters.
 """
 from __future__ import annotations

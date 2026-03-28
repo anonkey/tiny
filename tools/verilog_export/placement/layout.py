@@ -196,11 +196,12 @@ def _cell_h_extent(ctype: str, cell: dict[str, Any], sub_scope_ids: dict[str, di
     return (hw, hw)
   info = _lookup_cell_info(ctype)
   if not info:
-    _log.debug("_cell_h_extent: unknown cell type '%s', using fallback (40, 40)", ctype)
-    return (40, 40)  # fallback
+    _log.error("_cell_h_extent: unknown cell type '%s', using fallback (40, 40)", ctype)
+    raise ValueError(f"Unknown cell type '{ctype}'")
   cv_type = info.cv_type
   try:
     params = {}
+    # TODO: chek if hlsynt can do 3 gate door
     if cv_type in ("AndGate", "OrGate", "NandGate", "NorGate", "XorGate", "XnorGate"):
       params["inputLength"] = 2
     dim = dimensions(cv_type, **params)

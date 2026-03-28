@@ -1,8 +1,11 @@
 """Shared utilities for the manager and tools."""
 
+from __future__ import annotations
+
 import json
 import os
 import sys
+from dataclasses import dataclass
 
 try:
     from rich.console import Console
@@ -94,41 +97,66 @@ def resolve_name(name, items, key_fn):
 
 # --- Module registry ---
 
-def discover_modules(modules_dir):
-    """Scan modules/ for all manager.json files. Returns {name: {path, deps, verilog, doc}}."""
-    registry = {}
+@dataclass
+class ModuleInfo:
+    """Metadata for a single hardware module discovered from manager.json."""
+    path: str
+    deps: list[str]
+    verilog: str
+    doc: str | None
+    has_test: bool
+
+Registry = dict[str, ModuleInfo]
+
+def get_module_info(registry: Registry, name: str) -> ModuleInfo:
+        if name in registry:
+            return registry[name]
+        # Fuzzy match
+        matches = [n for n in registry if name.lower() in n.lower()]
+        if len(matches) == 1:
+            return registry[matches[0]]
+        elif matches:
+            print(f"Ambiguous: {', '.join(matches)}", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print(f"Unknown module: {name}", file=sys.stderr)
+            sys.exit(1)
+
+def discover_modules(modules_dir: str) -> Registry:
+    """Scan modules/ for all manager.json files. Returns {name: ModuleInfo}."""
+    registry: Registry = {}
     for root, dirs, files in os.walk(modules_dir):
         if "manager.json" in files:
             with open(os.path.join(root, "manager.json")) as f:
                 data = json.load(f)
-            name = data["name"]
-            doc_path = os.path.join(root, f"{name}.md")
-            test_dir = os.path.join(root, "test")
-            registry[name] = {
-                "path": root,
-                "deps": data.get("deps", []),
-                "verilog": os.path.join(root, f"{name}.v"),
-                "doc": doc_path if os.path.isfile(doc_path) else None,
-                "has_test": os.path.isdir(test_dir),
-            }
+            name: str = data["name"]
+            doc_path: str = os.path.join(root, f"{name}.md")
+            test_dir: str = os.path.join(root, "test")
+            registry[name] = ModuleInfo(
+                path=root,
+                deps=data.get("deps", []),
+                verilog=os.path.join(root, f"{name}.v"),
+                doc=doc_path if os.path.isfile(doc_path) else None,
+                has_test=os.path.isdir(test_dir),
+            )
     return registry
 
 
-def resolve_deps(name, registry):
+def resolve_deps(name: str, registry: Registry) -> list[str]:
     """Recursively resolve transitive deps. Returns list of .v paths in topological order."""
-    visited = set()
-    order = []
+    visited: set[str] = set()
+    order: list[str] = []
 
-    def visit(n):
+    def visit(n: str) -> None:
         if n in visited:
             return
         visited.add(n)
         if n not in registry:
             print(f"error: unknown dependency '{n}'", file=sys.stderr)
             sys.exit(1)
-        for dep in registry[n]["deps"]:
+        for dep in registry[n].deps:
             visit(dep)
-        order.append(registry[n]["verilog"])
+        order.append(registry[n].verilog)
 
     visit(name)
     return order
