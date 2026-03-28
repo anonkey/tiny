@@ -1,11 +1,14 @@
-"""Memory cell: $mem_v2."""
+"""Memory cells: $mem_v2, $memrd."""
 
 from __future__ import annotations
 
+import logging
 
-from common.constants import pin_clearance, _new_bus_pin, _param_int, CTOR_PARAMS_KEY
+from common.constants import pin_clearance, _new_bus_pin, _param_int, _append_comp, CTOR_PARAMS_KEY
 from common.node_alloc import _CVNodeAlloc
 from common.types import BitNodes, CompMap, YosysCell, YosysConns
+
+_log: logging.Logger = logging.getLogger(__name__)
 
 
 def place_mem_v2(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
@@ -154,3 +157,29 @@ def place_mem_v2(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes
   }
   components.setdefault("verilogRAM", []).append(comp)
   return 110 + pin_clearance(4)
+
+
+def place_memrd(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
+  """Map Yosys $memrd to CircuitVerse EEPROM (read-only). Returns y-advance."""
+  data_bw = _param_int(cell, "WIDTH", 8)
+  addr_bw = _param_int(cell, "ABITS", 8)
+
+  if addr_bw > 10:
+    _log.warning("$memrd ABITS=%d exceeds EEPROM max addressWidth=10", addr_bw)
+
+  # Connected pins
+  addr_node = _new_bus_pin(na, bit_nodes, conns.get("ADDR", []), 0, addr_bw, rx=-60, ry=-20)
+  data_out = _new_bus_pin(na, bit_nodes, conns.get("DATA", []), 1, data_bw, rx=60, ry=0)
+
+  # Unused pins (ROM — no write)
+  data_in = na.alloc(-60, 0, 0, data_bw)
+  write_node = na.alloc(-60, 20, 0, 1)
+  reset_node = na.alloc(0, 40, 0, 1)
+  core_dump = na.alloc(-20, 40, 0, 1)
+
+  _append_comp(components, "EEPROM", x, y,
+    ["RIGHT", data_bw, addr_bw, None],
+    {"address": addr_node, "dataIn": data_in, "write": write_node,
+     "reset": reset_node, "coreDump": core_dump, "dataOut": data_out})
+
+  return 80 + pin_clearance(3)

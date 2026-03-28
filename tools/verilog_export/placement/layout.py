@@ -26,7 +26,7 @@ from synthesis.gates import (
   place_reduce, place_logic_not, place_logic_and_or,
   place_dff,
   place_slice, place_concat, place_cv_splitter,
-  place_mem_v2,
+  place_mem_v2, place_memrd,
   place_gate_logic, place_gate_mux, place_gate_dff,
 )
 
@@ -98,6 +98,7 @@ _CELL_REGISTRY: dict[str, CellInfo] = {
   "$concat":      CellInfo(place_concat,     "Splitter",      0,   0,   2, 1, V_CELL_PAD),
   "$cv_splitter": CellInfo(place_cv_splitter,"Splitter",      0,   0,   2, 2, V_CELL_PAD),
   "$mem_v2":      CellInfo(place_mem_v2,     "verilogRAM",    0,   0,   4, 1, V_CELL_PAD),
+  "$memrd":       CellInfo(place_memrd,     "EEPROM",        0,   0,   1, 1, V_CELL_PAD),
   # ── Gate-level types ──
   "$_AND_":       CellInfo(place_gate_logic, "AndGate",      0, 0, 2, 1, GATE_V_CELL_PAD),
   "$_OR_":        CellInfo(place_gate_logic, "OrGate",       0, 0, 2, 1, GATE_V_CELL_PAD),
