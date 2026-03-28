@@ -162,16 +162,15 @@ def _decoder_pin(pin_name: str, index: int | None, **params: int | list[int]) ->
 
 def _splitter_pin(pin_name: str, index: int | None, **params: int | list[int]) -> tuple[int, int]:
   """Splitter pin positions based on bitWidthSplit."""
+  from common.constants import splitter_pin
   bws = params.get("bitWidthSplit", [1])
-  bw = params.get("bitWidth", sum(bws))
   n = len(bws)
-  y_offset = int((n / 2 - 1) * 20)
   if pin_name == "inp1":
-    return (-10, int(10 + y_offset))
+    rx, ry, _ = splitter_pin("RIGHT", "inp1", n)
+    return (rx, ry)
   if pin_name == "outputs":
-    if index is None:
-      index = 0
-    return (20, int(index * 20 - y_offset - 20))
+    rx, ry, _ = splitter_pin("RIGHT", "outputs", n, index or 0)
+    return (rx, ry)
   return (0, 0)
 
 

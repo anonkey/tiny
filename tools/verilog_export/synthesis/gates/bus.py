@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 
-from common.constants import pin_clearance, _new_bus_pin, _param_int
+from common.constants import pin_clearance, splitter_pin, _new_bus_pin, _param_int
 from common.emit import emit_splitter, register_bits
 from common.node_alloc import _CVNodeAlloc
 from common.types import BitNodes, CompMap, YosysCell, YosysConns
-
-_log: logging.Logger = logging.getLogger(__name__)
 
 
 def place_slice(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes: BitNodes, components: CompMap, x: int, y: int) -> int:
@@ -48,10 +45,12 @@ def place_concat(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_nodes
   y_bw = a_bw + b_bw
 
   # LEFT splitter: x mirrored, so multi-pin side uses rx=20, bus side uses rx=-10
-  y_offset = int((2 / 2 - 1) * 20)  # n=2 groups
-  spl_out_a = _new_bus_pin(na, bit_nodes, conns["A"], 0, a_bw, rx=20, ry=0 * 20 - y_offset - 20)
-  spl_out_b = _new_bus_pin(na, bit_nodes, conns["B"], 0, b_bw, rx=20, ry=1 * 20 - y_offset - 20)
-  spl_inp = na.alloc(-10, 10 + y_offset, 1, y_bw)
+  rx_a, ry_a, nt_a = splitter_pin("LEFT", "outputs", 2, 0)
+  rx_b, ry_b, nt_b = splitter_pin("LEFT", "outputs", 2, 1)
+  spl_out_a = _new_bus_pin(na, bit_nodes, conns["A"], nt_a, a_bw, rx=rx_a, ry=ry_a)
+  spl_out_b = _new_bus_pin(na, bit_nodes, conns["B"], nt_b, b_bw, rx=rx_b, ry=ry_b)
+  irx, iry, int_ = splitter_pin("LEFT", "inp1", 2)
+  spl_inp = na.alloc(irx, iry, int_, y_bw)
   register_bits(na, bit_nodes, conns["Y"], spl_inp, y_bw)
 
   spl_comp, _, _ = emit_splitter(
@@ -74,37 +73,27 @@ def place_cv_splitter(cell: YosysCell, conns: YosysConns, na: _CVNodeAlloc, bit_
     # Component has direction=LEFT so x is mirrored in set_parent_pos.
     # Multi-pin side (outputs in CV terms) must use rx=20 -> mirrors to left.
     # Bus side (inp1 in CV terms) must use rx=-10 -> mirrors to right.
-    y_offset = int((n / 2 - 1) * 20)
     out_nodes = []
     for idx, gw in enumerate(groups):
       pn = f"I{idx}"
-      out_nodes.append(_new_bus_pin(na, bit_nodes, conns[pn], 0, gw,
-                                    rx=20, ry=idx * 20 - y_offset - 20))
-    inp_node = na.alloc(-10, 10 + y_offset, 1, bw)
+      orx, ory, ont = splitter_pin("LEFT", "outputs", n, idx)
+      out_nodes.append(_new_bus_pin(na, bit_nodes, conns[pn], ont, gw,
+                                    rx=orx, ry=ory))
+    irx, iry, int_ = splitter_pin("LEFT", "inp1", n)
+    inp_node = na.alloc(irx, iry, int_, bw)
     register_bits(na, bit_nodes, conns["O"], inp_node, bw)
   else:
     # Fan-out: 1 wide input -> N narrow outputs
-    inp_ry = (bw - 1) * 10
-    y_offset = int((n / 2 - 1) * 20)
-    registry_ry = 10 + y_offset
-    _log.debug("place_cv_splitter RIGHT: bw=%d, n=%d, groups=%s", bw, n, groups)
-    _log.debug("  inp1 ry=(bw-1)*10=%d, registry expects 10+y_offset=%d%s",
-               inp_ry, registry_ry,
-               "  ← MISMATCH" if inp_ry != registry_ry else "")
-    inp_node = _new_bus_pin(na, bit_nodes, conns["I"], 0, bw,
-                            rx=-10, ry=inp_ry)
+    irx, iry, int_ = splitter_pin("RIGHT", "inp1", n)
+    inp_node = _new_bus_pin(na, bit_nodes, conns["I"], int_, bw,
+                            rx=irx, ry=iry)
     out_nodes = []
-    out_rys = []
     for idx, gw in enumerate(groups):
       pn = f"O{idx}"
-      out_ry = idx * 20 - y_offset - 20
-      out_rys.append(out_ry)
-      nid = na.alloc(20, out_ry, 1, gw)
+      orx, ory, ont = splitter_pin("RIGHT", "outputs", n, idx)
+      nid = na.alloc(orx, ory, ont, gw)
       register_bits(na, bit_nodes, conns[pn], nid, gw)
       out_nodes.append(nid)
-    out_center = sum(out_rys) / len(out_rys) if out_rys else 0
-    _log.debug("  out rys=%s, center=%.0f, inp1 ry=%d (delta=%.0f)",
-               out_rys, out_center, inp_ry, inp_ry - out_center)
 
   spl_comp, _, _ = emit_splitter(
     na, bw, groups, direction, x, y,

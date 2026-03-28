@@ -127,38 +127,16 @@ def emit_splitter(na: _CVNodeAlloc, bw: int, groups: list[int],
     Returns (component_dict, inp_node, output_nodes_list).
     If inp_node/out_nodes are None, allocates with standard positions.
     """
+    from common.constants import splitter_pin
     n: int = len(groups)
-    y_offset: int = int((n / 2 - 1) * 20)
-    if direction == "RIGHT":
-        inp_ry: int = (bw - 1) * 10
-        registry_ry: int = 10 + y_offset
-        _log.debug("emit_splitter RIGHT: bw=%d, n=%d, groups=%s, y_offset=%d",
-                   bw, n, groups, y_offset)
-        _log.debug("  inp1 ry=(bw-1)*10=%d, registry expects 10+y_offset=%d%s",
-                   inp_ry, registry_ry,
-                   "  ← MISMATCH" if inp_ry != registry_ry else "")
-        if inp_node is None:
-            _log.debug("  allocating inp_node with ry=%d", inp_ry)
-            inp_node = na.alloc(-10, inp_ry, 0, bw)
-        else:
-            _log.debug("  inp_node pre-provided (id=%d)", inp_node)
-        if out_nodes is None:
-            out_nodes = []
-            for i, g in enumerate(groups):
-                out_ry: int = i * 20 - y_offset - 20
-                _log.debug("  out[%d] ry=%d (gw=%d)", i, out_ry, g)
-                out_nodes.append(na.alloc(20, out_ry, 1, g))
-        else:
-            _log.debug("  out_nodes pre-provided: %s", out_nodes)
-    else:
-        # LEFT: x is mirrored by set_parent_pos, so multi-pin side uses
-        # rx=20 (mirrors to left) and bus side uses rx=-10 (mirrors to right).
-        if out_nodes is None:
-            out_nodes = []
-            for i, g in enumerate(groups):
-                out_nodes.append(na.alloc(20, i * 20 - y_offset - 20, 0, g))
-        if inp_node is None:
-            inp_node = na.alloc(-10, 10 + y_offset, 1, bw)
+    irx, iry, int_ = splitter_pin(direction, "inp1", n)
+    if inp_node is None:
+        inp_node = na.alloc(irx, iry, int_, bw)
+    if out_nodes is None:
+        out_nodes = []
+        for i, g in enumerate(groups):
+            orx, ory, ont = splitter_pin(direction, "outputs", n, i)
+            out_nodes.append(na.alloc(orx, ory, ont, g))
 
     comp: CompDict = CompDict.create("Splitter", x, y,
         [direction, bw, groups],

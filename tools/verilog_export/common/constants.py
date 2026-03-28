@@ -55,15 +55,19 @@ def pin_clearance(n: int) -> int:
 # Used by emit_splitter(), place_cv_splitter(), place_concat(), and the
 # registry's _splitter_pin().
 
-def splitter_inp_ry(n_groups: int) -> int:
-  """Relative y of the bus-side pin (inp1) for *n_groups* output groups."""
-  return int(10 + (n_groups / 2 - 1) * 20)
+def splitter_pin(direction: str, pin_name: str, n_groups: int, index: int = 0) -> tuple[int, int, int]:
+  """Return (rx, ry, ntype) for a splitter pin.
 
-
-def splitter_out_ry(index: int, n_groups: int) -> int:
-  """Relative y of the *index*-th multi-pin output for *n_groups* groups."""
+  direction: "RIGHT" (fan-out) or "LEFT" (fan-in).
+  pin_name: "inp1" (bus side) or "outputs" (multi-pin side).
+  n_groups: number of output groups.
+  index: which output (ignored for inp1).
+  """
   y_offset: int = int((n_groups / 2 - 1) * 20)
-  return int(index * 20 - y_offset - 20)
+  if pin_name == "inp1":
+    return -10, 10 + y_offset, (0 if direction == "RIGHT" else 1)
+  # "outputs"
+  return 20, index * 20 - y_offset - 20, (1 if direction == "RIGHT" else 0)
 
 
 # ── Pin helpers ──────────────────────────────────────────────────────────
