@@ -14,6 +14,7 @@ import logging
 from collections import defaultdict
 
 from common.types import YosysModule, YosysCell, ProducerEntry
+from synthesis.gates.mux import _is_demux_pattern
 
 _log: logging.Logger = logging.getLogger(__name__)
 _counter: int = 0
@@ -24,6 +25,17 @@ def _fresh_name() -> str:
     name = f"$cv_splitter_{_counter}"
     _counter += 1
     return name
+
+
+def _split_demux_y(cell: YosysCell, bits: list[int]) -> tuple[list[int], list[int]] | None:
+    """If *cell* is a $mux acting as a demux, return (lo_bits, hi_bits); else None."""
+    if cell.get("type") != "$mux":
+        return None
+    conns = cell.get("connections", {})
+    if not _is_demux_pattern(conns):
+        return None
+    half = len(bits) // 2
+    return bits[:half], bits[half:]
 
 
 def _max_bit_id(ymod: YosysModule) -> int:
@@ -66,6 +78,20 @@ def _build_producers(ymod: YosysModule) -> dict[int, ProducerEntry]:
             if d != "output":
                 continue
             bits = [b for b in conns.get(port_name, []) if isinstance(b, int)]
+
+            # Demux: register each half as a separate producer so downstream
+            # consumers see two groups and get a LEFT splitter (joiner).
+            if port_name == "Y":
+                split = _split_demux_y(cell, bits)
+                if split is not None:
+                    lo, hi = split
+                    for b in lo:
+                        producers[b] = (("cell", cname), "Y_lo", lo)
+                    for b in hi:
+                        producers[b] = (("cell", cname), "Y_hi", hi)
+                    _log.debug("demux split %s.Y into lo=%s hi=%s", cname, lo, hi)
+                    continue
+
             for b in bits:
                 producers[b] = (("cell", cname), port_name, bits)
 
@@ -477,6 +503,18 @@ def insert_splitters(ymod: YosysModule) -> YosysModule:
             if d != "output":
                 continue
             bits = [b for b in conns.get(port_name, []) if isinstance(b, int)]
+
+            # Demux: treat each half as an independent producer port
+            if port_name == "Y":
+                split = _split_demux_y(cell, bits)
+                if split is not None:
+                    lo, hi = split
+                    if len(lo) > 1:
+                        producer_ports.append((f"cell:{cname}.Y_lo", lo))
+                    if len(hi) > 1:
+                        producer_ports.append((f"cell:{cname}.Y_hi", hi))
+                    continue
+
             if len(bits) > 1:
                 producer_ports.append((f"cell:{cname}.{port_name}", bits))
 
